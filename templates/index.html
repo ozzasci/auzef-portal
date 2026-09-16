@@ -1,0 +1,1309 @@
+<!DOCTYPE html>
+<html lang="tr" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AUZEF Sınav & Öğrenme Portalı</title>
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#2563eb">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="AUZEF">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --border-color: rgba(226, 232, 240, 0.8);
+            --option-bg: #ffffff;
+            --option-border: #e2e8f0;
+            --option-text: #334155;
+            --option-hover-bg: #eff6ff;
+            --category-bg: #f1f5f9;
+            --category-text: #475569;
+        }
+
+        [data-bs-theme="dark"] {
+            --primary-color: #3b82f6;
+            --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            --card-bg: #1e293b;
+            --text-main: #f8fafc;
+            --border-color: #334155;
+            --option-bg: #334155;
+            --option-border: #475569;
+            --option-text: #f1f5f9;
+            --option-hover-bg: #2563eb22;
+            --category-bg: #0f172a;
+            --category-text: #94a3b8;
+        }
+
+        body {
+            background: var(--bg-gradient);
+            min-height: 100vh;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 8px;
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+
+        .main-card {
+            background: var(--card-bg);
+            max-width: 980px;
+            width: 100%;
+            border-radius: 24px;
+            box-shadow: 0 10px 30px -5px rgba(0,0,0,0.1);
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+            transition: background 0.3s ease, border-color 0.3s ease;
+            margin-bottom: 24px;
+        }
+
+        .btn-option {
+            text-align: left;
+            padding: 16px 20px;
+            margin-bottom: 12px;
+            border-radius: 14px;
+            border: 1px solid var(--option-border);
+            background-color: var(--option-bg);
+            color: var(--option-text);
+            font-weight: 500;
+            font-size: 0.98rem;
+            line-height: 1.45;
+            transition: all 0.2s ease;
+            touch-action: manipulation;
+        }
+
+        .btn-option:hover {
+            border-color: var(--primary-color);
+            background-color: var(--option-hover-bg);
+            color: var(--primary-color);
+            transform: translateX(4px);
+        }
+
+        .timer-badge {
+            font-size: 0.92rem;
+            font-weight: 700;
+            color: #ef4444;
+            background: #fee2e2;
+            padding: 6px 12px;
+            border-radius: 9999px;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        [data-bs-theme="dark"] .timer-badge { background: #450a0a; color: #fca5a5; }
+
+        .btn-theme-toggle {
+            background: none;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            border-radius: 9999px;
+            padding: 4px 10px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-star {
+            background: none;
+            border: none;
+            font-size: 1.4rem;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            padding: 0;
+            line-height: 1;
+        }
+        .btn-star:hover { transform: scale(1.2); }
+
+        .badge-category {
+            background-color: var(--category-bg);
+            color: var(--category-text);
+            font-weight: 600;
+            font-size: 0.82rem;
+            padding: 6px 14px;
+            border-radius: 9999px;
+            max-width: 280px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: inline-block;
+        }
+
+        .stat-card {
+            border-radius: 14px;
+            padding: 16px 10px;
+            text-align: center;
+            border: 1px solid var(--border-color);
+        }
+
+        .karne-item {
+            border-radius: 14px;
+            padding: 16px;
+            margin-bottom: 14px;
+            border-left: 5px solid transparent;
+        }
+        .karne-item.dogru { background: #f0fdf4; border-color: #22c55e; }
+        .karne-item.yanlis { background: #fef2f2; border-color: #ef4444; }
+        .karne-item.bos { background: #f8fafc; border-color: #94a3b8; }
+
+        [data-bs-theme="dark"] .karne-item.dogru { background: #052e16; border-color: #22c55e; color: #dcfce7; }
+        [data-bs-theme="dark"] .karne-item.yanlis { background: #450a0a; border-color: #ef4444; color: #fee2e2; }
+        [data-bs-theme="dark"] .karne-item.bos { background: #0f172a; border-color: #64748b; color: #cbd5e1; }
+
+        .not-kutusu {
+            background: #fef9c3;
+            border: 1px dashed #ca8a04;
+            color: #854d0e;
+            border-radius: 10px;
+            padding: 8px 12px;
+            font-size: 0.85rem;
+        }
+        [data-bs-theme="dark"] .not-kutusu { background: #422006; border-color: #eab308; color: #fef08a; }
+
+        .upload-card {
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 20px;
+            background: var(--card-bg);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+            height: 100%;
+        }
+
+        .pdf-viewer-frame {
+            width: 100%;
+            height: 75vh;
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            background: #f8fafc;
+        }
+
+        .timeline-item {
+            cursor: grab;
+            user-select: none;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+            touch-action: none;
+        }
+        .timeline-item:active { cursor: grabbing; }
+        .timeline-item.dragging { opacity: 0.4; transform: scale(0.98); }
+        .timeline-badge {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.85rem;
+        }
+
+        /* İmzalı Footer */
+        .portal-footer {
+            width: 100%;
+            max-width: 980px;
+            border-top: 1px solid var(--border-color);
+            padding: 16px 0 8px 0;
+            text-align: center;
+            font-size: 0.85rem;
+            color: var(--category-text);
+        }
+        .portal-footer a {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+
+<div class="main-card">
+    <div class="p-4 p-md-5">
+
+        <!-- GİRİŞ YAPILMIŞSA ÜST KONTROL ÇUBUĞU -->
+        {% if session.get('kullanici_id') %}
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-primary-subtle text-primary fw-bold px-3 py-2 rounded-pill">AUZEF Tarih Lisans</span>
+                    <small class="text-muted fw-semibold">👤 {{ session.get('ad_soyad') or session.get('kullanici_adi') }}</small>
+                </div>
+                <div class="d-flex align-items-center gap-1 flex-wrap justify-content-end">
+                    <button type="button" class="btn-theme-toggle" id="themeToggleBtn" onclick="toggleTheme()" title="Karanlık / Aydınlık Mod">🌙 Gece</button>
+                    <a href="/ders-calis" class="btn btn-outline-success btn-sm rounded-pill fw-bold">🎓 Ders Oku & İzle</a>
+                    <a href="/unite-pekistirme" class="btn btn-outline-primary btn-sm rounded-pill fw-bold">🎯 Pekiştirme</a>
+                    <a href="/kronoloji" class="btn btn-outline-warning btn-sm rounded-pill fw-bold" title="Tarihsel Olay Sıralama">⏳ Kronoloji</a>
+                    <a href="/icerik-merkezi" class="btn btn-success btn-sm rounded-pill fw-bold">📥 PDF & Soru Yükle</a>
+                    {% if durum == 'baslangic' %}
+                        <a href="/yonetim" class="btn btn-outline-secondary btn-sm rounded-pill">🔍</a>
+                        <a href="/istatistik" class="btn btn-outline-success btn-sm rounded-pill">📊</a>
+                        <button type="button" class="btn btn-outline-danger btn-sm rounded-pill" data-bs-toggle="modal" data-bs-target="#resetModal">🗑️</button>
+                    {% endif %}
+                    <a href="/cikis" class="btn btn-outline-danger btn-sm rounded-pill ms-1" title="Çıkış Yap">🚪 Çıkış</a>
+                </div>
+            </div>
+        {% endif %}
+
+        {% if bildirim %}
+            <div class="alert alert-{{ bildirim.tur }} alert-dismissible fade show mb-4 rounded-3 border-0" role="alert">
+                {{ bildirim.metin }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endif %}
+
+        <!-- GİRİŞ EKRANI -->
+        {% if durum == 'giris' %}
+            <div class="text-center py-4" style="max-width: 420px; margin: 0 auto;">
+                <div class="mb-3">
+                    <span class="badge bg-primary-subtle text-primary fw-bold px-3 py-2 rounded-pill fs-6">AUZEF Portalı</span>
+                </div>
+                <h3 class="fw-bold mb-1">Hesabınıza Giriş Yapın</h3>
+                <p class="text-muted small mb-4">Çalışma verileriniz ve sınav geçmişiniz güvenle korunur.</p>
+
+                <form method="POST" action="/giris" class="text-start">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-muted text-uppercase">Kullanıcı Adı</label>
+                        <input type="text" name="kullanici_adi" class="form-control form-control-lg rounded-3" placeholder="kullaniciadiniz" required autofocus>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label small fw-bold text-muted text-uppercase">Şifre</label>
+                        <input type="password" name="sifre" class="form-control form-control-lg rounded-3" placeholder="••••••••" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-lg w-100 rounded-3 fw-bold py-3 shadow-sm mb-3">
+                        Giriş Yap 🚀
+                    </button>
+                </form>
+
+                <div class="p-3 bg-body-tertiary rounded-3 text-center border">
+                    <small class="text-muted">Henüz kayıt olmadınız mı? <a href="/kayit" class="fw-bold text-primary text-decoration-none">Hemen Kayıt Olun</a></small>
+                </div>
+            </div>
+
+        <!-- KAYIT EKRANI -->
+        {% elif durum == 'kayit' %}
+            <div class="text-center py-4" style="max-width: 420px; margin: 0 auto;">
+                <div class="mb-3">
+                    <span class="badge bg-success-subtle text-success fw-bold px-3 py-2 rounded-pill fs-6">Yeni Hesap Oluştur</span>
+                </div>
+                <h3 class="fw-bold mb-1">AUZEF Portalına Kayıt Ol</h3>
+                <p class="text-muted small mb-4">Ders materyallerinize ve denemelerinize erişmek için profilinizi oluşturun.</p>
+
+                <form method="POST" action="/kayit" class="text-start">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-muted text-uppercase">Ad Soyad</label>
+                        <input type="text" name="ad_soyad" class="form-control form-control-lg rounded-3" placeholder="Adınız Soyadınız" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-muted text-uppercase">Kullanıcı Adı</label>
+                        <input type="text" name="kullanici_adi" class="form-control form-control-lg rounded-3" placeholder="ornek: oguz" required>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label small fw-bold text-muted text-uppercase">Şifre Belirleyin</label>
+                        <input type="password" name="sifre" class="form-control form-control-lg rounded-3" placeholder="En az 4 karakter" required>
+                    </div>
+                    <button type="submit" class="btn btn-success btn-lg w-100 rounded-3 fw-bold py-3 shadow-sm mb-3">
+                        Kaydı Tamamla ✨
+                    </button>
+                </form>
+
+                <div class="p-3 bg-body-tertiary rounded-3 text-center border">
+                    <small class="text-muted">Zaten hesabınız var mı? <a href="/giris" class="fw-bold text-primary text-decoration-none">Giriş Yap</a></small>
+                </div>
+            </div>
+
+        <!-- KRONOLOJİ SIRALAMA EKRANI -->
+        {% elif durum == 'kronoloji' %}
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <span class="badge bg-warning-subtle text-warning-emphasis fw-bold px-3 py-1 rounded-pill">Dinamik Soru & Olay Sıralama</span>
+                    <h4 class="fw-bold m-0 mt-1">⏳ Tarihsel Kronoloji Egzersizi</h4>
+                </div>
+                <a href="/" class="btn btn-light btn-sm rounded-pill">← Ana Sayfa</a>
+            </div>
+
+            <form method="GET" action="/kronoloji" class="row g-2 mb-3">
+                <div class="col-md-9">
+                    <label class="form-label small fw-bold text-muted text-uppercase mb-1">Kronolojisini Çözmek İstediğiniz Ders:</label>
+                    <select name="ders" class="form-select rounded-3" onchange="this.form.submit()">
+                        {% for d in dersler %}
+                            <option value="{{ d }}" {% if aktif_ders == d %}selected{% endif %}>{{ d }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <a href="/kronoloji?ders={{ aktif_ders }}" class="btn btn-outline-secondary w-100 rounded-3 fw-semibold">
+                        🔄 Yeniden Karıştır
+                    </a>
+                </div>
+            </form>
+
+            {% if uyari_mesaji %}
+                <div class="alert alert-secondary py-2 px-3 rounded-3 small mb-3 border-0">
+                    ℹ️ {{ uyari_mesaji }}
+                </div>
+            {% endif %}
+
+            <div class="alert alert-info py-2 px-3 rounded-3 small mb-3 border-0">
+                💡 <strong>Yönerge:</strong> Olay kartlarını tutarak <u>en eski tarihten günümüze doğru</u> (yukarıdan aşağıya) sürükleyip dizin. Ardından alttaki kontrol butonuna tıklayın.
+            </div>
+
+            <div id="kronolojiListesi" class="d-flex flex-column gap-2 mb-4">
+                {% for o in karisik_olaylar %}
+                    <div class="timeline-item p-3 bg-body-tertiary rounded-3 border d-flex align-items-center justify-content-between"
+                         draggable="true" 
+                         data-id="{{ o.id }}" 
+                         data-yil="{{ o.yil }}" 
+                         data-detay="{{ o.detay }}">
+                        <div class="d-flex align-items-center gap-3">
+                            <span class="timeline-badge bg-primary text-white sira-numarasi">{{ loop.index }}</span>
+                            <div>
+                                <span class="fw-semibold text-dark d-block" style="font-size: 0.95rem;">{{ o.olay }}</span>
+                                <small class="text-muted aciklama-alani d-none mt-1"></small>
+                            </div>
+                        </div>
+                        <span class="text-muted fs-5 ms-2">☰</span>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <div id="sonucAlani" class="d-none mb-3 p-3 rounded-3 text-center fw-bold"></div>
+
+            <div class="d-grid">
+                <button type="button" class="btn btn-primary rounded-pill py-2 fw-bold shadow-sm" onclick="kronolojiKontrolEt()">
+                    Sıralamayı Kontrol Et 🎯
+                </button>
+            </div>
+
+        <!-- 1. BAŞLANGIÇ EKRANI -->
+        {% elif durum == 'baslangic' %}
+            <h3 class="fw-bold mb-1">Sınav Simülatörü</h3>
+            <p class="text-muted small mb-4">Veritabanında toplam <strong>{{ toplam_soru }}</strong> soru hazır.</p>
+
+            <form method="POST" action="/sinav-baslat">
+                <div class="mb-3">
+                    <label class="form-label fw-bold small text-muted text-uppercase">Ders</label>
+                    <select name="ders" class="form-select form-select-lg rounded-3">
+                        <option value="HEPSI">Tüm Dersler (Karışık - {{ toplam_soru }} Soru)</option>
+                        {% for d in dersler %}
+                            <option value="{{ d['ders_adi'] }}">{{ d['ders_adi'] }} ({{ d['soru_sayisi'] }} Soru)</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold small text-muted text-uppercase">Ünite / Konu Filtresi</label>
+                    <select name="unite" class="form-select rounded-3">
+                        <option value="TUMU" selected>📖 Tüm Konular (Final Kapsamı)</option>
+                        <option value="VIZE">🎯 Vize Konuları (1 - 7. Üniteler)</option>
+                        {% for i in range(1, 15) %}
+                            <option value="UNITE_{{ i }}">Ünite {{ i }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold small text-muted text-uppercase">Çalışma Modu</label>
+                        <select name="mod" class="form-select rounded-3">
+                            <option value="sinav" selected>🎓 Gerçek Sınav (Karneli)</option>
+                            <option value="ogrenme">💡 Öğrenme Modu (Anlık Cevaplı)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold small text-muted text-uppercase">Soru Adedi</label>
+                        <select name="limit" class="form-select rounded-3">
+                            <option value="20" selected>🎯 20 Soru (Tam AUZEF)</option>
+                            <option value="10">⚡ 10 Soru (Hızlı)</option>
+                            <option value="0">📚 Tüm Sorular</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label fw-bold small text-muted text-uppercase">Süre</label>
+                    <select name="sure" class="form-select rounded-3">
+                        <option value="30" selected>⏱️ 30 Dakika</option>
+                        <option value="15">⏱️ 15 Dakika</option>
+                        <option value="45">⏱️ 45 Dakika</option>
+                        <option value="0">⏱️ Süresiz</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-lg w-100 rounded-3 fw-bold py-3 shadow-sm mb-3">Sınava Başla</button>
+            </form>
+
+            {% if hatali_sayisi > 0 %}
+                <form method="POST" action="/sinav-baslat">
+                    <input type="hidden" name="ozel_havuz" value="hatalar">
+                    <input type="hidden" name="mod" value="ogrenme">
+                    <input type="hidden" name="limit" value="0">
+                    <input type="hidden" name="sure" value="0">
+                    <button type="submit" class="btn btn-outline-danger w-100 rounded-3 fw-bold py-2 mb-2">
+                        🎯 Yanlış Yapılan Soruları Tekrar Et ({{ hatali_sayisi }} Zayıf Nokta)
+                    </button>
+                </form>
+            {% endif %}
+
+            {% if yildizli_sayisi > 0 %}
+                <form method="POST" action="/sinav-baslat">
+                    <input type="hidden" name="ozel_havuz" value="yildizli">
+                    <input type="hidden" name="mod" value="ogrenme">
+                    <input type="hidden" name="limit" value="0">
+                    <input type="hidden" name="sure" value="0">
+                    <button type="submit" class="btn btn-warning w-100 rounded-3 fw-bold py-2 text-dark mb-2">
+                        ⭐ Yıldızlı Soruları Çöz ({{ yildizli_sayisi }} Soru)
+                    </button>
+                </form>
+            {% endif %}
+
+            <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
+                <a href="/yedek-indir" class="btn btn-outline-secondary btn-sm rounded-pill">💾 Yedek İndir</a>
+                <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill" data-bs-toggle="modal" data-bs-target="#yedekModal">📥 Yedek Yükle</button>
+                <a href="/yazdir?ders=HEPSI&limit=20" target="_blank" class="btn btn-outline-secondary btn-sm rounded-pill">🖨️ PDF Kitapçık</a>
+            </div>
+
+        <!-- 2. İÇERİK & PDF YÜKLEME MERKEZİ -->
+        {% elif durum == 'icerik_merkezi' %}
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="fw-bold m-0">📥 PDF ve Kaynak Bağlama Merkezi</h4>
+                <a href="/" class="btn btn-light btn-sm rounded-pill">← Ana Sayfa</a>
+            </div>
+            <p class="text-muted small mb-4">
+                Ders PDF'lerini ister Google Drive bağlantısıyla bağlayın, ister doğrudan bilgisayarınızdan yükleyin. Dosyalar doğrudan entegre okuyucuda açılır.
+            </p>
+
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <div class="upload-card border-primary-subtle">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <span class="fs-4">☁️</span>
+                            <h6 class="fw-bold m-0 text-primary">Google Drive Bağlantısı Ekle</h6>
+                        </div>
+                        <p class="text-muted small mb-3">Google Drive'a yüklediğiniz PDF'in "Bağlantıyı Kopyala" linkini yapıştırın.</p>
+                        
+                        <form method="POST" action="/kaydet-drive-link">
+                            <div class="row g-2 mb-2">
+                                <div class="col-7">
+                                    <label class="form-label small fw-semibold">Ders:</label>
+                                    <select name="ders_adi" class="form-select form-select-sm" required>
+                                        {% for d in dersler %}
+                                            <option value="{{ d }}" {% if aktif_ders == d %}selected{% endif %}>{{ d }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-5">
+                                    <label class="form-label small fw-semibold">Ünite No:</label>
+                                    <select name="unite_no" class="form-select form-select-sm" required>
+                                        {% for i in range(1, 15) %}
+                                            <option value="{{ i }}">Ünite {{ i }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label small fw-semibold">Drive Paylaşım Bağlantısı:</label>
+                                <input type="url" name="drive_url" class="form-control form-control-sm" placeholder="https://drive.google.com/file/d/.../view?usp=sharing" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-sm w-100 rounded-pill fw-bold">Drive Kaynağını Bağla 🔗</button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="upload-card">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <span class="fs-4">📁</span>
+                            <h6 class="fw-bold m-0">Bilgisayardan PDF Yükle</h6>
+                        </div>
+                        <p class="text-muted small mb-3">Tekil ünite veya kitap PDF'ini doğrudan yükleyin; okuyucuda açılır.</p>
+                        
+                        <form method="POST" action="/yukle-pdf-dosya" enctype="multipart/form-data">
+                            <div class="row g-2 mb-2">
+                                <div class="col-7">
+                                    <label class="form-label small fw-semibold">Ders:</label>
+                                    <select name="ders_adi" class="form-select form-select-sm" required>
+                                        {% for d in dersler %}
+                                            <option value="{{ d }}" {% if aktif_ders == d %}selected{% endif %}>{{ d }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-5">
+                                    <label class="form-label small fw-semibold">Ünite No:</label>
+                                    <select name="unite_no" class="form-select form-select-sm" required>
+                                        {% for i in range(1, 15) %}
+                                            <option value="{{ i }}">Ünite {{ i }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label small fw-semibold">Ders Fasikülü PDF:</label>
+                                <input type="file" name="pdf_dosya" class="form-control form-control-sm" accept=".pdf" required>
+                            </div>
+                            <button type="submit" class="btn btn-success btn-sm w-100 rounded-pill fw-bold">PDF Dosyasını Kaydet 💾</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <div class="upload-card border-warning-subtle">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="fs-4">🎯</span>
+                    <h6 class="fw-bold m-0 text-warning-emphasis">Ünite Soru Bankasını Yükle</h6>
+                </div>
+                <p class="text-muted small mb-3">Bu üniteye ait soru PDF'ini yükleyin veya soruları metin olarak yapıştırın[cite: 3].</p>
+
+                <div class="row g-3">
+                    <div class="col-md-6 border-end pe-md-3">
+                        <form method="POST" action="/yukle-unite-sorulari" enctype="multipart/form-data">
+                            <label class="form-label small fw-semibold text-primary">Yöntem 1: Soru PDF Dosyası Yükle</label>
+                            <div class="row g-2 mb-2">
+                                <div class="col-7">
+                                    <select name="ders_adi" class="form-select form-select-sm" required>
+                                        {% for d in dersler %}
+                                            <option value="{{ d }}" {% if aktif_ders == d %}selected{% endif %}>{{ d }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-5">
+                                    <select name="unite_no" class="form-select form-select-sm" required>
+                                        {% for i in range(1, 15) %}
+                                            <option value="{{ i }}">Ünite {{ i }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <input type="file" name="soru_dosyasi" class="form-control form-control-sm mb-2" accept=".pdf" required>
+                            <button type="submit" class="btn btn-outline-primary btn-sm w-100 rounded-pill fw-semibold">Soru PDF'ini Çözümle</button>
+                        </form>
+                    </div>
+
+                    <div class="col-md-6 ps-md-3">
+                        <form method="POST" action="/hizli-soru-ekle">
+                            <label class="form-label small fw-semibold text-success">Yöntem 2: Kopyala-Yapıştır ile Ekle</label>
+                            <div class="row g-2 mb-2">
+                                <div class="col-7">
+                                    <select name="ders_adi" class="form-select form-select-sm" required>
+                                        {% for d in dersler %}
+                                            <option value="{{ d }}" {% if aktif_ders == d %}selected{% endif %}>{{ d }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-5">
+                                    <select name="unite_no" class="form-select form-select-sm" required>
+                                        {% for i in range(1, 15) %}
+                                            <option value="{{ i }}">Ünite {{ i }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <textarea name="soru_metinleri" class="form-control form-control-sm mb-2" rows="2" placeholder="Soruları doğrudan buraya yapıştırabilirsiniz..." required></textarea>
+                            <button type="submit" class="btn btn-outline-success btn-sm w-100 rounded-pill fw-semibold">Metni Aktar</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+        <!-- 3. DERS ÇALIŞMA ALANI & PDF OKUYUCU -->
+        {% elif durum == 'ogrenme_modu' %}
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <span class="badge bg-primary-subtle text-primary fw-bold px-3 py-1 rounded-pill">Entegre PDF Okuma & Ders Modu</span>
+                    <h4 class="fw-bold m-0 mt-1">{{ aktif_ders }}</h4>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="/icerik-merkezi?ders={{ aktif_ders }}" class="btn btn-outline-success btn-sm rounded-pill fw-bold">📥 PDF Yükle / Değiştir</a>
+                    <a href="/" class="btn btn-light btn-sm rounded-pill">← Ana Sayfa</a>
+                </div>
+            </div>
+
+            <form method="GET" action="/ders-calis" class="row g-2 mb-3">
+                <div class="col-md-7">
+                    <select name="ders" class="form-select" onchange="this.form.submit()">
+                        {% for d in dersler %}
+                            <option value="{{ d }}" {% if aktif_ders == d %}selected{% endif %}>{{ d }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-5">
+                    <select name="unite" class="form-select" onchange="this.form.submit()">
+                        {% for i in range(1, 15) %}
+                            <option value="{{ i }}" {% if aktif_unite == i %}selected{% endif %}>
+                                Ünite {{ i }} {% if takip.get(i, {}).get('okundu') %}✅ (Okundu){% endif %}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </form>
+
+            <div class="card border-0 bg-body-tertiary rounded-4 p-3 mb-3">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div class="d-flex gap-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="checkOkundu" 
+                                   {% if takip.get(aktif_unite, {}).get('okundu') == 1 %}checked{% endif %}
+                                   onchange="durumDegistir('{{ aktif_ders }}', {{ aktif_unite }}, 'okundu', this.checked)">
+                            <label class="form-check-label small fw-bold" for="checkOkundu">📖 Okundu</label>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="checkIzlendi" 
+                                   {% if takip.get(aktif_unite, {}).get('izlendi') == 1 %}checked{% endif %}
+                                   onchange="durumDegistir('{{ aktif_ders }}', {{ aktif_unite }}, 'izlendi', this.checked)">
+                            <label class="form-check-label small fw-bold" for="checkIzlendi">🎥 İzlendi</label>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill" data-bs-toggle="modal" data-bs-target="#videoModal">
+                            🔗 Ders Videosu
+                        </button>
+                        <a href="/unite-test-baslat/{{ aktif_unite }}?ders={{ aktif_ders }}" class="btn btn-primary btn-sm rounded-pill fw-bold">
+                            🎯 Ünite Testini Çöz
+                        </a>
+                    </div>
+                </div>
+
+                {% if embed_url %}
+                    <div class="ratio ratio-16x9 rounded-3 overflow-hidden shadow-sm mt-3">
+                        <iframe src="{{ embed_url }}" title="Ders Videosu" allowfullscreen></iframe>
+                    </div>
+                {% endif %}
+            </div>
+
+            {% if pdf_url %}
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="small text-muted fw-semibold">
+                        Kaynak: {% if kaynak_turu == 'drive' %}Google Drive Bulut Dokümanı{% else %}Yüklü Yerel PDF{% endif %}
+                    </span>
+                    <a href="{{ pdf_url }}" target="_blank" class="btn btn-link btn-sm text-decoration-none">
+                        ↗️ Yeni Sekmede Tam Ekran Aç
+                    </a>
+                </div>
+                <iframe src="{{ pdf_url }}" class="pdf-viewer-frame shadow-sm" title="Ders Fasikülü"></iframe>
+            {% else %}
+                <div class="text-center py-5 border border-dashed rounded-4 p-4 text-muted bg-body-tertiary">
+                    <h5 class="fw-bold mb-2">Bu Üniteye Ait PDF Henüz Eklenmemiş</h5>
+                    <p class="small mb-3">Google Drive bağlantısı yapıştırarak veya doğrudan bilgisayarınızdan PDF yükleyerek burada anında okuyabilirsiniz.</p>
+                    <a href="/icerik-merkezi?ders={{ aktif_ders }}" class="btn btn-primary btn-sm rounded-pill fw-bold px-4 py-2">
+                        📥 PDF Bağlantısı veya Dosyası Ekle
+                    </a>
+                </div>
+            {% endif %}
+
+            <div class="d-flex justify-content-between mt-4">
+                {% if aktif_unite > 1 %}
+                    <a href="/ders-calis?ders={{ aktif_ders }}&unite={{ aktif_unite - 1 }}" class="btn btn-outline-primary rounded-pill px-4">← Önceki Ünite</a>
+                {% else %}
+                    <div></div>
+                {% endif %}
+                {% if aktif_unite < 14 %}
+                    <a href="/ders-calis?ders={{ aktif_ders }}&unite={{ aktif_unite + 1 }}" class="btn btn-primary rounded-pill px-4">Sonraki Ünite →</a>
+                {% endif %}
+            </div>
+
+        <!-- 4. ÜNİTE PEKİŞTİRME LİSTESİ -->
+        {% elif durum == 'unite_pekistirme' %}
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="fw-bold m-0">🎯 "Bu Üniteden Ne Soruldu?"</h4>
+                <div class="d-flex gap-2">
+                    <a href="/icerik-merkezi?ders={{ aktif_ders }}" class="btn btn-outline-success btn-sm rounded-pill fw-bold">📥 Soru Yükle</a>
+                    <a href="/" class="btn btn-light btn-sm rounded-pill">← Ana Sayfa</a>
+                </div>
+            </div>
+
+            <form method="GET" action="/unite-pekistirme" class="mb-4">
+                <label class="form-label fw-bold small text-muted text-uppercase">Çalışılan Ders</label>
+                <select name="ders" class="form-select rounded-3" onchange="this.form.submit()">
+                    {% for d in dersler %}
+                        <option value="{{ d }}" {% if aktif_ders == d %}selected{% endif %}>{{ d }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+
+            <div class="row g-3">
+                {% for u in uniteler %}
+                    <div class="col-md-6">
+                        <div class="p-3 bg-body-tertiary rounded-3 border h-100 d-flex flex-column justify-content-between">
+                            <div>
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="badge {% if u.soru_sayisi > 0 %}bg-primary-subtle text-primary{% else %}bg-secondary-subtle text-muted{% endif %} fw-bold">
+                                        Ünite {{ u.no }}
+                                    </span>
+                                    <small class="{% if u.soru_sayisi > 0 %}text-success fw-bold{% else %}text-muted{% endif %}">
+                                        {{ u.soru_sayisi }} Soru Hazır
+                                    </small>
+                                </div>
+                                <h6 class="fw-bold text-dark mb-2" style="font-size: 0.95rem;">
+                                    {{ u.baslik }}
+                                </h6>
+                            </div>
+
+                            <div class="mt-3">
+                                {% if u.soru_sayisi > 0 %}
+                                    <a href="/unite-test-baslat/{{ u.no }}?ders={{ aktif_ders }}" class="btn btn-primary btn-sm w-100 rounded-pill fw-semibold">
+                                        🚀 Pekiştirme Testini Çöz ({{ u.soru_sayisi }} Soru)
+                                    </a>
+                                {% else %}
+                                    <a href="/icerik-merkezi?ders={{ aktif_ders }}" class="btn btn-outline-secondary btn-sm w-100 rounded-pill text-muted">
+                                        Soru Yükle (+)
+                                    </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+
+        <!-- 5. SORU EKRANI -->
+        {% elif durum == 'soru' %}
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <span class="badge-category">{{ aktif_ders }}</span>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn-star" id="starBtn" onclick="yildizToggle({{ soru.id }})" title="Yıldızla">
+                        {% if soru.yildizli == 1 %}⭐{% else %}☆{% endif %}
+                    </button>
+                    {% if kalan_saniye|int > 0 %}
+                        <span id="timer" class="timer-badge">⏱️ --:--</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <span class="text-muted small fw-semibold">
+                    Soru {{ sira }} / {{ toplam }}
+                    {% if soru.unite_no and soru.unite_no > 0 %}
+                        <span class="badge bg-primary-subtle text-primary ms-1">Ünite {{ soru.unite_no }}</span>
+                    {% endif %}
+                </span>
+                <a href="/testi-bitir" class="text-danger small fw-bold text-decoration-none" onclick="return confirm('Testi bitirip doğrudan karneye gitmek istiyor musunuz?')">🛑 Bitir</a>
+            </div>
+
+            <div class="progress mb-4" style="height: 6px;">
+                <div class="progress-bar bg-primary" role="progressbar" style="width: {{ (sira / toplam) * 100 }}%;"></div>
+            </div>
+
+            <h5 class="fw-bold mb-4" style="line-height: 1.6;">{{ soru.soru_metni }}</h5>
+
+            {% if soru.kullanici_notu %}
+                <div class="not-kutusu mb-3">📌 <strong>Notunuz:</strong> {{ soru.kullanici_notu }}</div>
+            {% endif %}
+
+            <form method="POST" action="/soru">
+                <input type="hidden" name="kalan_saniye" id="formKalanSaniye" value="{{ kalan_saniye }}">
+
+                <button type="submit" name="secenek" value="A" class="btn btn-option w-100"><strong class="me-2 text-primary">A)</strong> {{ soru.secenek_a }}</button>
+                <button type="submit" name="secenek" value="B" class="btn btn-option w-100"><strong class="me-2 text-primary">B)</strong> {{ soru.secenek_b }}</button>
+                <button type="submit" name="secenek" value="C" class="btn btn-option w-100"><strong class="me-2 text-primary">C)</strong> {{ soru.secenek_c }}</button>
+                <button type="submit" name="secenek" value="D" class="btn btn-option w-100"><strong class="me-2 text-primary">D)</strong> {{ soru.secenek_d }}</button>
+                <button type="submit" name="secenek" value="E" class="btn btn-option w-100"><strong class="me-2 text-primary">E)</strong> {{ soru.secenek_e }}</button>
+
+                <div class="d-flex justify-content-between align-items-center mt-3 pt-2">
+                    <a href="/" class="text-muted small text-decoration-none" onclick="return confirm('Sınav sıfırlanır. Çıkılsın mı?')">🏠 Ana Sayfa</a>
+                    <div>
+                        <button type="button" class="btn btn-link text-decoration-none text-muted small me-2" onclick="notModalAc({{ soru.id }}, '{{ soru.kullanici_notu|replace('\'', '\\\'') }}')">📝 Not Ekle</button>
+                        <button type="submit" name="secenek" value="" class="btn btn-link text-decoration-none text-secondary small fw-semibold">Boş Bırak →</button>
+                    </div>
+                </div>
+            </form>
+
+        <!-- 6. GERİ BİLDİRİM EKRANI -->
+        {% elif durum == 'geribildirim' %}
+            {% if sonuc == 'DOGRU' %}
+                <div class="alert alert-success d-flex align-items-center rounded-3 mb-4 p-3 border-0">
+                    <span class="fs-4 me-3">✅</span>
+                    <div><strong class="d-block">Tebrikler, Doğru!</strong></div>
+                </div>
+            {% elif sonuc == 'YANLIS' %}
+                <div class="alert alert-danger d-flex align-items-center rounded-3 mb-4 p-3 border-0">
+                    <span class="fs-4 me-3">❌</span>
+                    <div>
+                        <strong class="d-block">Yanlış Cevap!</strong>
+                        Cevabınız: <span class="badge bg-danger">{{ secilen }}</span> | 
+                        Doğru Seçenek: <span class="badge bg-success">{{ soru.dogru_cevap }}</span>
+                    </div>
+                </div>
+            {% else %}
+                <div class="alert alert-secondary d-flex align-items-center rounded-3 mb-4 p-3 border-0">
+                    <span class="fs-4 me-3">⚪</span>
+                    <div><strong>Boş Bırakıldı.</strong> Doğru Seçenek: <span class="badge bg-success">{{ soru.dogru_cevap }}</span></div>
+                </div>
+            {% endif %}
+
+            <div class="p-3 bg-secondary-subtle rounded-3 border-0 mb-4">
+                <span class="text-uppercase small fw-bold text-muted d-block mb-1">Doğru Yanıt:</span>
+                <p class="small m-0 fw-semibold">{{ soru.aciklama }}</p>
+                {% if soru.kullanici_notu %}
+                    <div class="not-kutusu mt-2">📌 <strong>Özel Not:</strong> {{ soru.kullanici_notu }}</div>
+                {% endif %}
+            </div>
+
+            <div class="d-grid gap-2">
+                <a href="/soru?kalan_sure={{ kalan_saniye }}" class="btn btn-primary btn-lg rounded-3 fw-bold">Sıradaki Soruya Geç</a>
+                <a href="/testi-bitir" class="btn btn-outline-danger btn-sm border-0 mt-2">Testi Şimdi Bitir</a>
+            </div>
+
+        <!-- 7. SONUÇ EKRANI -->
+        {% elif durum == 'sonuc' %}
+            <div class="text-center mb-4">
+                <h3 class="fw-bold">Sınav Raporu</h3>
+                <span class="badge bg-secondary-subtle text-secondary px-3 py-2 rounded-pill">{{ aktif_ders }}</span>
+            </div>
+
+            <div class="row g-2 mb-4">
+                <div class="col-4"><div class="stat-card bg-success-subtle"><h2 class="fw-bold text-success m-0">{{ dogru }}</h2><small class="text-success fw-semibold">Doğru</small></div></div>
+                <div class="col-4"><div class="stat-card bg-danger-subtle"><h2 class="fw-bold text-danger m-0">{{ yanlis }}</h2><small class="text-danger fw-semibold">Yanlış</small></div></div>
+                <div class="col-4"><div class="stat-card bg-secondary-subtle"><h2 class="fw-bold m-0">{{ bos }}</h2><small class="text-muted fw-semibold">Boş</small></div></div>
+            </div>
+
+            <div class="card bg-secondary-subtle border-0 rounded-3 p-3 mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="text-muted small">AUZEF Neti:</span>
+                    <strong class="fs-5">{{ net }} Net</strong>
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="text-muted small">100 Üzerinden Puan:</span>
+                    <strong class="fs-5 text-primary">{{ puan }}</strong>
+                </div>
+            </div>
+
+            {% if cevaplar %}
+                <h5 class="fw-bold mb-3">Soru Çözüm Karnesi</h5>
+                <div class="mb-4">
+                    {% for item in cevaplar %}
+                        <div class="karne-item {{ item.durum|lower }}">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="fw-bold small">
+                                    Soru {{ loop.index }}
+                                    {% if item.soru.unite_no and item.soru.unite_no > 0 %}
+                                        (Ünite {{ item.soru.unite_no }})
+                                    {% endif %}
+                                </span>
+                                <div>
+                                    <span class="small me-2">İşaretlenen: <strong>{{ item.secilen }}</strong></span>
+                                    <span class="badge bg-success">Doğru: {{ item.dogru }}</span>
+                                </div>
+                            </div>
+                            <p class="small mb-2">{{ item.soru.soru_metni }}</p>
+                            <p class="small text-muted m-0"><strong>Açıklama:</strong> {{ item.soru.aciklama }}</p>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <div class="d-grid gap-2">
+                <a href="/istatistik" class="btn btn-outline-success rounded-3 fw-bold py-2">📊 Genel Başarı Tablomu Gör</a>
+                <a href="/" class="btn btn-primary rounded-3 fw-bold py-2">🏠 Ana Sayfaya Dön</a>
+            </div>
+
+        <!-- 8. İSTATİSTİK EKRANI -->
+        {% elif durum == 'istatistik' %}
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="fw-bold m-0">📊 Performans ve Sınav Arşivi</h4>
+                <a href="/" class="btn btn-light btn-sm rounded-pill">← Ana Sayfa</a>
+            </div>
+
+            <div class="row g-2 mb-4">
+                <div class="col-4"><div class="stat-card bg-primary-subtle"><h3 class="fw-bold text-primary m-0">{{ toplam_cozulen }}</h3><small class="text-primary fw-semibold">Çözülen</small></div></div>
+                <div class="col-4"><div class="stat-card bg-success-subtle"><h3 class="fw-bold text-success m-0">{{ genel_net }}</h3><small class="text-success fw-semibold">Net</small></div></div>
+                <div class="col-4"><div class="stat-card bg-info-subtle"><h3 class="fw-bold text-info m-0">%{{ genel_oran }}</h3><small class="text-info fw-semibold">Başarı</small></div></div>
+            </div>
+
+            {% if rapor %}
+                <h6 class="fw-bold mb-2">Ders Bazlı Genel Başarı</h6>
+                <div class="table-responsive mb-4">
+                    <table class="table table-hover align-middle border-0">
+                        <thead>
+                            <tr>
+                                <th>Ders</th>
+                                <th class="text-center">Çözülen</th>
+                                <th class="text-center">D / Y</th>
+                                <th class="text-center">Net</th>
+                                <th class="text-center">Oran</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for r in rapor %}
+                                <tr>
+                                    <td class="fw-semibold small" style="max-width: 240px;">{{ r.ders_adi }}</td>
+                                    <td class="text-center small">{{ r.cozulen }}</td>
+                                    <td class="text-center small"><span class="text-success fw-bold">{{ r.dogru }}</span> / <span class="text-danger fw-bold">{{ r.yanlis }}</span></td>
+                                    <td class="text-center fw-bold text-primary small">{{ r.net }}</td>
+                                    <td class="text-center" style="width: 120px;">
+                                        <div class="d-flex align-items-center justify-content-center">
+                                            <div class="progress flex-grow-1 me-2" style="height: 6px;">
+                                                <div class="progress-bar {% if r.oran >= 60 %}bg-success{% elif r.oran >= 40 %}bg-warning{% else %}bg-danger{% endif %}" style="width: {{ r.oran }}%;"></div>
+                                            </div>
+                                            <small class="fw-bold">%{{ r.oran }}</small>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% endif %}
+
+            <a href="/" class="btn btn-primary w-100 rounded-3 fw-bold">Yeni Sınav Başlat</a>
+
+        <!-- 9. YÖNETİM EKRANI -->
+        {% elif durum == 'yonetim' %}
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="fw-bold m-0">🔍 Soru Yönetimi & Arama</h4>
+                <a href="/" class="btn btn-light btn-sm rounded-pill">← Ana Sayfa</a>
+            </div>
+
+            <form method="GET" action="/yonetim" class="row g-2 mb-4">
+                <div class="col-md-6"><input type="text" name="kelime" class="form-control" placeholder="Arama..." value="{{ kelime }}"></div>
+                <div class="col-md-4">
+                    <select name="ders" class="form-select">
+                        <option value="">Tüm Dersler</option>
+                        {% for d in dersler %}
+                            <option value="{{ d }}" {% if secilen_ders == d %}selected{% endif %}>{{ d }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2"><button type="submit" class="btn btn-primary w-100 fw-bold">Filtrele</button></div>
+            </form>
+
+            {% if sorular %}
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle border-0">
+                        <thead><tr><th>ID</th><th>Soru</th><th class="text-center">Cevap</th><th class="text-end">İşlem</th></tr></thead>
+                        <tbody>
+                            {% for s in sorular %}
+                                <tr>
+                                    <td class="small fw-bold text-muted">#{{ s.id }}</td>
+                                    <td>
+                                        <div class="small fw-semibold" style="max-height: 48px; overflow:hidden;">{{ s.soru_metni }}</div>
+                                        <span class="badge bg-secondary-subtle text-secondary" style="font-size:0.7rem;">{{ s.ders_adi }} {% if s.unite_no %}(Ünite {{ s.unite_no }}){% endif %}</span>
+                                    </td>
+                                    <td class="text-center"><span class="badge bg-success">{{ s.dogru_cevap }}</span></td>
+                                    <td class="text-end">
+                                        <a href="/soru-duzenle/{{ s.id }}" class="btn btn-outline-primary btn-sm rounded-pill px-2 py-1" style="font-size: 0.78rem;">Düzenle</a>
+                                        <form method="POST" action="/soru-sil/{{ s.id }}" class="d-inline" onsubmit="return confirm('Silinsin mi?');">
+                                            <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-2 py-1" style="font-size: 0.78rem;">Sil</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% endif %}
+
+        <!-- 10. DÜZENLEME EKRANI -->
+        {% elif durum == 'duzenle' %}
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="fw-bold m-0">Soru Düzenle (#{{ soru.id }})</h4>
+                <a href="/yonetim" class="btn btn-light btn-sm rounded-pill">← Yönetim</a>
+            </div>
+
+            <form method="POST" action="/soru-duzenle/{{ soru.id }}">
+                <div class="row g-2 mb-3">
+                    <div class="col-md-8">
+                        <label class="form-label fw-bold small text-muted">Ders</label>
+                        <select name="ders_adi" class="form-select" required>
+                            {% for d in dersler %}
+                                <option value="{{ d }}" {% if soru.ders_adi == d %}selected{% endif %}>{{ d }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold small text-muted">Ünite No</label>
+                        <input type="number" name="unite_no" value="{{ soru.unite_no }}" class="form-control" min="0" max="14">
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold small text-muted">Soru Metni</label>
+                    <textarea name="soru_metni" rows="3" class="form-control" required>{{ soru.soru_metni }}</textarea>
+                </div>
+
+                <div class="row g-2 mb-3">
+                    <div class="col-md-6"><input type="text" name="secenek_a" value="{{ soru.secenek_a }}" class="form-control" required></div>
+                    <div class="col-md-6"><input type="text" name="secenek_b" value="{{ soru.secenek_b }}" class="form-control" required></div>
+                    <div class="col-md-6"><input type="text" name="secenek_c" value="{{ soru.secenek_c }}" class="form-control" required></div>
+                    <div class="col-md-6"><input type="text" name="secenek_d" value="{{ soru.secenek_d }}" class="form-control" required></div>
+                    <div class="col-12"><input type="text" name="secenek_e" value="{{ soru.secenek_e }}" class="form-control" required></div>
+                </div>
+
+                <div class="row g-2 mb-4">
+                    <div class="col-md-4">
+                        <select name="dogru_cevap" class="form-select" required>
+                            {% for h in ['A', 'B', 'C', 'D', 'E'] %}
+                                <option value="{{ h }}" {% if soru.dogru_cevap == h %}selected{% endif %}>{{ h }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-8">
+                        <input type="text" name="aciklama" value="{{ soru.aciklama }}" class="form-control">
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-success btn-lg w-100 rounded-3 fw-bold">Kaydet</button>
+            </form>
+        {% endif %}
+
+    </div>
+</div>
+
+<!-- GELİŞTİRİCİ İMZASI & TELİF HAKKI FOOTER -->
+<footer class="portal-footer">
+    <div class="d-flex flex-column align-items-center gap-1">
+        <div>
+            <span>© 2026 <strong>AUZEF Sınav & Öğrenme Portalı</strong>. Tüm Hakları Saklıdır.</span>
+        </div>
+        <div>
+            <small class="text-muted">
+                Geliştirici & Tasarım: <a href="javascript:void(0);">Oğuz</a> | AUZEF Tarih Lisans Çalışma Platformu
+            </small>
+        </div>
+    </div>
+</footer>
+
+<!-- VİDEO EKLEME MODALI -->
+<div class="modal fade" id="videoModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">🎥 Ders Videosu Linki Ekle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="/video-kaydet">
+                <input type="hidden" name="ders" value="{{ aktif_ders }}">
+                <input type="hidden" name="unite" value="{{ aktif_unite }}">
+                <div class="modal-body py-3">
+                    <label class="form-label small text-muted">YouTube veya Video Bağlantısı:</label>
+                    <input type="url" name="video_url" class="form-control" placeholder="https://www.youtube.com/watch?v=..." value="{{ video_url }}">
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light rounded-pill btn-sm" data-bs-dismiss="modal">Vazgeç</button>
+                    <button type="submit" class="btn btn-primary rounded-pill btn-sm fw-bold">Kaydet</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- NOT EKLEME MODALI -->
+<div class="modal fade" id="notModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0">
+            <div class="modal-header border-0 pb-0"><h5 class="modal-title fw-bold">📝 Soruya Özel Not Ekle</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body py-3">
+                <input type="hidden" id="modalSoruId">
+                <textarea id="modalNotMetni" class="form-control" rows="3" placeholder="Örn: Ders kitabı 4. ünite..."></textarea>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-light rounded-pill btn-sm" data-bs-dismiss="modal">İptal</button>
+                <button type="button" class="btn btn-primary rounded-pill btn-sm fw-bold" onclick="notuKaydet()">Kaydet</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- YEDEK MODALI -->
+<div class="modal fade" id="yedekModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0">
+            <div class="modal-header border-0 pb-0"><h5 class="modal-title fw-bold">JSON Yedeği Geri Yükle</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <form method="POST" action="/yedek-yukle" enctype="multipart/form-data">
+                <div class="modal-body py-3"><input type="file" name="yedek_dosyasi" class="form-control" accept=".json" required></div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light rounded-pill btn-sm" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-primary rounded-pill btn-sm fw-bold">Yükle</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- SIFIRLAMA MODALI -->
+<div class="modal fade" id="resetModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0">
+            <div class="modal-header border-0 pb-0"><h5 class="modal-title fw-bold text-danger">Tüm Verileri Sıfırla</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body py-3"><p class="small text-muted m-0">Tüm sorular, kayıtlı PDF bağlantıları ve geçmiş silinecektir. Onaylıyor musunuz?</p></div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-light rounded-pill btn-sm" data-bs-dismiss="modal">İptal</button>
+                <form method="POST" action="/sifirla" class="m-0"><button type="submit" class="btn btn-danger rounded-pill btn-sm fw-bold">Evet, Sil</button></form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    function applyTheme(theme) {
+        document.documentElement.setAttribute('data-bs-theme', theme);
+        localStorage.setItem('theme', theme);
+        const btn = document.getElementById('themeToggleBtn');
+        if (btn) btn.innerText = theme === 'dark' ? '☀️ Gündüz' : '🌙 Gece';
+    }
+    function toggleTheme() {
+        applyTheme((document.documentElement.getAttribute('data-bs-theme') || 'light') === 'light' ? 'dark' : 'light');
+    }
+    applyTheme(localStorage.getItem('theme') || 'light');
+
+    let kalan = parseInt("{{ kalan_saniye|default(0) }}");
+    const timerElem = document.getElementById("timer");
+    const hiddenKalanInput = document.getElementById("formKalanSaniye");
+    if (kalan > 0 && timerElem) {
+        function guncelleTimer() {
+            let dak = Math.floor(kalan / 60);
+            let san = kalan % 60;
+            timerElem.innerText = `⏱️ ${dak.toString().padStart(2, '0')}:${san.toString().padStart(2, '0')}`;
+            if (hiddenKalanInput) hiddenKalanInput.value = kalan;
+            if (kalan <= 0) { alert("Süre doldu!"); window.location.href = "/testi-bitir"; }
+            kalan--;
+        }
+        guncelleTimer();
+        setInterval(guncelleTimer, 1000);
+    }
+
+    function yildizToggle(soruId) {
+        fetch(`/yildiz-degistir/${soruId}`, { method: 'POST' })
+            .then(res => res.json())
+            .then(data => { if(data.basarili) document.getElementById('starBtn').innerText = data.yildizli === 1 ? '⭐' : '☆'; });
+    }
+
+    let notModalInst = null;
+    function notModalAc(soruId, eskiNot) {
+        document.getElementById('modalSoruId').value = soruId;
+        document.getElementById('modalNotMetni').value = eskiNot || '';
+        notModalInst = new bootstrap.Modal(document.getElementById('notModal'));
+        notModalInst.show();
+    }
+    function notuKaydet() {
+        const formData = new FormData();
+        formData.append('not', document.getElementById('modalNotMetni').value);
+        fetch(`/not-kaydet/${document.getElementById('modalSoruId').value}`, { method: 'POST', body: formData })
+            .then(res => res.json())
+            .then(data => { if (data.basarili) location.reload(); });
+    }
+
+    function durumDegistir(ders, unite, tur, durum) {
+        const formData = new FormData();
+        formData.append('ders', ders);
+        formData.append('unite', unite);
+        formData.append('tur', tur);
+        formData.append('deger', durum ? 1 : 0);
+        fetch('/unite-durum-guncelle', { method: 'POST', body: formData });
+    }
+
+    // SÜRÜKLE & BIRAK KRONOLOJİ MOTORU
+    const container = document.getElementById('kronolojiListesi');
+    if (container) {
+        let draggingItem = null;
+
+        container.addEventListener('dragstart', (e) => {
+            draggingItem = e.target.closest('.timeline-item');
+            if (draggingItem) draggingItem.classList.add('dragging');
+        });
+
+        container.addEventListener('dragend', (e) => {
+            if (draggingItem) {
+                draggingItem.classList.remove('dragging');
+                draggingItem = null;
+                siraNumaralariniGuncelle();
+            }
+        });
+
+        container.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            const afterElement = getDragAfterElement(container, e.clientY);
+            if (afterElement == null) {
+                container.appendChild(draggingItem);
+            } else {
+                container.insertBefore(draggingItem, afterElement);
+            }
+        });
+
+        let touchItem = null;
+        container.addEventListener('touchstart', (e) => {
+            touchItem = e.target.closest('.timeline-item');
+            if (touchItem) touchItem.classList.add('dragging');
+        }, { passive: true });
+
+        container.addEventListener('touchend', (e) => {
+            if (touchItem) {
+                touchItem.classList.remove('dragging');
+                touchItem = null;
+                siraNumaralariniGuncelle();
+            }
+        });
+
+        container.addEventListener('touchmove', (e) => {
+            if (!touchItem) return;
+            const touch = e.touches[0];
+            const afterElement = getDragAfterElement(container, touch.clientY);
+            if (afterElement == null) {
+                container.appendChild(touchItem);
+            } else {
+                container.insertBefore(touchItem, afterElement);
+            }
+        });
+    }
+
+    function getDragAfterElement(container, y) {
+        const draggableElements = [...container.querySelectorAll('.timeline-item:not(.dragging)')];
+        return draggableElements.reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = y - box.top - box.height / 2;
+            if (offset < 0 && offset > closest.offset) {
+                return { offset: offset, element: child };
+            } else {
+                return closest;
+            }
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+
+    function siraNumaralariniGuncelle() {
+        const rozetler = document.querySelectorAll('.sira-numarasi');
+        rozetler.forEach((rozet, idx) => {
+            rozet.innerText = idx + 1;
+        });
+    }
+
+    function kronolojiKontrolEt() {
+        const items = document.querySelectorAll('.timeline-item');
+        let oncekiYil = -1;
+        let tumuSirali = true;
+
+        items.forEach((item) => {
+            const yil = parseInt(item.getAttribute('data-yil'));
+            const detay = item.getAttribute('data-detay');
+            const aciklamaElem = item.querySelector('.aciklama-alani');
+            
+            aciklamaElem.classList.remove('d-none');
+            aciklamaElem.innerHTML = `📅 <strong>${yil}</strong> — ${detay}`;
+
+            if (yil >= oncekiYil) {
+                item.classList.remove('border-danger', 'bg-danger-subtle');
+                item.classList.add('border-success', 'bg-success-subtle');
+            } else {
+                item.classList.remove('border-success', 'bg-success-subtle');
+                item.classList.add('border-danger', 'bg-danger-subtle');
+                tumuSirali = false;
+            }
+            oncekiYil = yil;
+        });
+
+        const sonucAlani = document.getElementById('sonucAlani');
+        sonucAlani.classList.remove('d-none', 'alert-success', 'alert-warning');
+        
+        if (tumuSirali) {
+            sonucAlani.classList.add('alert-success');
+            sonucAlani.innerText = "🎉 Harika! Tüm tarihi olayları eksiksiz ve doğru kronolojik sırayla dizdiniz.";
+        } else {
+            sonucAlani.classList.add('alert-warning');
+            sonucAlani.innerText = "⚠️ Bazı olayların sırası hatalı. Kırmızı işaretlenen kartların tarihlerini inceleyip tekrar deneyin.";
+        }
+    }
+</script>
+
+</body>
+</html>
