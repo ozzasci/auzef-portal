@@ -128,6 +128,15 @@ def giris_zorunlu(f):
         return f(*args, **kwargs)
     return wrap
 
+def sinav_oturumunu_temizle():
+    """Kullanıcının login oturumunu bozmadan sadece test değişkenlerini temizler."""
+    anahtarlar = [
+        "sorular", "aktif_ders", "sinav_modu", "mevcut_indeks", 
+        "cevaplar", "dogru", "yanlis", "bos", "toplam_sure_saniye"
+    ]
+    for key in anahtarlar:
+        session.pop(key, None)
+
 def drive_link_donustur(link):
     if not link:
         return ""
@@ -587,7 +596,10 @@ def unite_test_baslat(unite_no):
         return redirect(url_for("unite_pekistirme_listesi", ders=ders))
 
     sorular = [dict(r) for r in satirlar]
-    session.clear()
+    
+    # Kullanıcı oturumunu düşürmeden sadece sınavı sıfırla
+    sinav_oturumunu_temizle()
+
     session["sorular"] = sorular
     session["aktif_ders"] = f"{ders} (Ünite {unite_no} Pekiştirme)"
     session["sinav_modu"] = "ogrenme"
@@ -729,7 +741,9 @@ def sinav_baslat():
     random.shuffle(tum_sorular)
     secilen_sorular = tum_sorular[:limit] if (limit > 0 and len(tum_sorular) > limit) else tum_sorular
 
-    session.clear()
+    # Kullanıcı oturumunu düşürmeden sadece sınavı sıfırla
+    sinav_oturumunu_temizle()
+
     session["sorular"] = secilen_sorular
     session["aktif_ders"] = aktif_ders_adi
     session["sinav_modu"] = mod
@@ -1144,8 +1158,8 @@ def veritabani_sifirla():
     conn.close()
 
     session.clear()
-    session["bildirim"] = {"tur": "success", "metin": "Tüm veriler, kayıtlı PDF bağlantıları ve sınav geçmişi sıfırlandı."}
-    return redirect(url_for("ana_sayfa"))
+    session["bildirim"] = {"tur": "success", "metin": "Tüm veriler, kayıtlı PDF bağlantıları ve geçmiş silindi."}
+    return redirect(url_for("giris_yap"))
 
 if __name__ == "__main__":
     app.run(debug=True)
