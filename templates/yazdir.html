@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>AUZEF Deneme Sınavı Kitapçığı</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8fafc;
+            font-family: 'Times New Roman', Times, serif;
+            color: #000;
+        }
+        .print-container {
+            max-width: 900px;
+            margin: 20px auto;
+            background: #fff;
+            padding: 40px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.05);
+        }
+        .exam-header {
+            border-bottom: 2px solid #000;
+            padding-bottom: 12px;
+            margin-bottom: 24px;
+        }
+        .questions-grid {
+            column-count: 2;
+            column-gap: 36px;
+        }
+        .question-box {
+            break-inside: avoid;
+            margin-bottom: 22px;
+            font-size: 0.95rem;
+            line-height: 1.35;
+        }
+        .question-title {
+            font-weight: bold;
+            margin-bottom: 6px;
+        }
+        .option-item {
+            margin-bottom: 3px;
+            padding-left: 14px;
+            text-indent: -14px;
+        }
+        .answer-key-table {
+            break-inside: avoid;
+            margin-top: 30px;
+            border-top: 2px dashed #000;
+            padding-top: 20px;
+        }
+        @media print {
+            body { background: #fff; padding: 0; }
+            .print-container { max-width: 100%; margin: 0; padding: 0; box-shadow: none; }
+            .no-print { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container my-3 no-print text-center">
+    <button onclick="window.print()" class="btn btn-danger btn-lg px-4 fw-bold shadow-sm me-2">🖨️ PDF Olarak Kaydet / Yazdır</button>
+    <a href="/" class="btn btn-outline-secondary btn-lg px-4">← Ana Sayfaya Dön</a>
+</div>
+
+<div class="print-container">
+    <!-- SINAV BAŞLIĞI -->
+    <div class="exam-header text-center">
+        <h4 class="fw-bold m-0">İSTANBUL ÜNİVERSİTESİ AUZEF</h4>
+        <h5 class="fw-bold mt-1 text-uppercase">{{ aktif_ders }}</h5>
+        <div class="d-flex justify-content-between small text-muted mt-2 px-2">
+            <span>Soru Sayısı: <strong>{{ sorular|length }}</strong></span>
+            <span>Sınav Süresi: <strong>30 Dakika</strong></span>
+            <span>Puanlama: <strong>4 Yanlış 1 Doğruyu Götürür</strong></span>
+        </div>
+    </div>
+
+    <!-- SORULAR (2 SÜTUNLU KİTAPÇIK) -->
+    <div class="questions-grid">
+        {% for s in sorular %}
+            <div class="question-box">
+                <div class="question-title">
+                    {{ loop.index }}. {{ s.soru_metni }}
+                </div>
+                <div class="option-item"><strong>A)</strong> {{ s.secenek_a }}</div>
+                <div class="option-item"><strong>B)</strong> {{ s.secenek_b }}</div>
+                <div class="option-item"><strong>C)</strong> {{ s.secenek_c }}</div>
+                <div class="option-item"><strong>D)</strong> {{ s.secenek_d }}</div>
+                <div class="option-item"><strong>E)</strong> {{ s.secenek_e }}</div>
+            </div>
+        {% endfor %}
+    </div>
+
+    <!-- CEVAP ANAHTARI TABLOSU -->
+    <div class="answer-key-table">
+        <h6 class="fw-bold text-center mb-2">CEVAP ANAHTARI</h6>
+        <table class="table table-bordered table-sm text-center small mb-0">
+            <tr class="table-light">
+                {% for s in sorular %}
+                    <th>{{ loop.index }}</th>
+                {% endfor %}
+            </tr>
+            <tr>
+                {% for s in sorular %}
+                    <td class="fw-bold">{{ s.dogru_cevap }}</td>
+                {% endfor %}
+            </tr>
+        </table>
+    </div>
+</div>
+
+</body>
+</html>
