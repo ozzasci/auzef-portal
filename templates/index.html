@@ -50,7 +50,7 @@
             align-items: center;
             justify-content: space-between;
             padding: 12px 8px;
-            padding-bottom: 75px; /* Mobil alt bar payı */
+            padding-bottom: 75px;
             transition: background 0.3s ease, color 0.3s ease;
         }
 
@@ -65,7 +65,6 @@
             transition: background 0.3s ease, border-color 0.3s ease;
         }
 
-        /* Mobil Duyarlı Seçenek Butonları */
         .btn-option {
             text-align: left;
             padding: 14px 16px;
@@ -164,14 +163,6 @@
             height: 100%;
         }
 
-        .pdf-viewer-frame {
-            width: 100%;
-            height: 68vh;
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            background: #f8fafc;
-        }
-
         .timeline-item {
             cursor: grab;
             user-select: none;
@@ -191,7 +182,6 @@
             font-size: 0.8rem;
         }
 
-        /* MOBİL ALT NAVİGASYON BARI */
         .bottom-nav {
             position: fixed;
             bottom: 0;
@@ -257,7 +247,6 @@
                 </div>
                 <div class="d-flex align-items-center gap-1">
                     <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-2 py-1" onclick="toggleTheme()" style="font-size: 0.75rem;" id="themeToggleBtn">🌙 Gece</button>
-                    <!-- Masaüstü Navigasyon Butonları -->
                     <div class="d-none d-md-flex gap-1">
                         <a href="/ders-calis" class="btn btn-outline-success btn-sm rounded-pill fw-bold">🎓 Ders Oku</a>
                         <a href="/unite-pekistirme" class="btn btn-outline-primary btn-sm rounded-pill fw-bold">🎯 Pekiştirme</a>
@@ -340,7 +329,7 @@
                 <a href="/" class="btn btn-light btn-sm rounded-pill">← Geri</a>
             </div>
 
-            <form method="GET" action="/kronoloji" class="row g-2 mb-2">
+            <form method="GET" action="/kronoloji" class="row g-1 mb-2">
                 <div class="col-8">
                     <select name="ders" class="form-select form-select-sm rounded-3" onchange="this.form.submit()">
                         {% for d in dersler %}
@@ -561,13 +550,14 @@
                 </form>
             </div>
 
-        <!-- 3. DERS ÇALIŞMA ALANI & PDF OKUYUCU -->
+        <!-- 3. DERS ÇALIŞMA ALANI (YENİ SEKMEDE TAM EKRAN PDF AÇMA KARTI) -->
         {% elif durum == 'ogrenme_modu' %}
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <h6 class="fw-bold m-0 text-truncate" style="max-width: 200px;">{{ aktif_ders }}</h6>
-                <a href="/icerik-merkezi?ders={{ aktif_ders }}" class="btn btn-outline-success btn-sm rounded-pill" style="font-size: 0.75rem;">📥 PDF Ekle</a>
+                <a href="/icerik-merkezi?ders={{ aktif_ders }}" class="btn btn-outline-success btn-sm rounded-pill" style="font-size: 0.75rem;">📥 PDF Ekle / Değiştir</a>
             </div>
 
+            <!-- DERS VE ÜNİTE SEÇİMİ -->
             <form method="GET" action="/ders-calis" class="row g-1 mb-2">
                 <div class="col-7">
                     <select name="ders" class="form-select form-select-sm" onchange="this.form.submit()">
@@ -587,7 +577,8 @@
                 </div>
             </form>
 
-            <div class="card border-0 bg-body-tertiary rounded-3 p-2 mb-2">
+            <!-- KONTROL PANELI: TAKİP VE VİDEO -->
+            <div class="card border-0 bg-body-tertiary rounded-3 p-2 mb-3">
                 <div class="d-flex justify-content-between align-items-center">
                     <div class="d-flex gap-2">
                         <div class="form-check form-switch m-0">
@@ -599,7 +590,7 @@
                     </div>
                     <div class="d-flex gap-1">
                         <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-2 py-1" style="font-size: 0.75rem;" data-bs-toggle="modal" data-bs-target="#videoModal">
-                            🎥 Video
+                            🎥 Video Linki
                         </button>
                         <a href="/unite-test-baslat/{{ aktif_unite }}?ders={{ aktif_ders }}" class="btn btn-primary btn-sm rounded-pill px-2 py-1 fw-bold" style="font-size: 0.75rem;">
                             🎯 Test Çöz
@@ -614,29 +605,48 @@
                 {% endif %}
             </div>
 
+            <!-- YENİ SEKMEDE PDF AÇMA KARTI -->
             {% if pdf_url %}
-                <div class="d-flex justify-content-between align-items-center mb-1">
-                    <span class="small text-muted" style="font-size: 0.75rem;">
-                        {% if kaynak_turu == 'drive' %}Google Drive Kaynağı{% else %}Yerel PDF{% endif %}
-                    </span>
-                    <a href="{{ pdf_url }}" target="_blank" class="btn btn-link btn-sm p-0 text-decoration-none" style="font-size: 0.75rem;">
-                        ↗️ Tam Ekran Aç
-                    </a>
+                <div class="card border-0 shadow-sm rounded-4 p-4 text-center my-3" style="background: linear-gradient(145deg, var(--card-bg), var(--category-bg));">
+                    <div class="mb-3">
+                        <span style="font-size: 3rem;">📖</span>
+                    </div>
+                    <h5 class="fw-bold mb-1">{{ aktif_ders }}</h5>
+                    <p class="text-muted small mb-3">
+                        {{ aktif_unite }}. Ünite Ders Fasikülü (PDF) hazır.
+                        <br>
+                        <span class="badge bg-secondary-subtle text-secondary mt-1">
+                            Kaynak: {% if kaynak_turu == 'drive' %}Google Drive Bulut Bağlantısı{% else %}Yerel PDF Dosyası{% endif %}
+                        </span>
+                    </p>
+
+                    <div class="d-grid gap-2" style="max-width: 340px; margin: 0 auto;">
+                        <a href="{{ pdf_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-lg rounded-pill fw-bold py-3 shadow-sm">
+                            Fasikülü Yeni Sekmede Aç ↗️
+                        </a>
+                        <small class="text-muted" style="font-size: 0.75rem;">
+                            (Telefonunuzun veya tarayıcınızın tam ekran PDF okuyucusunda açılır)
+                        </small>
+                    </div>
                 </div>
-                <iframe src="{{ pdf_url }}" class="pdf-viewer-frame shadow-sm" title="Ders Fasikülü"></iframe>
             {% else %}
-                <div class="text-center py-4 border border-dashed rounded-3 p-3 text-muted bg-body-tertiary">
-                    <p class="small mb-2">Bu üniteye henüz PDF eklenmemiş.</p>
-                    <a href="/icerik-merkezi?ders={{ aktif_ders }}" class="btn btn-primary btn-sm rounded-pill">📥 PDF Ekle</a>
+                <div class="text-center py-5 border border-dashed rounded-4 p-3 text-muted bg-body-tertiary my-3">
+                    <span style="font-size: 2.5rem;" class="d-block mb-2">📂</span>
+                    <h6 class="fw-bold mb-1">Bu Üniteye Ait PDF Bulunamadı</h6>
+                    <p class="small text-muted mb-3">Google Drive bağlantısı veya PDF dosyası ekleyerek buradan tek tıkla açabilirsiniz.</p>
+                    <a href="/icerik-merkezi?ders={{ aktif_ders }}" class="btn btn-primary btn-sm rounded-pill px-3 py-2 fw-bold">
+                        📥 PDF Bağlantısı Ekle
+                    </a>
                 </div>
             {% endif %}
 
-            <div class="d-flex justify-content-between mt-2">
+            <!-- ÖNCEKİ / SONRAKİ ÜNİTE NAVİGASYONU -->
+            <div class="d-flex justify-content-between mt-3">
                 {% if aktif_unite > 1 %}
-                    <a href="/ders-calis?ders={{ aktif_ders }}&unite={{ aktif_unite - 1 }}" class="btn btn-outline-primary btn-sm rounded-pill">← Önceki</a>
+                    <a href="/ders-calis?ders={{ aktif_ders }}&unite={{ aktif_unite - 1 }}" class="btn btn-outline-primary btn-sm rounded-pill px-3">← Önceki Ünite</a>
                 {% else %}<div></div>{% endif %}
                 {% if aktif_unite < 14 %}
-                    <a href="/ders-calis?ders={{ aktif_ders }}&unite={{ aktif_unite + 1 }}" class="btn btn-primary btn-sm rounded-pill">Sonraki →</a>
+                    <a href="/ders-calis?ders={{ aktif_ders }}&unite={{ aktif_unite + 1 }}" class="btn btn-primary btn-sm rounded-pill px-3">Sonraki Ünite →</a>
                 {% endif %}
             </div>
 
@@ -1054,7 +1064,9 @@
 
         container.addEventListener('dragstart', (e) => {
             draggingItem = e.target.closest('.timeline-item');
-            if (draggingItem) draggingItem.classList.add('dragging');
+            if (draggingItem) {
+                draggingItem.classList.add('dragging');
+            }
         });
 
         container.addEventListener('dragend', (e) => {
