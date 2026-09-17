@@ -763,7 +763,7 @@
 
             {% if kartlar %}
                 <div class="text-center mb-2 text-muted small">
-                    <span id="kartSayac">1</span> / {{ kartlar|length }} Kart • <em>Cevabı görmek için karta dokunun</em>
+                    <span id="kartSayac">1</span> / <span id="kartToplam">{{ kartlar|length }}</span> Kart • <em>Cevabı görmek için karta dokunun</em>
                 </div>
 
                 <div id="flashcardContainer" class="mb-3">
@@ -784,8 +784,8 @@
                 </div>
 
                 <div class="d-flex justify-content-between align-items-center gap-2">
-                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4" onclick="kartGec(-1)">← Önceki</button>
-                    <button type="button" class="btn btn-primary rounded-pill px-4 fw-bold" onclick="kartGec(1)">Sonraki →</button>
+                    <button type="button" id="btnKartGeri" class="btn btn-outline-secondary rounded-pill px-4" onclick="kartGec(event, -1)">← Önceki</button>
+                    <button type="button" id="btnKartIleri" class="btn btn-primary rounded-pill px-4 fw-bold" onclick="kartGec(event, 1)">Sonraki →</button>
                 </div>
             {% else %}
                 <div class="text-center py-5 text-muted">
@@ -1200,22 +1200,45 @@
         fetch('/unite-durum-guncelle', { method: 'POST', body: formData });
     }
 
-    // Flashcard Fonksiyonları
+    // Flashcard Geçiş Motoru (Yenilemesiz / Anlık Geçiş)
     let aktifKartIndex = 1;
-    const toplamKart = parseInt("{{ kartlar|length if kartlar else 0 }}");
 
     function kartCevir(elem) {
         elem.querySelector('.flashcard-inner').classList.toggle('flipped');
     }
 
-    function kartGec(yon) {
+    function kartGec(e, yon) {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        const kartElemanlari = document.querySelectorAll('.kart-ogesi');
+        const toplamKart = kartElemanlari.length;
+        if (toplamKart === 0) return;
+
         let yeniIndex = aktifKartIndex + yon;
+
         if (yeniIndex >= 1 && yeniIndex <= toplamKart) {
-            document.getElementById(`kart_${aktifKartIndex}`).classList.add('d-none');
-            document.getElementById(`kart_${aktifKartIndex}`).querySelector('.flashcard-inner').classList.remove('flipped');
-            aktifKartIndex = yeniIndex;
-            document.getElementById(`kart_${aktifKartIndex}`).classList.remove('d-none');
-            document.getElementById('kartSayac').innerText = aktifKartIndex;
+            const mevcutKart = document.getElementById(`kart_${aktifKartIndex}`);
+            const yeniKart = document.getElementById(`kart_${yeniIndex}`);
+
+            if (mevcutKart && yeniKart) {
+                // 1. Mevcut kartı gizle ve ters dönmüşse düzelt
+                mevcutKart.classList.add('d-none');
+                const innerMevcut = mevcutKart.querySelector('.flashcard-inner');
+                if (innerMevcut) innerMevcut.classList.remove('flipped');
+
+                // 2. Yeni kartı göster
+                yeniKart.classList.remove('d-none');
+                const innerYeni = yeniKart.querySelector('.flashcard-inner');
+                if (innerYeni) innerYeni.classList.remove('flipped');
+
+                // 3. Sayacı güncelle
+                aktifKartIndex = yeniIndex;
+                const sayacElem = document.getElementById('kartSayac');
+                if (sayacElem) sayacElem.innerText = aktifKartIndex;
+            }
         }
     }
 
