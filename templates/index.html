@@ -182,16 +182,17 @@
             font-size: 0.8rem;
         }
 
-        /* FLASHCARD DOKUNMATİK STİLLERİ */
+        /* FLASHCARD STİLLERİ */
         .flashcard-wrapper {
             perspective: 1000px;
-            min-height: 240px;
+            min-height: 250px;
             cursor: pointer;
+            user-select: none;
         }
         .flashcard-inner {
             position: relative;
             width: 100%;
-            min-height: 240px;
+            min-height: 250px;
             text-align: center;
             transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1);
             transform-style: preserve-3d;
@@ -768,7 +769,7 @@
 
                 <div id="flashcardContainer" class="mb-3">
                     {% for k in kartlar %}
-                        <div class="flashcard-wrapper kart-ogesi {% if not loop.first %}d-none{% endif %}" id="kart_{{ loop.index }}" onclick="kartCevir(this)">
+                        <div class="flashcard-wrapper kart-ogesi {% if not loop.first %}d-none{% endif %}" data-index="{{ loop.index0 }}">
                             <div class="flashcard-inner">
                                 <div class="flashcard-front">
                                     <span class="badge bg-primary-subtle text-primary mb-2 rounded-pill px-3">SORU / KAVRAM</span>
@@ -784,8 +785,8 @@
                 </div>
 
                 <div class="d-flex justify-content-between align-items-center gap-2">
-                    <button type="button" id="btnKartGeri" class="btn btn-outline-secondary rounded-pill px-4" onclick="kartGec(event, -1)">← Önceki</button>
-                    <button type="button" id="btnKartIleri" class="btn btn-primary rounded-pill px-4 fw-bold" onclick="kartGec(event, 1)">Sonraki →</button>
+                    <button type="button" id="btnOncekiKart" class="btn btn-outline-secondary rounded-pill px-4">← Önceki</button>
+                    <button type="button" id="btnSonrakiKart" class="btn btn-primary rounded-pill px-4 fw-bold">Sonraki →</button>
                 </div>
             {% else %}
                 <div class="text-center py-5 text-muted">
@@ -1200,47 +1201,56 @@
         fetch('/unite-durum-guncelle', { method: 'POST', body: formData });
     }
 
-    // Flashcard Geçiş Motoru (Yenilemesiz / Anlık Geçiş)
-    let aktifKartIndex = 1;
+    // Flashcard Motoru (Doğrudan EventListener ile Bağlı, Kesinlikle Sayfa Yenilemez)
+    document.addEventListener('DOMContentLoaded', () => {
+        const kartlar = document.querySelectorAll('.kart-ogesi');
+        const btnOnceki = document.getElementById('btnOncekiKart');
+        const btnSonraki = document.getElementById('btnSonrakiKart');
+        const sayac = document.getElementById('kartSayac');
 
-    function kartCevir(elem) {
-        elem.querySelector('.flashcard-inner').classList.toggle('flipped');
-    }
+        if (!kartlar.length) return;
 
-    function kartGec(e, yon) {
-        if (e) {
-            e.preventDefault();
-            e.stopPropagation();
+        let currentIndex = 0;
+
+        kartlar.forEach(kart => {
+            kart.addEventListener('click', (e) => {
+                e.preventDefault();
+                const inner = kart.querySelector('.flashcard-inner');
+                if (inner) inner.classList.toggle('flipped');
+            });
+        });
+
+        function kartGoster(yeniIndex) {
+            if (yeniIndex < 0 || yeniIndex >= kartlar.length) return;
+
+            kartlar[currentIndex].classList.add('d-none');
+            const innerEski = kartlar[currentIndex].querySelector('.flashcard-inner');
+            if (innerEski) innerEski.classList.remove('flipped');
+
+            currentIndex = yeniIndex;
+            kartlar[currentIndex].classList.remove('d-none');
+            const innerYeni = kartlar[currentIndex].querySelector('.flashcard-inner');
+            if (innerYeni) innerYeni.classList.remove('flipped');
+
+            if (sayac) sayac.textContent = currentIndex + 1;
         }
 
-        const kartElemanlari = document.querySelectorAll('.kart-ogesi');
-        const toplamKart = kartElemanlari.length;
-        if (toplamKart === 0) return;
-
-        let yeniIndex = aktifKartIndex + yon;
-
-        if (yeniIndex >= 1 && yeniIndex <= toplamKart) {
-            const mevcutKart = document.getElementById(`kart_${aktifKartIndex}`);
-            const yeniKart = document.getElementById(`kart_${yeniIndex}`);
-
-            if (mevcutKart && yeniKart) {
-                // 1. Mevcut kartı gizle ve ters dönmüşse düzelt
-                mevcutKart.classList.add('d-none');
-                const innerMevcut = mevcutKart.querySelector('.flashcard-inner');
-                if (innerMevcut) innerMevcut.classList.remove('flipped');
-
-                // 2. Yeni kartı göster
-                yeniKart.classList.remove('d-none');
-                const innerYeni = yeniKart.querySelector('.flashcard-inner');
-                if (innerYeni) innerYeni.classList.remove('flipped');
-
-                // 3. Sayacı güncelle
-                aktifKartIndex = yeniIndex;
-                const sayacElem = document.getElementById('kartSayac');
-                if (sayacElem) sayacElem.innerText = aktifKartIndex;
-            }
+        if (btnSonraki) {
+            btnSonraki.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                kartGoster(currentIndex + 1);
+            });
         }
-    }
+
+        if (btnOnceki) {
+            btnOnceki.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                kartGoster(currentIndex - 1);
+            });
+        }
+    });
 
     // Kronoloji Sürükle & Bırak Motoru
     const container = document.getElementById('kronolojiListesi');
@@ -1353,9 +1363,9 @@
     // PWA Service Worker Kaydı
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-            navigator.serviceWorker.register('/sw.js')[cite: 3]
-                .then(reg => console.log('Service Worker başarıyla kaydedildi:', reg.scope))[cite: 3]
-                .catch(err => console.log('Service Worker kaydı başarısız:', err));[cite: 3]
+            navigator.serviceWorker.register('/sw.js')
+                .then(reg => console.log('Service Worker başarıyla kaydedildi:', reg.scope))
+                .catch(err => console.log('Service Worker kaydı başarısız:', err));
         });
     }
 </script>
