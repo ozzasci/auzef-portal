@@ -549,6 +549,42 @@
                     <button type="submit" class="btn btn-outline-success btn-sm w-100 rounded-pill fw-semibold">Metinden Soruları Çözümle</button>
                 </form>
             </div>
+        <!-- OTOMATİK KILAVUZ / ÖZET YÜKLEME KARTI -->
+            <div class="upload-card border-info-subtle mb-3 mt-3">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="fs-4">⚡</span>
+                    <h6 class="fw-bold m-0 text-primary">Ders Kılavuzunu Otomatik İşle (Hap Notlar & Flashcards)</h6>
+                </div>
+                <p class="text-muted small mb-3">
+                    Elindeki özet kılavuz PDF'inin Google Drive linkini yapıştır (veya doğrudan PDF yükle). Sistem 14 üniteyi otomatik ayrıştırıp hem <strong>Hap Notlar</strong> listesine hem de <strong>Hafıza Kartlarına (Flashcards)</strong> aktarır.
+                </p>
+
+                <form method="POST" action="/otomatik-klavuz-isle" enctype="multipart/form-data">
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Hangi Dersin Kılavuzu?</label>
+                        <select name="ders_adi" class="form-select form-select-sm" required>
+                            {% for d in dersler %}
+                                <option value="{{ d }}" {% if aktif_ders == d %}selected{% endif %}>{{ d }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-7">
+                            <label class="form-label small fw-semibold">Yöntem 1: Google Drive Linki</label>
+                            <input type="url" name="drive_url" class="form-control form-control-sm" placeholder="https://drive.google.com/file/d/.../view">
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label small fw-semibold">Yöntem 2: Cihazdan PDF Seç</label>
+                            <input type="file" name="klavuz_dosya" class="form-control form-control-sm" accept=".pdf">
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-info btn-sm w-100 rounded-pill fw-bold text-dark">
+                        ⚡ Kılavuzu Çözümle ve Sisteme Aktar
+                    </button>
+                </form>
+            </div>
 
         <!-- 3. DERS ÇALIŞMA ALANI (YENİ SEKMEDE TAM EKRAN PDF AÇMA KARTI) -->
         {% elif durum == 'ogrenme_modu' %}
