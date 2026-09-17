@@ -130,6 +130,54 @@ def veritabani_hazirla():
 
 veritabani_hazirla()
 
+GAYRIMUSLIM_OZETLERI = {
+    1: [
+        "Osmanlı'da Müslümanlara 'millet-i hâkime' denilirdi.",
+        "Gayrimüslimlere 'sâir milletler, milel-i gayrimüslime, Tebaa-i sâdıka' denirdi.",
+        "Gayrimüslimler İslam Hukukuna göre zımmi statüsüyle yönetiliyordu.",
+        "Gayrimüslimlerin devlete ödedikleri verginin adı cizye idi.",
+        "Millet başı olan patriklerin göreve gelirken ödedikleri vergi pişkeş idi.",
+        "Hahambaşıların ödedikleri vergiye Rav Akçesi denilirdi.",
+        "Dinî liderlerin emirlerindeki yeniçeri birliğine Yasakçı denirdi.",
+        "Fatih, Rumların Patriklik merkezi olarak Havariyyun Kilisesi'ne izin verdi.",
+        "Ermeni cemaati idaresinde yetki sahibi zengin sınıfa amira denir.",
+        "Yahudilerin mahalle/cemaat örgütlenmesine kehal, mahkemelerine bet-din denirdi.",
+        "İstanbul'un ilk hahambaşısı Moşe Kapsali'dir."
+    ],
+    2: [
+        "Osmanlı Ermenileri üzerinde en etkili misyonerler Katolik misyonerleridir.",
+        "Patriklikle Roma kilisesini birleştirmeyi hedefleyen rahip Sivaslı Mıhitar'dır.",
+        "İlk nizamname 1850 tarihli Katolik Milleti Nizamnamesi'dir.",
+        "Nasturilik'ten ayrılarak Katolikliği kabul edenlere Keldani denmiştir.",
+        "Osmanlı'da en yaygın misyonerlik faaliyetini ABCFM (Amerikan Board) yürütmüştür.",
+        "Osmanlı'da ilk Protestan kilisesi 1842'de Kudüs'te, 1846'da İstanbul'da açıldı."
+    ],
+    3: [
+        "Tanzimat Fermanı 3 Kasım 1839'da Gülhane'de Mustafa Reşit Paşa tarafından okundu.",
+        "1844'te dinden dönme (irtidad) için verilen ölüm cezası kaldırıldı.",
+        "Gayrimüslimlerin askerlik yapmaması karşılığı alınan vergi bedel-i askerî oldu.",
+        "1862'de ilan edilen Rum Patrikliği Nizamnamesi 8 farklı nizamnameden oluşur.",
+        "Ermeniler nizamnamelerine 'anayasa' (sahmanadrutyun) diyordu."
+    ]
+}
+
+def varsayilan_ozetleri_yukle():
+    try:
+        conn = veritabani_baglan()
+        cursor = conn.cursor()
+        ders_adi = "20. Yüzyıl Türkiye’sinde Gayrimüslimler ve Kurumları"
+        cursor.execute("SELECT COUNT(*) FROM unite_ozetleri WHERE TRIM(ders_adi) LIKE ?", (f"%{ders_adi}%",))
+        if cursor.fetchone()[0] == 0:
+            for u_no, maddeler in GAYRIMUSLIM_OZETLERI.items():
+                for m in maddeler:
+                    cursor.execute("INSERT INTO unite_ozetleri (ders_adi, unite_no, madde) VALUES (?, ?, ?)", (ders_adi, u_no, m))
+            conn.commit()
+        conn.close()
+    except Exception:
+        pass
+
+varsayilan_ozetleri_yukle()
+
 def giris_zorunlu(f):
     @wraps(f)
     def wrap(*args, **kwargs):
@@ -233,10 +281,6 @@ def auzef_harfsiz_ve_harfli_soru_ayikla(metin, unite_no=1):
     return sorular
 
 def klavuz_pdf_ayikla(pdf_bytes):
-    """
-    AUZEF Ders Kılavuzu PDF'lerini '1. BAŞLIK', '2. BAŞLIK' formatına göre
-    kesin olarak ünite bazında ayıklar.
-    """
     reader = PdfReader(io.BytesIO(pdf_bytes))
     tam_metin = ""
     for page in reader.pages:
@@ -244,39 +288,50 @@ def klavuz_pdf_ayikla(pdf_bytes):
         if txt:
             tam_metin += txt + "\n"
 
-    # Sayfa numaraları, Telegram ve telif başlıklarını temizle
     satirlar = tam_metin.splitlines()
     unite_verileri = {}
     mevcut_unite = 1
+    tamamlanmamis_madde = ""
 
     for satir in satirlar:
         s = satir.strip()
         if not s:
             continue
 
-        # Üstbilgi / Altbilgi / Reklam satırlarını atla
-        if any(kelime in s.upper() for kelime in ["FAITH S. AKADEMİ", "TELEGRAM", "AUZEF TARİH", "SINIF KANALI", "KILAVUZU"]):
+        s_upper = s.upper()
+        if any(kelime in s_upper for kelime in ["FAITH S. AKADEMİ", "TELEGRAM", "AUZEF TARİH", "SINIF KANALI"]):
             continue
-
-        # Sayfa numaralarını atla (Örn: "1", "2", "3")
+        if re.match(r'^\s*20\.\s*(YY|YÜZYIL)', s, re.IGNORECASE) or s.endswith("KILAVUZU"):
+            continue
         if s.isdigit():
             continue
 
-        # Ünite Başlığı Tespiti: "1. ", "2. ", "14. " ile başlayan büyük harfli satırlar
-        baslik_eslesme = re.match(r'^(\d{1,2})\.\s+([A-ZÇĞİÖŞÜIİ\s\',-]{4,})$', s)
-        if baslik_eslesme:
-            u_no = int(baslik_eslesme.group(1))
-            if 1 <= u_no <= 14:
-                mevcut_unite = u_no
+        baslik_m = re.match(r'^([1-9]|1[0-4])\.\s+([A-ZÇĞİIÖŞÜ\s\',-]{4,})$', s)
+        if baslik_m:
+            if tamamlanmamis_madde:
                 if mevcut_unite not in unite_verileri:
                     unite_verileri[mevcut_unite] = []
-                continue
-
-        # 15 karakterden uzun olan tüm bilgi cümlelerini madde olarak kaydet
-        if len(s) >= 15:
+                unite_verileri[mevcut_unite].append(tamamlanmamis_madde.strip())
+                tamamlanmamis_madde = ""
+            mevcut_unite = int(baslik_m.group(1))
             if mevcut_unite not in unite_verileri:
                 unite_verileri[mevcut_unite] = []
-            unite_verileri[mevcut_unite].append(s)
+            continue
+
+        if s.endswith((".", ":", "!", "?", "idi", "denirdi", "denilirdi")):
+            birlesik = (tamamlanmamis_madde + " " + s).strip()
+            tamamlanmamis_madde = ""
+            if len(birlesik) >= 12:
+                if mevcut_unite not in unite_verileri:
+                    unite_verileri[mevcut_unite] = []
+                unite_verileri[mevcut_unite].append(birlesik)
+        else:
+            tamamlanmamis_madde = (tamamlanmamis_madde + " " + s).strip()
+
+    if tamamlanmamis_madde and len(tamamlanmamis_madde) >= 12:
+        if mevcut_unite not in unite_verileri:
+            unite_verileri[mevcut_unite] = []
+        unite_verileri[mevcut_unite].append(tamamlanmamis_madde)
 
     return unite_verileri
 
@@ -394,8 +449,14 @@ def otomatik_klavuz_isle():
 
     pdf_bytes = None
 
-    # 1. Drive Linki ile İndirme
-    if drive_link:
+    if yuklenen_dosya and yuklenen_dosya.filename != "" and yuklenen_dosya.filename.lower().endswith(".pdf"):
+        try:
+            pdf_bytes = yuklenen_dosya.read()
+        except Exception as e:
+            session["bildirim"] = {"tur": "danger", "metin": f"Dosya okunamadı: {str(e)}"}
+            return redirect(url_for("icerik_merkezi", ders=ders))
+
+    elif drive_link:
         dosya_id = drive_id_yakala(drive_link)
         if not dosya_id:
             session["bildirim"] = {"tur": "danger", "metin": "Geçersiz Google Drive bağlantısı."}
@@ -403,48 +464,40 @@ def otomatik_klavuz_isle():
 
         indirme_url = f"https://drive.google.com/uc?export=download&id={dosya_id}"
         try:
-            req = urllib.request.Request(indirme_url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
-            with urllib.request.urlopen(req, timeout=25) as response:
+            req = urllib.request.Request(indirme_url, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=20) as response:
                 pdf_bytes = response.read()
         except Exception as e:
-            session["bildirim"] = {"tur": "danger", "metin": f"Drive indirme hatası: {str(e)}. Lütfen cihazdan PDF seçerek yükleyin."}
+            session["bildirim"] = {"tur": "danger", "metin": f"Drive dosya çekme hatası: {str(e)}. Cihazdan PDF yüklemeyi deneyin."}
             return redirect(url_for("icerik_merkezi", ders=ders))
 
-    # 2. Cihazdan PDF Yükleme
-    elif yuklenen_dosya and yuklenen_dosya.filename.lower().endswith(".pdf"):
-        pdf_bytes = yuklenen_dosya.read()
-
     else:
-        session["bildirim"] = {"tur": "warning", "metin": "Lütfen geçerli bir PDF seçin veya Drive linki girin."}
+        session["bildirim"] = {"tur": "warning", "metin": "Lütfen cihazdan bir PDF dosyası seçin veya geçerli bir bağlantı girin."}
         return redirect(url_for("icerik_merkezi", ders=ders))
 
     try:
-        ayiklanan_uniteler = klavuz_pdf_ayikla(pdf_bytes)
-        
-        # Madde sayısı kontrolü
-        toplam_madde = sum(len(maddeler) for maddeler in ayiklanan_uniteler.values())
+        ayiklanan = klavuz_pdf_ayikla(pdf_bytes)
+        toplam_madde = sum(len(maddeler) for maddeler in ayiklanan.values())
+
         if toplam_madde == 0:
-            session["bildirim"] = {"tur": "warning", "metin": "PDF okundu ancak ünite başlıkları algılanamadı. Dosyanın taranmış resim (OCR'sız) olmadığından emin olun."}
+            session["bildirim"] = {"tur": "danger", "metin": "PDF okundu ancak içinde kılavuz formatına uygun ünite ve bilgi satırları bulunamadı."}
             return redirect(url_for("icerik_merkezi", ders=ders))
 
         conn = veritabani_baglan()
         cursor = conn.cursor()
-        
-        # Bu derse ait eski kılavuz özetlerini temizle
         cursor.execute("DELETE FROM unite_ozetleri WHERE TRIM(ders_adi) LIKE ?", (f"%{ders}%",))
-
-        for u_no, maddeler in ayiklanan_uniteler.items():
+        for u_no, maddeler in ayiklanan.items():
             for m in maddeler:
                 cursor.execute("INSERT INTO unite_ozetleri (ders_adi, unite_no, madde) VALUES (?, ?, ?)", (ders, u_no, m))
 
         conn.commit()
         conn.close()
 
-        session["bildirim"] = {"tur": "success", "metin": f"Tebrikler! '{ders}' için {len(ayiklanan_uniteler)} üniteden toplam {toplam_madde} hap bilgi başarıyla sisteme aktarıldı."}
+        session["bildirim"] = {"tur": "success", "metin": f"✅ İşlem Başarılı! {len(ayiklanan)} üniteden toplam {toplam_madde} hap bilgi sisteme aktarıldı."}
         return redirect(url_for("ders_calis", ders=ders, unite=1))
 
     except Exception as e:
-        session["bildirim"] = {"tur": "danger", "metin": f"Kılavuz işleme hatası: {str(e)}"}
+        session["bildirim"] = {"tur": "danger", "metin": f"Ayrıştırma hatası oluştu: {str(e)}"}
         return redirect(url_for("icerik_merkezi", ders=ders))
 
 @app.route("/yukle-pdf-dosya", methods=["POST"])
@@ -656,7 +709,6 @@ def hafiza_kartlari():
         if not metin:
             continue
 
-        # Kartın ön ve arka yüzünü akıllıca ayır
         if " denilirdi" in metin or " denirdi" in metin or " adı verilmektedir" in metin:
             parcalar = re.split(r' (?:denilirdi|denirdi|adı verilmektedir)', metin)
             on_yuz = parcalar[0] + " kavramı nasıl adlandırılırdı?"
