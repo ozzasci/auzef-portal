@@ -631,17 +631,23 @@ def hafiza_kartlari():
 
     kartlar = []
     for s in satirlar:
-        metin = s["madde"]
+        metin = s["madde"].strip()
+        if not metin:
+            continue
+
+        # Kartın ön ve arka yüzünü akıllıca ayır
         if " denilirdi" in metin or " denirdi" in metin or " adı verilmektedir" in metin:
             parcalar = re.split(r' (?:denilirdi|denirdi|adı verilmektedir)', metin)
-            on_yuz = parcalar[0] + " ne olarak adlandırılırdı?"
+            on_yuz = parcalar[0] + " kavramı nasıl adlandırılırdı?"
             arka_yuz = metin
-        elif " idi" in metin or " olmuştur" in metin:
-            on_yuz = metin.split(" ")[0] + " ile ilgili temel hüküm nedir?"
+        elif " idi" in metin:
+            parcalar = metin.split(" idi")
+            on_yuz = parcalar[0] + " nedir / kimdir?"
             arka_yuz = metin
         else:
-            on_yuz = f"📌 {secilen_unite}. Ünite Kritik Notu"
+            on_yuz = f"📌 {secilen_unite}. Ünite Kritik Sınav Bilgisi"
             arka_yuz = metin
+
         kartlar.append({"on": on_yuz, "arka": arka_yuz})
 
     random.shuffle(kartlar)
