@@ -288,53 +288,61 @@ def klavuz_pdf_ayikla(pdf_bytes):
         if txt:
             tam_metin += txt + "\n"
 
+    # Sayfa üstbilgisi, kanal ve reklam satırlarını temizle
     satirlar = tam_metin.splitlines()
+    temiz_satirlar = []
+    for s in satirlar:
+        st = s.strip()
+        if not st:
+            continue
+        st_upper = st.upper()
+        if any(kelime in st_upper for kelime in ["FAITH S. AKADEMİ", "TELEGRAM", "AUZEF TARİH", "SINIF KANALI"]):
+            continue
+        if re.match(r'^\s*20\.\s*(YY|YÜZYIL)', st, re.IGNORECASE) or st.endswith("KILAVUZU") or st.isdigit():
+            continue
+        temiz_satirlar.append(st)
+
+    birlestirilmis_metin = "\n".join(temiz_satirlar)
+
+    # Ünite başlıklarını yakala: "1. OSMANLI...", "2. MİSYONERLİK..."
+    pattern = r'(?:^|\n)\s*([1-9]|1[0-4])\.\s+([A-ZÇĞİIÖŞÜ\s\',-]{4,})(?=\n)'
+    bolumler = re.split(pattern, birlestirilmis_metin)
+
     unite_verileri = {}
-    mevcut_unite = 1
-    tamamlanmamis_madde = ""
 
-    for satir in satirlar:
-        s = satir.strip()
-        if not s:
-            continue
+    # re.split sonucu: [ön_metin, unite_no_1, baslik_1, icerik_1, unite_no_2, baslik_2, icerik_2, ...]
+    if len(bolumler) > 1:
+        for i in range(1, len(bolumler), 3):
+            u_no = int(bolumler[i])
+            icerik = bolumler[i+2].strip()
 
-        s_upper = s.upper()
-        if any(kelime in s_upper for kelime in ["FAITH S. AKADEMİ", "TELEGRAM", "AUZEF TARİH", "SINIF KANALI"]):
-            continue
-        if re.match(r'^\s*20\.\s*(YY|YÜZYIL)', s, re.IGNORECASE) or s.endswith("KILAVUZU"):
-            continue
-        if s.isdigit():
-            continue
+            # Ünitenin altındaki satırları tara
+            ham_maddeler = icerik.split("\n")
+            tamamlanmis_cumleler = []
+            tampon = ""
 
-        baslik_m = re.match(r'^([1-9]|1[0-4])\.\s+([A-ZÇĞİIÖŞÜ\s\',-]{4,})$', s)
-        if baslik_m:
-            if tamamlanmamis_madde:
-                if mevcut_unite not in unite_verileri:
-                    unite_verileri[mevcut_unite] = []
-                unite_verileri[mevcut_unite].append(tamamlanmamis_madde.strip())
-                tamamlanmamis_madde = ""
-            mevcut_unite = int(baslik_m.group(1))
-            if mevcut_unite not in unite_verileri:
-                unite_verileri[mevcut_unite] = []
-            continue
+            for satir in ham_maddeler:
+                satir = satir.strip()
+                if not satir:
+                    continue
 
-        if s.endswith((".", ":", "!", "?", "idi", "denirdi", "denilirdi")):
-            birlesik = (tamamlanmamis_madde + " " + s).strip()
-            tamamlanmamis_madde = ""
-            if len(birlesik) >= 12:
-                if mevcut_unite not in unite_verileri:
-                    unite_verileri[mevcut_unite] = []
-                unite_verileri[mevcut_unite].append(birlesik)
-        else:
-            tamamlanmamis_madde = (tamamlanmamis_madde + " " + s).strip()
+                if tampon:
+                    tampon += " " + satir
+                else:
+                    tampon = satir
 
-    if tamamlanmamis_madde and len(tamamlanmamis_madde) >= 12:
-        if mevcut_unite not in unite_verileri:
-            unite_verileri[mevcut_unite] = []
-        unite_verileri[mevcut_unite].append(tamamlanmamis_madde)
+                # Cümle sonu belirteçleri: nokta, iki nokta veya karakteristik yüklemler
+                if tampon.endswith((".", ":", "!", "?", "idi", "denirdi", "denilirdi", "olmuştur", "edilmiştir", "almıştır", "başlamıştır")):
+                    if len(tampon) >= 15:
+                        tamamlanmis_cumleler.append(tampon)
+                    tampon = ""
+
+            if tampon and len(tampon) >= 15:
+                tamamlanmis_cumleler.append(tampon)
+
+            unite_verileri[u_no] = tamamlanmis_cumleler
 
     return unite_verileri
-
 @app.route("/giris", methods=["GET", "POST"])
 def giris_yap():
     if "kullanici_id" in session:
