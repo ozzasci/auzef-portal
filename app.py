@@ -1141,7 +1141,6 @@ def yedek_yukle():
         session["bildirim"] = {"tur": "danger", "metin": f"Hata: {str(e)}"}
 
     return redirect(url_for("ana_sayfa"))
-
 @app.route("/sifirla", methods=["POST"])
 @giris_zorunlu
 def veritabani_sifirla():
@@ -1159,8 +1158,8 @@ def veritabani_sifirla():
     session.clear()
     session["bildirim"] = {"tur": "success", "metin": "Tüm veriler, kayıtlı PDF bağlantıları ve geçmiş silindi."}
     return redirect(url_for("giris_yap"))
-    
-    @app.route("/sw.js")
+
+@app.route("/sw.js")
 def service_worker():
     return send_from_directory(os.path.join(app.root_path, "static"), "sw.js", mimetype="application/javascript")
 
