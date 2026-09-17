@@ -7,6 +7,7 @@ import random
 from datetime import datetime
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, Response
+from flask import send_from_directory
 from werkzeug.security import generate_password_hash, check_password_hash
 from pypdf import PdfReader
 
@@ -1158,6 +1159,10 @@ def veritabani_sifirla():
     session.clear()
     session["bildirim"] = {"tur": "success", "metin": "Tüm veriler, kayıtlı PDF bağlantıları ve geçmiş silindi."}
     return redirect(url_for("giris_yap"))
+    
+    @app.route("/sw.js")
+def service_worker():
+    return send_from_directory(os.path.join(app.root_path, "static"), "sw.js", mimetype="application/javascript")
 
 if __name__ == "__main__":
     app.run(debug=True)
