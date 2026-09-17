@@ -233,34 +233,50 @@ def auzef_harfsiz_ve_harfli_soru_ayikla(metin, unite_no=1):
     return sorular
 
 def klavuz_pdf_ayikla(pdf_bytes):
+    """
+    AUZEF Ders Kılavuzu PDF'lerini '1. BAŞLIK', '2. BAŞLIK' formatına göre
+    kesin olarak ünite bazında ayıklar.
+    """
     reader = PdfReader(io.BytesIO(pdf_bytes))
     tam_metin = ""
     for page in reader.pages:
-        y = page.extract_text()
-        if y:
-            tam_metin += y + "\n"
+        txt = page.extract_text()
+        if txt:
+            tam_metin += txt + "\n"
 
-    satirlar = [s.strip() for s in tam_metin.split("\n") if s.strip()]
+    # Sayfa numaraları, Telegram ve telif başlıklarını temizle
+    satirlar = tam_metin.splitlines()
     unite_verileri = {}
     mevcut_unite = 1
 
     for satir in satirlar:
-        if "FAITH S. AKADEMİ" in satir or "TELEGRAM" in satir or "KILAVUZU" in satir:
+        s = satir.strip()
+        if not s:
             continue
-        
-        unite_baslik = re.match(r'^(\d{1,2})\.\s+[A-ZÇĞİÖŞÜ\s]{3,}', satir)
-        if unite_baslik:
-            no = int(unite_baslik.group(1))
-            if 1 <= no <= 14:
-                mevcut_unite = no
+
+        # Üstbilgi / Altbilgi / Reklam satırlarını atla
+        if any(kelime in s.upper() for kelime in ["FAITH S. AKADEMİ", "TELEGRAM", "AUZEF TARİH", "SINIF KANALI", "KILAVUZU"]):
+            continue
+
+        # Sayfa numaralarını atla (Örn: "1", "2", "3")
+        if s.isdigit():
+            continue
+
+        # Ünite Başlığı Tespiti: "1. ", "2. ", "14. " ile başlayan büyük harfli satırlar
+        baslik_eslesme = re.match(r'^(\d{1,2})\.\s+([A-ZÇĞİÖŞÜIİ\s\',-]{4,})$', s)
+        if baslik_eslesme:
+            u_no = int(baslik_eslesme.group(1))
+            if 1 <= u_no <= 14:
+                mevcut_unite = u_no
                 if mevcut_unite not in unite_verileri:
                     unite_verileri[mevcut_unite] = []
                 continue
 
-        if len(satir) > 15:
+        # 15 karakterden uzun olan tüm bilgi cümlelerini madde olarak kaydet
+        if len(s) >= 15:
             if mevcut_unite not in unite_verileri:
                 unite_verileri[mevcut_unite] = []
-            unite_verileri[mevcut_unite].append(satir)
+            unite_verileri[mevcut_unite].append(s)
 
     return unite_verileri
 
@@ -378,6 +394,7 @@ def otomatik_klavuz_isle():
 
     pdf_bytes = None
 
+    # 1. Drive Linki ile İndirme
     if drive_link:
         dosya_id = drive_id_yakala(drive_link)
         if not dosya_id:
@@ -386,44 +403,48 @@ def otomatik_klavuz_isle():
 
         indirme_url = f"https://drive.google.com/uc?export=download&id={dosya_id}"
         try:
-            req = urllib.request.Request(indirme_url, headers={'User-Agent': 'Mozilla/5.0'})
-            with urllib.request.urlopen(req, timeout=20) as response:
+            req = urllib.request.Request(indirme_url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
+            with urllib.request.urlopen(req, timeout=25) as response:
                 pdf_bytes = response.read()
         except Exception as e:
-            session["bildirim"] = {"tur": "danger", "metin": f"Drive'dan dosya çekilemedi: {str(e)}. Linkin 'Bağlantıya sahip olan herkes görüntüleyebilir' olduğundan emin olun."}
+            session["bildirim"] = {"tur": "danger", "metin": f"Drive indirme hatası: {str(e)}. Lütfen cihazdan PDF seçerek yükleyin."}
             return redirect(url_for("icerik_merkezi", ders=ders))
 
+    # 2. Cihazdan PDF Yükleme
     elif yuklenen_dosya and yuklenen_dosya.filename.lower().endswith(".pdf"):
         pdf_bytes = yuklenen_dosya.read()
 
     else:
-        session["bildirim"] = {"tur": "warning", "metin": "Lütfen bir Drive linki yapıştırın veya PDF yükleyin."}
+        session["bildirim"] = {"tur": "warning", "metin": "Lütfen geçerli bir PDF seçin veya Drive linki girin."}
         return redirect(url_for("icerik_merkezi", ders=ders))
 
     try:
         ayiklanan_uniteler = klavuz_pdf_ayikla(pdf_bytes)
-        if not ayiklanan_uniteler:
-            session["bildirim"] = {"tur": "warning", "metin": "PDF okundu fakat kılavuz formatına uygun ünite maddeleri algılanamadı."}
+        
+        # Madde sayısı kontrolü
+        toplam_madde = sum(len(maddeler) for maddeler in ayiklanan_uniteler.values())
+        if toplam_madde == 0:
+            session["bildirim"] = {"tur": "warning", "metin": "PDF okundu ancak ünite başlıkları algılanamadı. Dosyanın taranmış resim (OCR'sız) olmadığından emin olun."}
             return redirect(url_for("icerik_merkezi", ders=ders))
 
         conn = veritabani_baglan()
         cursor = conn.cursor()
+        
+        # Bu derse ait eski kılavuz özetlerini temizle
         cursor.execute("DELETE FROM unite_ozetleri WHERE TRIM(ders_adi) LIKE ?", (f"%{ders}%",))
 
-        toplam_eklenen = 0
         for u_no, maddeler in ayiklanan_uniteler.items():
             for m in maddeler:
                 cursor.execute("INSERT INTO unite_ozetleri (ders_adi, unite_no, madde) VALUES (?, ?, ?)", (ders, u_no, m))
-                toplam_eklenen += 1
 
         conn.commit()
         conn.close()
 
-        session["bildirim"] = {"tur": "success", "metin": f"Harika! '{ders}' için {len(ayiklanan_uniteler)} ünite ve toplam {toplam_eklenen} hap bilgi başarıyla aktarıldı."}
+        session["bildirim"] = {"tur": "success", "metin": f"Tebrikler! '{ders}' için {len(ayiklanan_uniteler)} üniteden toplam {toplam_madde} hap bilgi başarıyla sisteme aktarıldı."}
         return redirect(url_for("ders_calis", ders=ders, unite=1))
 
     except Exception as e:
-        session["bildirim"] = {"tur": "danger", "metin": f"Ayrıştırma hatası: {str(e)}"}
+        session["bildirim"] = {"tur": "danger", "metin": f"Kılavuz işleme hatası: {str(e)}"}
         return redirect(url_for("icerik_merkezi", ders=ders))
 
 @app.route("/yukle-pdf-dosya", methods=["POST"])
