@@ -138,14 +138,15 @@ def sinav_oturumunu_temizle():
         session.pop(key, None)
 
 def drive_link_donustur(link):
+    """Google Drive linkini yeni sekmede tam ekran açılacak bağlantıya dönüştürür."""
     if not link:
         return ""
     dosya_id = re.search(r'/d/([a-zA-Z0-9_-]+)', link)
     if dosya_id:
-        return f"https://drive.google.com/file/d/{dosya_id.group(1)}/preview"
+        return f"https://drive.google.com/file/d/{dosya_id.group(1)}/view?usp=sharing"
     id_param = re.search(r'id=([a-zA-Z0-9_-]+)', link)
     if id_param:
-        return f"https://drive.google.com/file/d/{id_param.group(1)}/preview"
+        return f"https://drive.google.com/file/d/{id_param.group(1)}/view?usp=sharing"
     return link
 
 def auzef_harfsiz_ve_harfli_soru_ayikla(metin, unite_no=1):
@@ -596,8 +597,6 @@ def unite_test_baslat(unite_no):
         return redirect(url_for("unite_pekistirme_listesi", ders=ders))
 
     sorular = [dict(r) for r in satirlar]
-    
-    # Kullanıcı oturumunu düşürmeden sadece sınavı sıfırla
     sinav_oturumunu_temizle()
 
     session["sorular"] = sorular
@@ -654,12 +653,12 @@ def kronoloji_egzersizi():
 
     if len(otomatik_olaylar) < 3:
         karisik_olaylar = [
-            {"id": 1, "yil": 1453, "olay": "İstanbul'un fethi sonrası Gennadios'un Rum Patriği seçilmesi", "detay": "Fatih Sultan Mehmet dönemi."},
-            {"id": 2, "yil": 1461, "olay": "Episkopos Hovagim'in İstanbul Ermeni Patriği tayin edilmesi", "detay": "Fatih Sultan Mehmet dönemi."},
-            {"id": 3, "yil": 1492, "olay": "Sefarad Yahudilerinin Osmanlı topraklarına gelişi", "detay": "II. Bayezid dönemi."},
-            {"id": 4, "yil": 1602, "olay": "Fener Rum Patrikhanesi'nin Aya Yorgi'ye taşınması", "detay": "Patrikhane merkezi."},
-            {"id": 5, "yil": 1835, "olay": "Hahambaşılık makamına yeniden resmi berat verilmesi", "detay": "II. Mahmud dönemi."},
-            {"id": 6, "yil": 1856, "olay": "Islahat Fermanı ile millet nizamnamelerinin başlaması", "detay": "Tanzimat dönemi."}
+            {"id": 1, "yil": 1453, "olay": "İstanbul'un fethi sonrası Gennadios'un Rum Patriği seçilmesi", "detay": "Fatih Sultan Mehmet dönemi."}[cite: 1],
+            {"id": 2, "yil": 1461, "olay": "Episkopos Hovagim'in İstanbul Ermeni Patriği tayin edilmesi", "detay": "Fatih Sultan Mehmet dönemi."}[cite: 1],
+            {"id": 3, "yil": 1492, "olay": "Sefarad Yahudilerinin Osmanlı topraklarına gelişi", "detay": "II. Bayezid dönemi."}[cite: 1],
+            {"id": 4, "yil": 1602, "olay": "Fener Rum Patrikhanesi'nin Aya Yorgi'ye taşınması", "detay": "Patrikhane merkezi."}[cite: 1],
+            {"id": 5, "yil": 1835, "olay": "Hahambaşılık makamına yeniden resmi berat verilmesi", "detay": "II. Mahmud dönemi."}[cite: 1],
+            {"id": 6, "yil": 1856, "olay": "Islahat Fermanı ile millet nizamnamelerinin başlaması", "detay": "Tanzimat dönemi."}[cite: 1]
         ]
         uyari_mesaji = "Bu dersin soru havuzunda yeterli tarihli veri bulunamadığı için genel tarih seti yüklendi."
     else:
@@ -741,7 +740,6 @@ def sinav_baslat():
     random.shuffle(tum_sorular)
     secilen_sorular = tum_sorular[:limit] if (limit > 0 and len(tum_sorular) > limit) else tum_sorular
 
-    # Kullanıcı oturumunu düşürmeden sadece sınavı sıfırla
     sinav_oturumunu_temizle()
 
     session["sorular"] = secilen_sorular
