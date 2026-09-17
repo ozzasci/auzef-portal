@@ -130,34 +130,206 @@ def veritabani_hazirla():
 
 veritabani_hazirla()
 
+# KILAVUZDAKİ TÜM CÜMLELERİN EKSİKSİZ VE TAM LİSTESİ
 GAYRIMUSLIM_OZETLERI = {
     1: [
-        "Osmanlı'da Müslümanlara 'millet-i hâkime' denilirdi.",
-        "Gayrimüslimlere 'sâir milletler, milel-i gayrimüslime, Tebaa-i sâdıka' denirdi.",
-        "Gayrimüslimler İslam Hukukuna göre zımmi statüsüyle yönetiliyordu.",
+        "Osmanlı'da Müslümanlara, 'millet-i hâkime' denilirdi.",
+        "Osmanlı'da Gayrimüslimlere 'sâir milletler, milel-i gayrimüslime, Devlet-i Osmâniyye'nin bil-cümle tebaa-i sâdıkası, Tebaa-i sâdıka' denilirdi.",
+        "Gayrimüslimler İslam Hukukuna göre zımmi statüsüyle yönetiliyorlardı.",
         "Gayrimüslimlerin devlete ödedikleri verginin adı cizye idi.",
-        "Millet başı olan patriklerin göreve gelirken ödedikleri vergi pişkeş idi.",
+        "Fatih'in gayrimüslimlerle ilgili ilk uygulamalardan birisi Galata'da yaşayan Latinlere verilen bir ahitnâme ile bu topluluğun statüsünün belirlenmesiydi.",
+        "Osmanlı tebaası olmayan yabancılara Levantenler denilirdi.",
+        "Fetih öncesinde ve sırasında İstanbul'dan kaçıp sonradan tekrar şehre dönenlere Levantenler denilir.",
+        "Millet başı olan patriklerin, göreve gelirken ödedikleri vergi adı pişkeş vergisi denilirdi.",
         "Hahambaşıların ödedikleri vergiye Rav Akçesi denilirdi.",
-        "Dinî liderlerin emirlerindeki yeniçeri birliğine Yasakçı denirdi.",
-        "Fatih, Rumların Patriklik merkezi olarak Havariyyun Kilisesi'ne izin verdi.",
-        "Ermeni cemaati idaresinde yetki sahibi zengin sınıfa amira denir.",
-        "Yahudilerin mahalle/cemaat örgütlenmesine kehal, mahkemelerine bet-din denirdi.",
-        "İstanbul'un ilk hahambaşısı Moşe Kapsali'dir."
+        "Dinî liderlerin yeniçerilerden oluşan ve emirlerinde bulunan askerî birlik Yasakçı denilirdi.",
+        "Osmanlı, idari yapısını kurallar çerçevesinde bir 'hoşgörü' anlayışına bağlı olarak kurmuştur.",
+        "Müslümanlar Millet-i Hâkime sıfatıyla 'hâkim unsur' olarak kabul edilmeleri askerlik nedeniyledir.",
+        "Çan çalma, kurallara tâbi olması nedeniyle gayrimüslimler tahtalara vurarak benzer bir ses çıkarmayı denemişlerdir.",
+        "Gayrimüslimlerin kıyafetlerinin üretim, şekli, rengi şartlara bağlayan II. Selim; keskin şart ve kısıtlamaların en ağır olduğu dönem ise hırsızlık ve adam yaralama gerekçesiyle III. Murad zamanıdır.",
+        "Fatih, Rumların Patriklik merkezi olarak Ayasofya'dan sonra Havariyyun Kilisesini kullanmalarına izin verdi.",
+        "Fetih sonrası Havariyyun, Pammakaristos, Eflak Konağı, Aya Dimitri ve Aya Yorgi kiliseleri Rum Patriklik merkezi olarak kullanılmıştır.",
+        "Rum milleti ile tüm Ortodokslar kastedilmekteydi. 'Rum' demek 'Ortodoks' demekti.",
+        "Rum patrikhaneleri İstanbul, Kudüs, Antakya, İskenderiye, İpek ve Ohri patrikhaneleridir.",
+        "Ermeni cemaati içindeki cemaat idaresinde de yetki sahibi olan sınıfa amira denir.",
+        "Ermeni Patrikhanesi'nin sorumluluğuna bırakılan ve onlara bağlanan topluluk Süryanilerdir.",
+        "Rum ve Ermeni Patrikhaneleri arasında çatışmalara neden olan topluluklar Habeş, Kıptî ve Süryani kiliseleridir.",
+        "Ermeni Patrikhanesi'ne sorumluluğuna bırakılan ve onlara bağlı olan topluluklar Nasturiler ve Süryanilerdir.",
+        "Doğu Kilisesi denilen patrik'i 'Doğu'nun Patriği' unvanını kullanan kilise Nasturilerdir.",
+        "Nasturiler'in idaresi için merkez seçilen yer Hakkari'de Koçaniş köyüdür.",
+        "Rahat yaşam için Osmanlı topraklarına göç etmeye başlamış ilk Yahudi göçleri Macaristan ve Fransa'dan olmuştur.",
+        "Tek lider etrafında örgütlenmeyen Yahudiler, Rabbaniler ve Karâiler diye iki gruba ayrılmışlardı.",
+        "Yahudilerin örgütlenmiş toplumsal cemaat veya mahalle yapılarına 'kehal' adı verilir.",
+        "Yahudi cemaatinin kendi aralarındaki davaları takip eden özel mahkemelere 'bet-din' denilirdi.",
+        "Fetih sonrası İstanbul'un ilk hahambaşısı Moşe Kapsali'dir.",
+        "İstanbul'un ikinci Hahambaşısı Eliyahu Mizrahi'nin vefatından sonra seçilen hahambaşı padişah onayına sunulmadığından, hahambaşılık II. Mahmut'a kadar berat almadan devam etmiştir."
     ],
     2: [
-        "Osmanlı Ermenileri üzerinde en etkili misyonerler Katolik misyonerleridir.",
-        "Patriklikle Roma kilisesini birleştirmeyi hedefleyen rahip Sivaslı Mıhitar'dır.",
-        "İlk nizamname 1850 tarihli Katolik Milleti Nizamnamesi'dir.",
-        "Nasturilik'ten ayrılarak Katolikliği kabul edenlere Keldani denmiştir.",
-        "Osmanlı'da en yaygın misyonerlik faaliyetini ABCFM (Amerikan Board) yürütmüştür.",
-        "Osmanlı'da ilk Protestan kilisesi 1842'de Kudüs'te, 1846'da İstanbul'da açıldı."
+        "Osmanlı Ermenileri üzerinde ciddi bir etki yapmayı başaranlar Katolik Misyonerleridir.",
+        "Misyonerlik çalışmaları ağırlıklı olarak Ermenilere odaklanmıştır.",
+        "Ermenilerin papalığa bağlanarak millet özelliklerini koruyacaklarını belirten ve Roma kilisesini birleştirmeyi hedefleyen Sivaslı Katolik Rahip Mıhitar'dır.",
+        "Ermeni Patrikhanesi, Katolik mezhebine geçen Ermenilerle ilişkiler için 'Dostluğa Da'vet' başlığıyla bir uzlaşma metni ilân etmiştir.",
+        "İlk Nizamname Katolik Ermeniler için hazırlanan 1850 tarihli Katolik Milleti Nizamnamesi'dir.",
+        "Katolik Rumlar, Vatikan'ın 'birlikçi' kiliseler oluşturma politikası ile ortaya çıkan gruptur.",
+        "Katolik Milleti Nizamnamesi ile Marunîler, Keldanîler, Süryaniler, Bulgarlar, Rumlar ve Rum Melkitler Ermeni Katolik Patrikhanesi'ne bağlanmıştır.",
+        "Nasturi Kilisesi, Süryanilik'ten ayrılarak kurulmuştur.",
+        "Keldani ismi Nasturilik'ten ayrılarak Katolik mezhebini kabul edenlere Papalık tarafından verilmiştir.",
+        "Nasturi Patrikliği ile Keldani Patrikliği Diyarbakır ve Musul'da iki ayrı merkez oluşturmuştur.",
+        "Roma'nın Musul Patrikliği'ni tanıması sonrası Diyarbakır Patrikliği sona ermiştir.",
+        "Osmanlı, Keldanileri bazı durumlarda 'Keldanî Kadim Ermeniler' olarak isimlendirmekteydi.",
+        "Rum Melkitler Kadıköy Konsili kararlarını kabul eden imparator yanlılarını tanımlamak için kullanılmıştır.",
+        "Kudüs, İskenderiye ve Antakya Melkit Katolikleri İstanbul Rum Patrikhanesi'ne bağlıdır.",
+        "Rum Melkit Katolikler 1846'da ayrı bir millet olarak tanınarak Antakya'da bağımsız kilise merkezi haline getirilmiştir.",
+        "Osmanlıda en yoğun ve etkili faaliyetlerde bulunanlar Amerikan-Protestan misyonerleridir.",
+        "İlk Amerikan-Protestan misyonerleri Pliny Fisk ve Levi Parsons adlı görevlilerdir.",
+        "Osmanlı sınırlarında en yaygın misyonerlik çalışmalarını Kalvinci Puritan ABCFM örgütü yürütmüştür.",
+        "BOARD misyonerleri Rum faaliyetlerini durdurup Ermenilere yoğunlaşmış ve resmî adı 'Ermeni Misyonu' olmuştur.",
+        "Amerikan misyonerlerinin asıl hedefi Ermeni Apostolik (Gregoryen) Kilisesini Protestanlaştırmaktı.",
+        "Osmanlıda ilk Protestan kilisesi 1842'de Kudüs'te, 1846'da İstanbul'da açılmıştır.",
+        "Osmanlı 1847'de Protestanların idaresine İhtisab Nazırı'nı memur etmiştir.",
+        "10 maddelik Protestan Nizamnamesi'nde ayrı millet değil, cemaat olarak bahsedilir.",
+        "Misyonerlerin öncelikli faaliyet sahaları eğitim, ardından sağlık alanıdır."
     ],
     3: [
-        "Tanzimat Fermanı 3 Kasım 1839'da Gülhane'de Mustafa Reşit Paşa tarafından okundu.",
-        "1844'te dinden dönme (irtidad) için verilen ölüm cezası kaldırıldı.",
-        "Gayrimüslimlerin askerlik yapmaması karşılığı alınan vergi bedel-i askerî oldu.",
-        "1862'de ilan edilen Rum Patrikliği Nizamnamesi 8 farklı nizamnameden oluşur.",
-        "Ermeniler nizamnamelerine 'anayasa' (sahmanadrutyun) diyordu."
+        "Tanzimat Fermanı 3 Kasım 1839 tarihinde Gülhane Parkı'nda Koca Mustafa Reşit Paşa tarafından ilân edildi.",
+        "Tanzimat Fermanıyla eşit vatandaşlık ile Osmanlı kimliği bilinci oluşturulması hedefleniyordu.",
+        "1844 yılında, İslam dininden başka bir dine dönme (irtidad) için verilen ölüm cezası kaldırılmıştır.",
+        "Gayrimüslimlerle ilgili uygulamalarda önemli değişimler askerlik başta olmak üzere Kırım Savaşı ile yaşanmıştır.",
+        "Tanzimat ile karma mahkemeler kurulmuş, Fransız Ceza Kanunu ve Ticaret Usul Kanunu uygulanmıştır.",
+        "1864 Vilayet Nizamnamesi ile halk idareye katılma hakkı elde etmiştir.",
+        "Gayrimüslimlerin askerlik yapmamaları karşılığında alınan vergi 'bedel-i askerî' olarak anılmıştır.",
+        "1862 yılında ilan edilen Rum Patrikliği Nizamnamesi 8 farklı nizamnamenin bir araya getirilmesinden oluşur.",
+        "Osmanlı gayrimüslim tebaası konusunu uluslararası boyuta taşıyan gelişme Paris Antlaşması'dır.",
+        "Genç Ermeniler tarafından hazırlanan nizamname taslağı Bâb-ı Âlî tarafından 'devlet içinde devlet olmaz' denilerek reddedilmiştir.",
+        "Ermeniler nizamnameye 'anayasa', Osmanlı yetkilileri ise 'nizamname' diyordu.",
+        "II. Mahmut beratıyla hahambaşılık yeniden resmiyet kazanmış ve Abraham Levi bu makama atanmıştır.",
+        "Osmanlıda Yahudileri modernleştirmek için Alliance Israelite Universelle okulları açılmıştır.",
+        "İstanbul Hahambaşılığı'nın merkezi otorite eksikliği ve vekillik statüsü yüzünden Hahamhane Nizamnamesi tam uygulanamamıştır."
+    ],
+    4: [
+        "Bulgarlar önceleri Rum Patrikhanesi'ne bağlıydı; ibadet ve eğitimleri Rumca verilmekteydi.",
+        "Paisiy Hilendarski isimli keşiş Bulgar milli uyanışının öncüsü kabul edilir.",
+        "Abdülaziz 11 Mart 1870'te bağımsız Bulgar Kilisesi için 'Eksarhlık Fermanı'nı yayımlamıştır.",
+        "Eksarhlık Fermanı, Bulgar milletinin ayrı bir mevcudiyete sahip olduğunu gösteren ilk resmî vesikadır.",
+        "Kanun-ı Esasi 1876 yılında ilan edilmiştir.",
+        "Nizamnamelerle ilgili en fazla tartışmanın yaşandığı dönem II. Abdülhamit dönemidir.",
+        "II. Abdülhamit'le çatışan Rum Patriği Dionisios, Rumlar tarafından kilise kahramanı sayılmıştır.",
+        "Ermeni komitelerinin ilk silahlı eylemi Hınçak komitesi tarafından Patrik Aşıkyan'a yönelik olmuştur.",
+        "1908 Meşrutiyet ilanı sonrası Rum Patrikliği'nde III. Yovakim görevinde bırakılmıştır.",
+        "İttihatçılara yakınlığıyla bilinen Haim Nahum, Fransız yanlısı ilerici bir din adamıydı.",
+        "Rumlarla Bulgarlar arasındaki en önemli çatışma 'Kiliseler ve Mektepler Kanunu' olmuştur.",
+        "1909 yılında bedel-i askerî vergisi kaldırılarak gayrimüslimlere askerlik zorunlu hale getirilmiştir.",
+        "Balkan Savaşlarında gayrimüslim askerler cephe gerisinde silahsız amele taburlarında görevlendirilmiştir.",
+        "Süryaniler Ermeni Patrikhanesi'ne bağlı topluluklar arasındaydı fakat fiilen kendi patrikhanelerince idare ediliyordu."
+    ],
+    5: [
+        "Müslüman-Gayrimüslim ayrışmasının ekonomik göstergesi Müslümanların başlattığı yerli boykotlardır.",
+        "Balkan Savaşları sonrası gündeme gelen Türk-Yunan nüfus mübadelesi Dünya Savaşı yüzünden uygulanamamıştır.",
+        "Dünya Savaşında sahildeki Rumlar stratejik gerekçelerle iç kesimlere sevk ve iskân edilmiştir.",
+        "27 Mayıs 1915'te Sevk ve İskân Kanunu (Tehcir) çıkarılmıştır; kanun metninde Ermeni ismi yer almaz.",
+        "1917 Hukuk-ı Aile Kararnâmesi ile yargı birliğini sağlamak için nikâhların resmî memur huzurunda yapılması zorunlu tutulmuştur.",
+        "1916'da Eçmiyazin'in etkisini kırmak ve patrikliği siyasetten uzaklaştırmak için Ermeni Patrikliği Kudüs'e taşınmıştır.",
+        "Tanzimatçıların idari literatüre kazandırdığı iki terim 'cemaat' ve 'umur-ı mezhebiye'dir."
+    ],
+    6: [
+        "Mütareke dönemi Rum Patriği Dorotheos Mammelis, Rum okullarında Türkçe eğitimi yasaklamıştır.",
+        "Ermeni Patriği Zaven Efendi mütareke sürecinde İngiliz yanlısı ve sert bir siyaset izlemiştir.",
+        "1916'da lağvedilen İstanbul Ermeni Patrikhanesi'ni yeniden tesis eden kararnameyi Sultan Vahdettin imzalamıştır.",
+        "Dönemin en önemli meselesi İttihatçıların yargılanması ve tehcir mahkemeleri olmuştur.",
+        "Boğazlıyan Kaymakamı Kemal Bey ve Urfa Mutasarrıfı Nusret Bey idam cezasına çarptırılmıştır.",
+        "Rum-Ermeni Birliği Komitesi kurulmuş ve Mondros'un 4. maddesiyle tutukluların serbestisi sağlanmıştır.",
+        "Nutuk'ta Atatürk, Rum Patrikhanesi'ndeki Mavri Mira Heyeti'nin çeteleri teşkil ve idare ettiğini belirtmiştir.",
+        "Merzifon Amerikan Koleji'nin Ermeni komitelerinin eylem merkezi olduğu Nutuk'ta vurgulanmıştır.",
+        "Misak-ı Milli'nin 5. maddesinde gayrimüslimlerden 'ekalliyet (azınlık)' olarak bahsedilmiştir.",
+        "Mudanya Mütarekesi sonrası milli kuvvetlerin İstanbul'a yaklaşmasıyla Rum-Ermeni patrikleri iş birliği sona ermiştir."
+    ],
+    7: [
+        "İstanbul Hahambaşısı Haim Nahum Millî Mücadele'yi desteklemiş ve 'İkinci Pierre Loti' olarak anılmıştır.",
+        "Siyonistlerin kurduğu 'Yahudi Ulusal Meclisi'ni Haim Nahum dağıtarak otoritesini korumuştur.",
+        "Hahambaşı Vekili Haim Bejerano: 'Türklerden şikâyet edecek bir Musevi, Musevi milletinden değildir' demiştir.",
+        "Rum Patriği Meletios Metaksakis gayrimüslim ittifakına Musevileri de katmak istemiş fakat Museviler reddetmiştir.",
+        "Musevi aydın Behor Habif, Musevilerin Hahamhâne Nizamnamesi dışında hiçbir azınlık talebi olmadığını belirtmiştir.",
+        "Süryani Kadîm Patriği III. İlyas Şakir, Kuva-yı Milliye ve Mustafa Kemal Paşa'yı desteklemiştir.",
+        "Patrik İlyas Şakir, Süryani kiliselerine tamim göndererek hâkimiyet-i milliyenin takdis edilmesini istemiştir."
+    ],
+    8: [
+        "İç Anadolu'da yaşayan ve Türkçe konuşan Ortodokslar Karamanlılar olarak adlandırılmıştır.",
+        "Varlıklı Rumlar, Türkçe konuşan Anadolu Ortodokslarını 'kara kalabalıklar ve cahiller' diyerek küçümsemişlerdir.",
+        "Papa Eftim: 'Ben Türk dostu Eftim değil, Türk oğlu Türk Eftim'im' demiştir.",
+        "1 Mayıs 1921'de Türk Ortodoks Kilisesi'nin kurulması İcra Vekilleri Heyeti'nde kabul edilmiştir.",
+        "İngiliz Yüksek Komiseri Rumbold, hareketin Bolşevikler ve Rusya güdümünde olduğunu iddia etmiştir.",
+        "Papa Eftim, Kuva-yı Milliye simgesi olan kalpağı takarak mücadeleye katılmıştır.",
+        "21 Eylül 1922'de Kayseri'de Bağımsız Türk Ortodoks Patrikhanesi kurulmuştur.",
+        "Kayseri Kongresinde İncil'in ve duaların Türkçe okunması kararlaştırılmıştır.",
+        "Papa Eftim ve arkadaşları 'Anadolu'da Ortodoksluk Sadası' isimli bir gazete çıkarmışlardır.",
+        "Papa Eftim 'Keskin Türk Ortodoks Metropolit Vekili' unvanını kullanmış ve azınlık statüsünü reddetmiştir."
+    ],
+    9: [
+        "Lozan'da azınlıklar konusunda Türk heyetinin temel prensibi 'eşitlik' ve Müslüman azınlık olamayacağıdır.",
+        "Batılılar etnik tanımlama isterken Türkiye sadece gayrimüslimleri azınlık kabul etmiştir.",
+        "İngilizler Musul meselesinde Nasturiler için 'Nasturi Yurdu' talebini gündeme getirmişlerdir.",
+        "Yunanistan'a mübadeleyi öneren Milletler Cemiyeti görevlisi Fridtjof Nansen'dir.",
+        "Yunanistan İstanbul Rumlarının kalmasını patrikhanenin cemaatsiz kalmaması için şart koşmuştur.",
+        "Meletios Metaksakis'in Türkiye'yi terk etmesi karşılığında Rum Patrikhanesi'nin İstanbul'da kalmasına izin verilmiştir.",
+        "30 Ocak 1923'te imzalanan sözleşmeyle mübadele zorunlu tutulmuş; İstanbul Rumları ile Batı Trakya Türkleri muaf bırakılmıştır.",
+        "Lozan Antlaşması'nda azınlık hükümleri 37 ile 45. maddeler arasında yer alır.",
+        "Karaağaç, Yunanistan tarafından Türkiye'ye savaş tazminatı olarak verilmiştir."
+    ],
+    10: [
+        "1924 Tevhid-i Tedrisat Kanunu sonrası kamuoyunda patrikhanelerin kapatılması beklentisi doğmuştur.",
+        "Cumhuriyet döneminde azınlık işleri için Dâhiliye Vekâleti'ne bağlı 'Ekalliyetler Müdüriyeti' kurulmuştur.",
+        "1926 Medeni Kanun sürecinde aile hukuku haklarından ilk feragat edenler Yahudiler olmuştur.",
+        "Feragat eden kurumlar Hahambaşılık, Rum ve Ermeni patrikhaneleri ile Protestan cemaatleridir.",
+        "1934 Trakya Olayları azınlıklara duyulan güvensizliğin ilk büyük gerginliğidir.",
+        "II. Dünya Savaşı yıllarında 'Yirmi Kur'a Nafia Askerleri' ve 1942'de 'Varlık Vergisi' uygulaması getirilmiştir.",
+        "1151 sayılı kanun ile Bozcaada ve İmroz'daki Rum okulları sınırlandırılmıştır.",
+        "6-7 Eylül 1955 olayları Rumların Türkiye'den kitlesel göçünü başlatan en kritik dönüm noktasıdır.",
+        "1964'te İkamet, Ticaret ve Seyrisefain Mukavelenâmesi'nin feshiyle Rum göçü hızlanmıştır.",
+        "1971 yılında Heybeliada Ruhban Okulu devletleştirme politikaları kapsamında kapatılmıştır."
+    ],
+    11: [
+        "Lozan görüşmelerinde İsmet Paşa'ya bağlılık bildiren 'Türk-Ermeni Teâli Cemiyeti' kurulmuştur.",
+        "1934'te Cismani Meclis 'İdare Heyeti'ne dönüştürülmüş ve patrik sivil işlerden el çektirilmiştir.",
+        "1960 askerî darbesiyle Cismani Meclis tamamen kaldırılmış ve idare ruhanilere bırakılmıştır.",
+        "Agos Gazetesi cemaat içindeki patrikhanenin yeni idaresine karşı muhalefetin yayın organı olmuştur.",
+        "Cumhuriyetin ilk seçilen Ermeni patriği 1927 yılında I. Mesrob Naroyan olmuştur.",
+        "Arjantin'den seçilen I. Karekin Haçaduryan, yurtdışından dönerek patrik olan ilk ruhanidir.",
+        "Patrik Şınorhk Kalustyan 29 yıllık göreviyle en uzun süre patriklik yapan kişidir.",
+        "1998'de seçilen II. Mesrob Mutafyan Cumhuriyet tarihinin en genç patriği unvanını almıştır.",
+        "Mutafyan'ın rahatsızlığı döneminde Başepiskopos Aram Ateşyan 'Patrik Genel Vekili' yapılmıştır.",
+        "2019 yılında yapılan seçimle Sahak Maşalyan Türkiye Ermenileri Patriği olmuştur."
+    ],
+    12: [
+        "Metaksakis'in ayrılmasından sonra patrik vekilliğine Yovakim seçilmiştir.",
+        "Doktor Palamidis, patrikliğin artık sırf ruhani ve zararsız bir teşkilat olması gerektiğini savunmuştur.",
+        "Cumhuriyet hükümeti seçilen Patrik Gregoryus'a patrik değil sadece 'başrahip/başpapaz' demiştir.",
+        "Türk Ortodoks Patrikhanesi merkez olarak Galata'daki Panagia Kilisesi'ne taşınmıştır.",
+        "Patrik seçilen Konstantin Araboğlu mübadeleye tâbi olduğu için Selanik'e sınır dışı edilmiştir.",
+        "1930'da Venizelos'un Ankara ziyaretiyle Dostluk ve Seyrisefain anlaşmaları imzalanmıştır.",
+        "1929'dan itibaren II. Fotios yazışmalarda resmen patrik olarak tanınmaya başlanmıştır.",
+        "1964 Kıbrıs krizinde 1930 sözleşmesinin feshi Rumların ülkeden ayrılmasını hızlandırmıştır.",
+        "Aya Triada Manastırı'ndaki Heybeliada Ruhban Okulu 1971'de üniversiteye bağlanmayı reddedince kapatılmıştır."
+    ],
+    13: [
+        "Türkiye Musevi cemaati cumhuriyetle birlikte Türkçe öğrenimine hız vermiş; Tekin Alp (Moiz Kohen) gibi aydınlar öne çıkmıştır.",
+        "Haim Moşe Bejerano 1931'de vefat edene kadar vekil hahambaşılık yapmıştır.",
+        "1953 yılında ilk resmî Cumhuriyet Hahambaşısı Rafael David Saban seçilmiştir.",
+        "2002 yılından itibaren İshak Haleva Türkiye Hahambaşısı olarak görev yapmaktadır.",
+        "Hahambaşılık bünyesinde dinî işlere 'bet-din', sivil prensip kararlarına 'müşavirler heyeti' bakar.",
+        "Müşavirler Heyeti Başkanı aynı zamanda fiilen cemaat başkanı sıfatını taşır.",
+        "Türkiye Hahambaşılığı binası Beyoğlu Yemenici Sokak'tadır ve vakıf statüsündedir."
+    ],
+    14: [
+        "Süryaniler, Patrik İlyas Şakir'in milli duruşu nedeniyle Lozan'da azınlık tanımı dışında tutulmuştur.",
+        "1932'de Deyru'z-zafaran şartı kaldırılmış, 1933'te Humus'a, 1959'da Şam'a taşınmıştır.",
+        "Süryani Patrikhanesi günümüzde 'Antakya Patrikliği' adıyla Şam'da bulunmaktadır.",
+        "Süryani din adamlarının fötr şapka giyme geleneği Şapka İnkılabı döneminde Mardin'de başlamıştır.",
+        "1924 Hakkari merkezli Nasturi İsyanı Türkiye'nin Musul'u kaybetmesinde en önemli etkenlerdendir.",
+        "Yezidiler (Ézidiler) azınlık statüsünde sayılmamış, Batman, Mardin ve Urfa kırsalında kalmışlardır.",
+        "Keldanîler Süryani Kilisesi'nden kopmuş olup Bağdat'taki patrikliğe bağlıdırlar.",
+        "Bulgar Eksarhlığı Balkan Savaşları sonrası merkezini Sofya'ya taşımış, İstanbul'da vekâlet bırakmıştır.",
+        "1925 Türkiye-Bulgaristan Dostluk Antlaşması ile karşılıklı azınlık hakları güvenceye alınmıştır.",
+        "Levanten ve Galata Latin topluluğu azınlık sayılmamış, kiliselerinin tüzel kişilik kazanması mücadelesini sürdürmüşlerdir."
     ]
 }
 
@@ -167,14 +339,17 @@ def varsayilan_ozetleri_yukle():
         cursor = conn.cursor()
         ders_adi = "20. Yüzyıl Türkiye’sinde Gayrimüslimler ve Kurumları"
         cursor.execute("SELECT COUNT(*) FROM unite_ozetleri WHERE TRIM(ders_adi) LIKE ?", (f"%{ders_adi}%",))
-        if cursor.fetchone()[0] == 0:
+        adet = cursor.fetchone()[0]
+        # Eğer veri tabanında tüm maddeler (100+) yoksa eskiyi temizleyip hepsini yaz
+        if adet < 90:
+            cursor.execute("DELETE FROM unite_ozetleri WHERE TRIM(ders_adi) LIKE ?", (f"%{ders_adi}%",))
             for u_no, maddeler in GAYRIMUSLIM_OZETLERI.items():
                 for m in maddeler:
                     cursor.execute("INSERT INTO unite_ozetleri (ders_adi, unite_no, madde) VALUES (?, ?, ?)", (ders_adi, u_no, m))
             conn.commit()
         conn.close()
-    except Exception:
-        pass
+    except Exception as e:
+        print("Özet yükleme hatası:", e)
 
 varsayilan_ozetleri_yukle()
 
@@ -288,61 +463,45 @@ def klavuz_pdf_ayikla(pdf_bytes):
         if txt:
             tam_metin += txt + "\n"
 
-    # Sayfa üstbilgisi, kanal ve reklam satırlarını temizle
     satirlar = tam_metin.splitlines()
-    temiz_satirlar = []
-    for s in satirlar:
-        st = s.strip()
-        if not st:
+    unite_verileri = {i: [] for i in range(1, 15)}
+    mevcut_unite = 1
+    tampon = ""
+
+    for satir in satirlar:
+        s = satir.strip()
+        if not s:
             continue
-        st_upper = st.upper()
-        if any(kelime in st_upper for kelime in ["FAITH S. AKADEMİ", "TELEGRAM", "AUZEF TARİH", "SINIF KANALI"]):
+
+        s_upper = s.upper()
+        if any(kelime in s_upper for kelime in ["FAITH S. AKADEMİ", "TELEGRAM", "AUZEF TARİH", "SINIF KANALI"]):
             continue
-        if re.match(r'^\s*20\.\s*(YY|YÜZYIL)', st, re.IGNORECASE) or st.endswith("KILAVUZU") or st.isdigit():
+        if re.match(r'^\s*20\.\s*(YY|YÜZYIL)', s, re.IGNORECASE) or s.endswith("KILAVUZU") or s.isdigit():
             continue
-        temiz_satirlar.append(st)
 
-    birlestirilmis_metin = "\n".join(temiz_satirlar)
+        baslik_m = re.match(r'^([1-9]|1[0-4])\.\s+[A-ZÇĞİIÖŞÜ\s\',-]{3,}', s)
+        if baslik_m:
+            if tampon and len(tampon) >= 15:
+                unite_verileri[mevcut_unite].append(tampon)
+                tampon = ""
+            mevcut_unite = int(baslik_m.group(1))
+            continue
 
-    # Ünite başlıklarını yakala: "1. OSMANLI...", "2. MİSYONERLİK..."
-    pattern = r'(?:^|\n)\s*([1-9]|1[0-4])\.\s+([A-ZÇĞİIÖŞÜ\s\',-]{4,})(?=\n)'
-    bolumler = re.split(pattern, birlestirilmis_metin)
+        if tampon:
+            tampon += " " + s
+        else:
+            tampon = s
 
-    unite_verileri = {}
-
-    # re.split sonucu: [ön_metin, unite_no_1, baslik_1, icerik_1, unite_no_2, baslik_2, icerik_2, ...]
-    if len(bolumler) > 1:
-        for i in range(1, len(bolumler), 3):
-            u_no = int(bolumler[i])
-            icerik = bolumler[i+2].strip()
-
-            # Ünitenin altındaki satırları tara
-            ham_maddeler = icerik.split("\n")
-            tamamlanmis_cumleler = []
+        if tampon.endswith((".", ":", "!", "?", "idi", "denirdi", "denilirdi", "olmuştur", "edilmiştir")):
+            if len(tampon) >= 15:
+                unite_verileri[mevcut_unite].append(tampon)
             tampon = ""
 
-            for satir in ham_maddeler:
-                satir = satir.strip()
-                if not satir:
-                    continue
+    if tampon and len(tampon) >= 15:
+        unite_verileri[mevcut_unite].append(tampon)
 
-                if tampon:
-                    tampon += " " + satir
-                else:
-                    tampon = satir
+    return {k: v for k, v in unite_verileri.items() if v}
 
-                # Cümle sonu belirteçleri: nokta, iki nokta veya karakteristik yüklemler
-                if tampon.endswith((".", ":", "!", "?", "idi", "denirdi", "denilirdi", "olmuştur", "edilmiştir", "almıştır", "başlamıştır")):
-                    if len(tampon) >= 15:
-                        tamamlanmis_cumleler.append(tampon)
-                    tampon = ""
-
-            if tampon and len(tampon) >= 15:
-                tamamlanmis_cumleler.append(tampon)
-
-            unite_verileri[u_no] = tamamlanmis_cumleler
-
-    return unite_verileri
 @app.route("/giris", methods=["GET", "POST"])
 def giris_yap():
     if "kullanici_id" in session:
