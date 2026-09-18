@@ -79,7 +79,7 @@
 </head>
 <body class="d-flex flex-column">
 
-    <!-- ÜST MENÜ (Giriş yapılmışsa göster) -->
+    <!-- ÜST MENÜ -->
     {% if session.get('kullanici_id') %}
     <nav class="navbar navbar-expand-lg navbar-dark navbar-auzef shadow-sm py-2">
         <div class="container">
@@ -122,7 +122,7 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if durum == 'yonetim' %}active fw-bold{% endif %}" href="/yonetim">
+                        <a class="nav-link {% if durum == 'yonetim' or durum == 'duzenle' %}active fw-bold{% endif %}" href="/yonetim">
                             <i class="bi bi-gear"></i> Soru Yönetimi
                         </a>
                     </li>
@@ -136,7 +136,7 @@
     </nav>
     {% endif %}
 
-    <!-- FLASH MESAJ / BİLDİRİM -->
+    <!-- FLASH MESAJ -->
     <div class="container mt-3">
         {% if bildirim %}
         <div class="alert alert-{{ bildirim.tur }} alert-dismissible fade show shadow-sm border-0" role="alert">
@@ -261,7 +261,6 @@
         </div>
 
         <div class="row g-4">
-            <!-- Hızlı Sınav Başlat -->
             <div class="col-lg-7">
                 <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
                     <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
@@ -318,7 +317,6 @@
                 </div>
             </div>
 
-            <!-- Özel Havuzlar & Yedekleme -->
             <div class="col-lg-5">
                 <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
                     <h6 class="fw-bold mb-3"><i class="bi bi-bullseye text-danger"></i> Özel Odak Havuzları</h6>
@@ -355,7 +353,6 @@
                             <input type="file" name="yedek_dosyasi" class="form-control" accept=".json" required>
                             <button class="btn btn-dark" type="submit">Yedek Yükle</button>
                         </div>
-                        <small class="text-muted" style="font-size: 0.75rem;">JSON formatındaki soru bankalarını buradan tek tıkla yükleyebilirsiniz.</small>
                     </form>
                 </div>
             </div>
@@ -365,7 +362,6 @@
         {% elif durum == 'ogrenme_modu' %}
         <div class="card border-0 shadow-sm rounded-4 p-3 bg-white mb-3">
             <div class="row g-2 align-items-center">
-                <!-- Ders Değiştirme Açılır Kutusu -->
                 <div class="col-lg-5 col-md-12">
                     <div class="d-flex align-items-center gap-2">
                         <i class="bi bi-journal-bookmark-fill text-primary fs-4"></i>
@@ -377,7 +373,6 @@
                     </div>
                 </div>
 
-                <!-- Ünite Başlığı ve Hızlı Aksiyon Butonları -->
                 <div class="col-lg-7 col-md-12 d-flex flex-wrap align-items-center justify-content-lg-end gap-2">
                     <span class="badge bg-light text-dark border px-3 py-2 rounded-pill">{{ unite_baslik }}</span>
 
@@ -398,7 +393,6 @@
         </div>
 
         <div class="row g-3">
-            <!-- Sol Menü: Üniteler -->
             <div class="col-md-3">
                 <div class="card border-0 shadow-sm rounded-4 p-3 bg-white">
                     <h6 class="fw-bold small text-muted mb-2">ÜNİTELER</h6>
@@ -415,10 +409,8 @@
                 </div>
             </div>
 
-            <!-- Orta/Sağ: İçerik Alanı -->
             <div class="col-md-9">
-
-               <!-- VİDEO BÖLÜMÜ -->
+                <!-- VİDEO BÖLÜMÜ -->
                 {% if embed_url %}
                 <div class="card border-0 shadow-sm rounded-4 p-3 bg-white mb-3">
                     <div class="d-flex justify-content-between align-items-center mb-2">
@@ -427,14 +419,13 @@
                             <i class="bi bi-box-arrow-up-right"></i> Videoyu Üniversite Sayfasında Aç
                         </a>
                     </div>
-                    
                     <div class="alert alert-light border small text-muted mb-0">
-                        <i class="bi bi-info-circle text-primary me-1"></i> İstanbul Üniversitesi webcast videoları güvenlik gereği harici oynatıcılara doğrudan gösterilememektedir. Üstteki butona tıklayarak ders videosunu resmi oynatıcıda izleyebilirsiniz.
+                        <i class="bi bi-info-circle text-primary me-1"></i> İstanbul Üniversitesi webcast videoları güvenlik gereği harici oynatıcılara doğrudan gösterilememektedir. Butona tıklayarak videoyu resmi oynatıcıda izleyebilirsiniz.
                     </div>
                 </div>
                 {% endif %}
 
-                <!-- 2. ÜNİTE KİTAP PDF'İ BÖLÜMÜ -->
+                <!-- KİTAP PDF -->
                 {% if pdf_url %}
                 <div class="card border-0 shadow-sm rounded-4 p-3 bg-white mb-3">
                     <div class="d-flex justify-content-between align-items-center mb-2">
@@ -447,7 +438,7 @@
                 </div>
                 {% endif %}
 
-                <!-- 3. HAP BİLGİLER & ÖZETLER BÖLÜMÜ (EN ALTTA) -->
+                <!-- HAP BİLGİLER -->
                 <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-3">
                     <div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-3">
                         <h6 class="fw-bold m-0"><i class="bi bi-stars text-warning me-1"></i> Ünite Hap Bilgileri & Özetler</h6>
@@ -467,15 +458,14 @@
                     </ul>
                     {% else %}
                     <div class="text-center text-muted py-4">
-                        <p class="small m-0">Bu üniteye ait hap bilgi henüz bulunmuyor. İçerik Merkezi'nden dersin kılavuz PDF'ini işleyebilirsiniz.</p>
+                        <p class="small m-0">Bu üniteye ait hap bilgi henüz bulunmuyor. İçerik Merkezi'nden ders kılavuzunu işleyebilirsiniz.</p>
                     </div>
                     {% endif %}
                 </div>
-
             </div>
         </div>
 
-        <!-- 5. HAFIZA KARTLARI (FLASHCARDS) -->
+        <!-- 5. HAFIZA KARTLARI -->
         {% elif durum == 'flashcards' %}
         <div class="text-center mb-4">
             <h4 class="fw-bold text-primary">{{ aktif_ders }}</h4>
@@ -522,7 +512,7 @@
             </div>
         </div>
 
-<!-- 6. İÇERİK MERKEZİ (PDF, DRIVE & VİDEO YÜKLEME) -->
+        <!-- 6. İÇERİK MERKEZİ -->
         {% elif durum == 'icerik_merkezi' %}
         <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
             <h5 class="fw-bold mb-3"><i class="bi bi-cloud-arrow-up-fill text-primary"></i> İçerik ve Kaynak Merkezi</h5>
@@ -534,15 +524,13 @@
                     {% endfor %}
                 </select>
             </div>
-            <small class="text-muted">Seçili ders için soru, ünite kitapları (PDF/Drive), kılavuzlar ve ders videolarını aşağıdan yönetebilirsiniz.</small>
+            <small class="text-muted">Seçili ders için soru, ünite kitapları, kılavuzlar ve ders videolarını aşağıdan yönetebilirsiniz.</small>
         </div>
 
         <div class="row g-4">
-            <!-- 1. Ünite Soru Havuzu Yükle (PDF) -->
             <div class="col-md-6">
                 <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
                     <h6 class="fw-bold text-success mb-2"><i class="bi bi-file-earmark-check"></i> 🎯 Ünite Soru Havuzu Yükle</h6>
-                    <p class="text-muted small">AUZEF şablonundaki tekil ünite soru PDF'ini yükleyin.</p>
                     <form action="/yukle-unite-sorulari" method="POST" enctype="multipart/form-data">
                         <input type="hidden" name="ders_adi" value="{{ aktif_ders }}">
                         <div class="mb-3">
@@ -561,11 +549,9 @@
                 </div>
             </div>
 
-            <!-- 2. Kılavuz PDF & Hap Bilgi Yükle -->
             <div class="col-md-6">
                 <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
                     <h6 class="fw-bold text-danger mb-2"><i class="bi bi-file-earmark-text"></i> 📄 Ders Kılavuzu & Hap Bilgi</h6>
-                    <p class="text-muted small">Dersin 14 ünitelik kılavuzunu yükleyin. Sistem PDF'i bağlar ve maddeleri özetlere aktarır.</p>
                     <form action="/otomatik-klavuz-isle" method="POST" enctype="multipart/form-data">
                         <input type="hidden" name="ders_adi" value="{{ aktif_ders }}">
                         <div class="mb-3">
@@ -581,13 +567,9 @@
                 </div>
             </div>
 
-            <!-- 3. Ünite Kitabı Ekle (Google Drive veya Cihazdan PDF) -->
             <div class="col-md-6">
                 <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
                     <h6 class="fw-bold text-primary mb-2"><i class="bi bi-book-half"></i> 📚 Ünite Ders Kitabı (PDF / Drive)</h6>
-                    <p class="text-muted small">İlgili ünitenin ders kitabını Google Drive bağlantısı veya doğrudan PDF dosyası olarak bağlayın.</p>
-                    
-                    <!-- Drive ile Kaydet -->
                     <form action="/kaydet-drive-link" method="POST" class="mb-3 border-bottom pb-3">
                         <input type="hidden" name="ders_adi" value="{{ aktif_ders }}">
                         <div class="mb-2">
@@ -605,7 +587,6 @@
                         <button type="submit" class="btn btn-outline-primary btn-sm w-100 rounded-pill fw-bold">Drive Kitabını Bağla</button>
                     </form>
 
-                    <!-- Cihazdan PDF Yükle -->
                     <form action="/yukle-pdf-dosya" method="POST" enctype="multipart/form-data">
                         <input type="hidden" name="ders_adi" value="{{ aktif_ders }}">
                         <div class="mb-2">
@@ -628,11 +609,9 @@
                 </div>
             </div>
 
-            <!-- 4. Ders Videosu Ekle (Web / YouTube / MP4) -->
             <div class="col-md-6">
                 <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
                     <h6 class="fw-bold text-danger mb-2"><i class="bi bi-film"></i> 🎥 Ünite Dersi Videosu Ekle</h6>
-                    <p class="text-muted small">YouTube, Vimeo veya herhangi bir web adresinden / doğrudan video (.mp4) linki ekleyin.</p>
                     <form action="/video-kaydet" method="POST">
                         <input type="hidden" name="ders_adi" value="{{ aktif_ders }}">
                         <input type="hidden" name="kaynak_sayfa" value="icerik_merkezi">
@@ -646,12 +625,13 @@
                         </div>
                         <div class="mb-3">
                             <label class="form-label small fw-bold">Video URL / Web Linki</label>
-                            <input type="url" name="video_url" class="form-control form-control-sm" placeholder="YouTube, .mp4 veya herhangi bir web video linki..." required>
+                            <input type="url" name="video_url" class="form-control form-control-sm" placeholder="Webcast, YouTube veya .mp4 linki..." required>
                         </div>
                         <button type="submit" class="btn btn-danger btn-sm w-100 rounded-pill fw-bold">Ders Videosunu Kaydet</button>
                     </form>
                 </div>
             </div>
+        </div>
 
         <!-- 7. SINAV / SORU EKRANI -->
         {% elif durum == 'soru' %}
@@ -695,7 +675,6 @@
             </div>
         </div>
 
-        <!-- Geri Sayım Scripti -->
         {% if kalan_saniye and kalan_saniye|int > 0 %}
         <script>
             let sure = parseInt("{{ kalan_saniye }}");
@@ -715,7 +694,7 @@
         </script>
         {% endif %}
 
-        <!-- 8. ÖĞRENME MODU GERİ BİLDİRİM -->
+        <!-- 8. GERİ BİLDİRİM -->
         {% elif durum == 'geribildirim' %}
         <div class="row justify-content-center">
             <div class="col-lg-8">
@@ -740,7 +719,7 @@
             </div>
         </div>
 
-        <!-- 9. SONUÇ EKRANI -->
+        <!-- 9. SONUÇ -->
         {% elif durum == 'sonuc' %}
         <div class="row justify-content-center">
             <div class="col-lg-8">
@@ -760,11 +739,11 @@
             </div>
         </div>
 
-        <!-- 10. KRONOLOJİ SIRALAMA EGZERSİZİ -->
+        <!-- 10. KRONOLOJİ -->
         {% elif durum == 'kronoloji' %}
         <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
             <h5 class="fw-bold text-primary mb-1"><i class="bi bi-clock-history"></i> Tarihsel Sıralama / Kronoloji</h5>
-            <p class="text-muted small mb-0">Olayları doğru kronolojik sıraya göre sürükleyip bırakın veya kontrol edin.</p>
+            <p class="text-muted small mb-0">Olayları kronolojik sıraya göre inceleyin.</p>
         </div>
         <div class="row justify-content-center">
             <div class="col-md-8">
@@ -776,18 +755,17 @@
                             <span class="fw-semibold">{{ olay.olay }}</span>
                             <div class="small text-muted mt-1">{{ olay.detay }}</div>
                         </div>
-                        <i class="bi bi-grip-vertical text-muted fs-4"></i>
                     </li>
                     {% endfor %}
                 </ul>
             </div>
         </div>
 
-        <!-- 11. ÜNİTE PEKİŞTİRME LİSTESİ -->
+        <!-- 11. ÜNİTE PEKİŞTİRME -->
         {% elif durum == 'unite_pekistirme' %}
         <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
             <h5 class="fw-bold text-primary mb-1"><i class="bi bi-check2-square"></i> Ünite Pekiştirme Testleri</h5>
-            <p class="text-muted small mb-0">{{ aktif_ders }} dersine ait ünite soru sayıları ve test başlatma ekranı.</p>
+            <p class="text-muted small mb-0">{{ aktif_ders }} dersine ait ünite soru sayıları.</p>
         </div>
         <div class="row g-3">
             {% for u in uniteler %}
@@ -810,8 +788,7 @@
             </div>
             {% endfor %}
         </div>
-
-        <!-- 12. SORU YÖNETİMİ -->
+<!-- 12. SORU YÖNETİMİ -->
         {% elif durum == 'yonetim' %}
         <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
             <h5 class="fw-bold mb-3"><i class="bi bi-sliders"></i> Soru Yönetim Paneli</h5>
@@ -864,8 +841,9 @@
                 </table>
             </div>
         </div>
-            <!-- Soru Düzenleme Ekranı -->
-        {% if durum == 'duzenle' %}
+
+        <!-- 13. SORU DÜZENLEME EKRANI (Bağımsız Blok) -->
+        {% elif durum == 'duzenle' %}
         <div class="row justify-content-center">
             <div class="col-lg-8">
                 <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
@@ -935,9 +913,8 @@
                 </div>
             </div>
         </div>
-        {% endif %}
 
-        <!-- 13. İSTATİSTİK PANELİ -->
+        <!-- 14. İSTATİSTİK -->
         {% elif durum == 'istatistik' %}
         <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
             <h5 class="fw-bold text-primary mb-3"><i class="bi bi-bar-chart-line-fill"></i> Genel Başarı ve Analiz</h5>
@@ -993,7 +970,7 @@
                 <div class="modal-body p-4 text-center">
                     <i class="bi bi-exclamation-triangle-fill text-danger display-4 mb-3"></i>
                     <h5 class="fw-bold">Tüm Verileri Sıfırla?</h5>
-                    <p class="text-muted small">Bu işlem tüm soruları, deneme geçmişinizi ve notlarınızı kalıcı olarak silecektir.</p>
+                    <p class="text-muted small">Bu işlem tüm soruları ve geçmişinizi silecek.</p>
                     <form action="/sifirla" method="POST" class="d-flex gap-2 justify-content-center mt-4">
                         <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">İptal</button>
                         <button type="submit" class="btn btn-danger rounded-pill px-4">Evet, Sıfırla</button>
