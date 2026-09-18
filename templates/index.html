@@ -364,13 +364,23 @@
         <!-- 4. DERS ÇALIŞMA / OKUMA MODU -->
         {% elif durum == 'ogrenme_modu' %}
         <div class="card border-0 shadow-sm rounded-4 p-3 bg-white mb-3">
-            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
-                <div>
-                    <h5 class="fw-bold m-0 text-primary">{{ aktif_ders }}</h5>
-                    <span class="badge bg-light text-dark border">{{ unite_baslik }}</span>
+            <div class="row g-2 align-items-center">
+                <!-- Ders Değiştirme Açılır Kutusu -->
+                <div class="col-lg-5 col-md-12">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-journal-bookmark-fill text-primary fs-4"></i>
+                        <select class="form-select form-select-sm rounded-3 fw-bold border-primary-subtle" onchange="location.href='/ders-calis?unite=1&ders=' + encodeURIComponent(this.value)">
+                            {% for d in dersler %}
+                            <option value="{{ d }}" {% if d == aktif_ders %}selected{% endif %}>{{ d }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
                 </div>
-                <div class="d-flex flex-wrap align-items-center gap-2">
-                    <!-- Kılavuz PDF Açma Butonu -->
+
+                <!-- Ünite Başlığı ve Hızlı Aksiyon Butonları -->
+                <div class="col-lg-7 col-md-12 d-flex flex-wrap align-items-center justify-content-lg-end gap-2">
+                    <span class="badge bg-light text-dark border px-3 py-2 rounded-pill">{{ unite_baslik }}</span>
+
                     {% if klavuz_pdf_url %}
                     <a href="{{ klavuz_pdf_url }}" target="_blank" class="btn btn-outline-danger btn-sm rounded-pill fw-bold shadow-sm">
                         <i class="bi bi-file-earmark-pdf"></i> Kılavuz PDF Aç
@@ -405,8 +415,35 @@
                 </div>
             </div>
 
-            <!-- Orta/Sağ: İçerik -->
+            <!-- Orta/Sağ: İçerik Alanı -->
             <div class="col-md-9">
+
+                <!-- 1. VİDEO BÖLÜMÜ -->
+                {% if embed_url %}
+                <div class="card border-0 shadow-sm rounded-4 p-3 bg-white mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="fw-bold m-0"><i class="bi bi-youtube text-danger me-1"></i> Ünite Dersi</h6>
+                    </div>
+                    <div class="ratio ratio-16x9 rounded-3 overflow-hidden">
+                        <iframe src="{{ embed_url }}" allowfullscreen></iframe>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- 2. ÜNİTE KİTAP PDF'İ BÖLÜMÜ -->
+                {% if pdf_url %}
+                <div class="card border-0 shadow-sm rounded-4 p-3 bg-white mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="fw-bold m-0"><i class="bi bi-file-pdf text-danger me-1"></i> Ders Kitabı ({{ unite_baslik }})</h6>
+                        <a href="{{ pdf_url }}" target="_blank" class="btn btn-sm btn-outline-secondary rounded-pill py-0 px-2 small">
+                            <i class="bi bi-box-arrow-up-right"></i> Tam Ekran
+                        </a>
+                    </div>
+                    <iframe src="{{ pdf_url }}" class="w-100 rounded-3" style="height: 550px;" frameborder="0"></iframe>
+                </div>
+                {% endif %}
+
+                <!-- 3. HAP BİLGİLER & ÖZETLER BÖLÜMÜ (EN ALTTA) -->
                 <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-3">
                     <div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-3">
                         <h6 class="fw-bold m-0"><i class="bi bi-stars text-warning me-1"></i> Ünite Hap Bilgileri & Özetler</h6>
@@ -426,28 +463,11 @@
                     </ul>
                     {% else %}
                     <div class="text-center text-muted py-4">
-                        <p class="small">Bu üniteye ait hap bilgi henüz eklenmemiş. İçerik Merkezi'nden kılavuz PDF'inizi işleyebilirsiniz.</p>
+                        <p class="small m-0">Bu üniteye ait hap bilgi henüz bulunmuyor. İçerik Merkezi'nden dersin kılavuz PDF'ini işleyebilirsiniz.</p>
                     </div>
                     {% endif %}
                 </div>
 
-                <!-- PDF Kitap Görüntüleyici -->
-                {% if pdf_url %}
-                <div class="card border-0 shadow-sm rounded-4 p-3 bg-white mb-3">
-                    <h6 class="fw-bold mb-2"><i class="bi bi-file-pdf text-danger me-1"></i> Ders Kitabı</h6>
-                    <iframe src="{{ pdf_url }}" class="w-100 rounded-3" style="height: 550px;" frameborder="0"></iframe>
-                </div>
-                {% endif %}
-
-                <!-- Video Görüntüleyici -->
-                {% if embed_url %}
-                <div class="card border-0 shadow-sm rounded-4 p-3 bg-white">
-                    <h6 class="fw-bold mb-2"><i class="bi bi-youtube text-danger me-1"></i> Ünite Dersi</h6>
-                    <div class="ratio ratio-16x9 rounded-3 overflow-hidden">
-                        <iframe src="{{ embed_url }}" allowfullscreen></iframe>
-                    </div>
-                </div>
-                {% endif %}
             </div>
         </div>
 
