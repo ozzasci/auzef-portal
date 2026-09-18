@@ -1073,7 +1073,6 @@ def kronoloji_egzersizi():
                            karisik_olaylar=karisik_olaylar,
                            uyari_mesaji=uyari_mesaji,
                            dersler=GUZ_DERSLERI)
-
 @app.route("/sinav-baslat", methods=["POST"])
 @giris_zorunlu
 def sinav_baslat():
@@ -1083,6 +1082,10 @@ def sinav_baslat():
     mod = request.form.get("mod", "sinav")
     limit = int(request.form.get("limit", 20))
     ozel_havuz = request.form.get("ozel_havuz", "")
+
+    # Eğer tek bir ünite seçildiyse soru kısıtlamasını otomatik kaldır (hepsini sor)
+    if unite_secim.startswith("UNITE_"):
+        limit = 0
 
     conn = veritabani_baglan()
     cursor = conn.cursor()
@@ -1138,6 +1141,8 @@ def sinav_baslat():
 
     tum_sorular = [dict(row) for row in satirlar]
     random.shuffle(tum_sorular)
+    
+    # limit 0 ise veya soru sayısı limitten azsa tüm soruları al
     secilen_sorular = tum_sorular[:limit] if (limit > 0 and len(tum_sorular) > limit) else tum_sorular
 
     sinav_oturumunu_temizle()
@@ -1153,6 +1158,7 @@ def sinav_baslat():
     session["toplam_sure_saniye"] = sure_dakika * 60
 
     return redirect(url_for("soru_goruntule"))
+
 
 @app.route("/soru", methods=["GET", "POST"])
 @giris_zorunlu
