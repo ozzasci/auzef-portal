@@ -163,6 +163,7 @@ def drive_link_donustur(link):
         return f"https://drive.google.com/file/d/{dosya_id}/view?usp=sharing"
     return link
 
+# GAYRIMÜSLİMLER HAP BİLGİ SEEDER
 GAYRIMUSLIM_OZETLERI = {
     1: [
         "Osmanlı'da Müslümanlara, 'millet-i hâkime' denilirdi.",
@@ -171,14 +172,10 @@ GAYRIMUSLIM_OZETLERI = {
         "Gayrimüslimlerin devlete ödedikleri verginin adı cizye idi.",
         "Fatih'in gayrimüslimlerle ilgili ilk uygulamalarından birisi Galata'da yaşayan Latinlere verilen bir ahitnâme ile bu topluluğun statüsünün belirlenmesiydi.",
         "Osmanlı tebaası olmayan yabancılara Levantenler denilirdi.",
-        "Fetih öncesinde ve sırasında İstanbul'dan kaçıp sonradan tekrar şehre dönenlere Levantenler denilir.",
         "Millet başı olan patriklerin, göreve gelirken ödedikleri vergi adı pişkeş vergisi denilirdi.",
         "Hahambaşıların ödedikleri vergiye Rav Akçesi denilirdi.",
-        "Dinî liderlerin yeniçerilerden oluşan ve emirlerinde bulunan askerî birlik Yasakçı denilirdi.",
         "Fatih, Rumların Patriklik merkezi olarak Ayasofya'dan sonra Havariyyun Kilisesini kullanmalarına izin verdi.",
-        "Ermeni cemaati içindeki cemaat idaresinde de yetki sahibi olan sınıfa amira denir.",
-        "Ermeni Patrikhanesi'nin sorumluluğuna bırakılan ve onlara bağlanan topluluk Süryanilerdir.",
-        "Yahudi cemaatinin kendi aralarındaki davaları takip eden özel mahkemelere 'bet-din' denilirdi.",
+        "Ermeni cemaati içindeki cemaat idaresinde yetki sahibi olan sınıfa amira denir.",
         "Fetih sonrası İstanbul'un ilk hahambaşısı Moşe Kapsali'dir."
     ],
     2: [
@@ -186,73 +183,7 @@ GAYRIMUSLIM_OZETLERI = {
         "İlk Nizamname Katolik Ermeniler için hazırlanan 1850 tarihli Katolik Milleti Nizamnamesi'dir.",
         "Nasturi Kilisesi, Süryanilik'ten ayrılarak kurulmuştur.",
         "Keldani ismi Nasturilik'ten ayrılarak Katolik mezhebini kabul edenlere Papalık tarafından verilmiştir.",
-        "Osmanlı sınırlarında en yaygın misyonerlik çalışmalarını Kalvinci Puritan ABCFM örgütü yürütmüştür.",
-        "Osmanlıda ilk Protestan kilisesi 1842'de Kudüs'te, 1846'da İstanbul'da açılmıştır.",
-        "Misyonerlerin öncelikli faaliyet sahaları eğitim, ardından sağlık alanıdır."
-    ],
-    3: [
-        "Tanzimat Fermanı 3 Kasım 1839 tarihinde Gülhane Parkı'nda Koca Mustafa Reşit Paşa tarafından ilân edildi.",
-        "1844 yılında, İslam dininden başka bir dine dönme (irtidad) için verilen ölüm cezası kaldırılmıştır.",
-        "Gayrimüslimlerin askerlik yapmamaları karşılığında alınan vergi 'bedel-i askerî' olarak anılmıştır.",
-        "1862 yılında ilan edilen Rum Patrikliği Nizamnamesi 8 farklı nizamnamenin bir araya getirilmesinden oluşur.",
-        "Osmanlı gayrimüslim tebaası konusunu uluslararası boyuta taşıyan gelişme Paris Antlaşması'dır."
-    ],
-    4: [
-        "Bulgar milli hareketinin 18. yy uyanışının öncüsü keşiş Paisiy Hilendarski kabul edilir.",
-        "Abdülaziz 11 Mart 1870'te bağımsız Bulgar Kilisesi kurulmasını ilân eden Eksarhlık Fermanı'nı yayımlamıştır.",
-        "Gayrimüslim millet nizamnameleri ile ilgili en fazla tartışmanın yaşandığı dönem II. Abdülhamit dönemidir.",
-        "1909 yılında gayrimüslimlerin muafiyetine son verilerek bedel-i askerî vergisi kaldırılmıştır."
-    ],
-    5: [
-        "Müslüman-Gayrimüslim ayrışmasının ekonomik göstergesi Müslümanların başlattığı yerli boykotlardır.",
-        "27 Mayıs 1915'te Sevk ve İskân Kanunu çıkarılmıştır; metinde Ermenilerden bahsedilmemektedir.",
-        "1917'de çıkan Hukuk-ı Aile Kararnâmesi ile nikâhların resmî memur huzurunda yapılması şartı getirilmiştir."
-    ],
-    6: [
-        "Mütareke dönemi Rum Patriği Dorotheos Mammelis Rum okullarında Türkçe eğitimi yasaklamıştır.",
-        "Ermeni Patriği Zaven Efendi mütareke sürecinde İngiliz yanlısı sert bir siyaset takip etmiştir.",
-        "Tehcir davaları gerekçesiyle Boğazlıyan Kaymakamı Kemal Bey ve Urfa Mutasarrıfı Nusret Bey idam edilmiştir.",
-        "Nutuk'ta Atatürk, Rum Patrikhanesi'nde kurulan Mavri Mira Heyeti'nin çeteleri idare ettiğini belirtmiştir."
-    ],
-    7: [
-        "Hahambaşı Haim Nahum Efendi Milli Mücadele'yi desteklemiş, kamuoyunda İkinci Pierre Loti olarak anılmıştır.",
-        "Hahambaşı Vekili Haim Bejerano: 'Türklerden şikâyet edecek bir Musevi, Musevi milletinden değildir' demiştir.",
-        "Süryani Kadîm Patriği III. İlyas Şakir işgallere karşı Mustafa Kemal Paşa'yı ve Kuva-yı Milliye'yi desteklemiştir."
-    ],
-    8: [
-        "İç Anadolu'da yaşayan ve Türkçe konuşan Ortodoks topluluk Karamanlılar olarak tanımlanıyordu.",
-        "Papa Eftim: 'Ben Türk dostu Eftim değil, Türk oğlu Türk Eftim'im' demiştir.",
-        "21 Eylül 1922 tarihinde Kayseri'de Bağımsız Türk Ortodoks Patrikhanesi kurulduğu ilân edilmiştir."
-    ],
-    9: [
-        "Lozan'da Türk heyetinin azınlıklar konusunda en çok üzerinde durduğu prensip eşitliktir.",
-        "30 Ocak 1923'te imzalanan sözleşmeyle İstanbul Rumları ile Batı Trakya Müslümanları mübadele dışı tutulmuştur.",
-        "Lozan Antlaşması'nda azınlık maddeleri 'Ekalliyetlerin Himayesi' başlığı altındaki 37-45. maddelerdir."
-    ],
-    10: [
-        "1926 Medeni Kanun ile azınlık aile hukuku haklarından ilk feragat edenler Yahudiler olmuştur.",
-        "Azınlıklara karşı ilk güvensizlik ve gerginlik 1934 Trakya Olayları ile yaşanmıştır.",
-        "6-7 Eylül 1955 olayları sonrasında Rumların Türkiye'den göç dalgası hızlanmıştır.",
-        "1971 yılında Heybeliada Ruhban Okulu devletleştirme kanunları çerçevesinde kapatılmıştır."
-    ],
-    11: [
-        "Cumhuriyet döneminin ilk Ermeni patriği 1927 yılında seçilen I. Mesrob Naroyan'dır.",
-        "Patrik Şınorhk Kalustyan 29 yıllık göreviyle Türkiye Ermenileri arasında en uzun süre patriklik yapan kişidir.",
-        "2019'da yapılan seçimle Sahak Maşalyan Türkiye Ermenileri Patriği seçilmiştir."
-    ],
-    12: [
-        "Cumhuriyetin ilk yıllarında Türkiye Hükümeti patrik için resmiyette sadece 'başrahip/başpapaz' unvanını kullanmıştır.",
-        "Patrik seçilen Konstantin Araboğlu mübadeleye tâbi olduğu gerekçesiyle Selanik'e gönderilmiştir.",
-        "1964'te İkamet ve Ticaret Mukavelesi feshedilmiş ve Rum göçü hızlanmıştır."
-    ],
-    13: [
-        "Haim Moşe Bejerano'dan sonra 1953'e kadar seçim yapılmamış, ilk resmî hahambaşı Rafael David Saban seçilmiştir.",
-        "2002 yılından itibaren İshak Haleva Türkiye Hahambaşılığı görevini sürdürmektedir."
-    ],
-    14: [
-        "Süryani Patrikliği merkezi 1933'te Humus'a, 1959'da Şam'a taşınmıştır.",
-        "1924 yılındaki Hakkâri merkezli Nasturi İsyanı Musul'un kaybedilmesinde etkili olmuştur.",
-        "Bulgar Eksarhlığı Balkan Savaşları sonrası merkezini Sofya'ya taşımış, İstanbul'da vekâlet bırakmıştır."
+        "Osmanlıda ilk Protestan kilisesi 1842'de Kudüs'te, 1846'da İstanbul'da açılmıştır."
     ]
 }
 
@@ -262,7 +193,7 @@ def varsayilan_ozetleri_yukle():
         cursor = conn.cursor()
         ders_adi = "20. Yüzyıl Türkiye’sinde Gayrimüslimler ve Kurumları"
         cursor.execute("SELECT COUNT(*) FROM unite_ozetleri WHERE TRIM(ders_adi) LIKE ?", (f"%{ders_adi}%",))
-        if cursor.fetchone()[0] < 30:
+        if cursor.fetchone()[0] < 5:
             cursor.execute("DELETE FROM unite_ozetleri WHERE TRIM(ders_adi) LIKE ?", (f"%{ders_adi}%",))
             for u_no, maddeler in GAYRIMUSLIM_OZETLERI.items():
                 for m in maddeler:
@@ -274,112 +205,110 @@ def varsayilan_ozetleri_yukle():
 
 varsayilan_ozetleri_yukle()
 
-def klavuz_pdf_ayikla(pdf_bytes):
-    reader = PdfReader(io.BytesIO(pdf_bytes))
-    tam_metin = ""
-    for page in reader.pages:
-        txt = page.extract_text()
-        if txt:
-            tam_metin += txt + "\n"
+# GÖNDERDİĞİNİZ AUZEF PDF FORMATINA ÖZEL AYRIŞTIRICI
+def auzef_harfsiz_ve_harfli_soru_ayikla(metin, unite_no=1):
+    # Üst/alt bilgileri ve sayfa izlerini temizle
+    temiz = re.sub(r'about:blank\s*\d*/?\d*', '', metin)
+    temiz = re.sub(r'\d{1,2}\.\d{1,2}\.\d{4}\s+\d{1,2}:\d{1,2}', '', temiz)
+    temiz = re.sub(r'Ders:\s*.*?(?:\n|\|)', '', temiz, flags=re.IGNORECASE)
+    temiz = re.sub(r'Ünite:\s*.*?\n', '', temiz, flags=re.IGNORECASE)
 
-    satirlar = tam_metin.splitlines()
-    unite_verileri = {i: [] for i in range(1, 15)}
-    mevcut_unite = 1
-    tampon = ""
+    # Soru bloklarını ayır
+    bloklar = re.split(r'(?:^|\n)\s*Soru\s*(\d{1,2})\s*:\s*', temiz, flags=re.IGNORECASE)
+    sorular = []
 
-    for satir in satirlar:
-        s = satir.strip()
-        if not s:
-            continue
+    if len(bloklar) > 1:
+        for i in range(1, len(bloklar), 2):
+            s_no = bloklar[i].strip()
+            icerik = bloklar[i+1].strip()
 
-        s_upper = s.upper()
-        if any(kelime in s_upper for kelime in ["FAITH S. AKADEMİ", "TELEGRAM", "AUZEF TARİH", "SINIF KANALI"]):
-            continue
-        if re.match(r'^\s*20\.\s*(YY|YÜZYIL)', s, re.IGNORECASE) or s.endswith("KILAVUZU") or s.isdigit():
-            continue
+            # Cevap: kısmını tespit et
+            cevap_match = re.search(r'\n\s*Cevap\s*:\s*(.*)', icerik, flags=re.IGNORECASE)
+            if not cevap_match:
+                continue
 
-        baslik_m = re.match(r'^([1-9]|1[0-4])\.\s+[A-ZÇĞİIÖŞÜ\s\',-]{3,}', s)
-        if baslik_m:
-            if tampon and len(tampon) >= 15:
-                unite_verileri[mevcut_unite].append(tampon)
-                tampon = ""
-            mevcut_unite = int(baslik_m.group(1))
-            continue
+            dogru_cevap_metni = cevap_match.group(1).strip()
+            govde = icerik[:cevap_match.start()].strip()
 
-        if tampon:
-            tampon += " " + s
-        else:
-            tampon = s
+            satirlar = [s.strip() for s in govde.splitlines() if s.strip()]
+            if len(satirlar) < 6:
+                continue
 
-        if tampon.endswith((".", ":", "!", "?", "idi", "denirdi", "denilirdi", "olmuştur", "edilmiştir")):
-            if len(tampon) >= 15:
-                unite_verileri[mevcut_unite].append(tampon)
-            tampon = ""
+            # Son 5 satır seçeneklerdir, öncesi soru köküdür
+            sec_e = satirlar[-1]
+            sec_d = satirlar[-2]
+            sec_c = satirlar[-3]
+            sec_b = satirlar[-4]
+            sec_a = satirlar[-5]
+            soru_kok = " ".join(satirlar[:-5]).strip()
 
-    if tampon and len(tampon) >= 15:
-        unite_verileri[mevcut_unite].append(tampon)
+            # Doğru cevabın hangi şıkta olduğunu tespit et
+            dogru_harf = "A"
+            c_norm = dogru_cevap_metni.replace("Â", "A").replace("â", "a").strip().lower()
 
-    return {k: v for k, v in unite_verileri.items() if v}
+            for harf, val in [("A", sec_a), ("B", sec_b), ("C", sec_c), ("D", sec_d), ("E", sec_e)]:
+                v_norm = val.replace("Â", "A").replace("â", "a").strip().lower()
+                if v_norm == c_norm or v_norm in c_norm or c_norm in v_norm:
+                    dogru_harf = harf
+                    break
 
-@app.route("/otomatik-klavuz-isle", methods=["POST"])
+            sorular.append({
+                "unite_no": unite_no,
+                "metin": soru_kok,
+                "a": sec_a,
+                "b": sec_b,
+                "c": sec_c,
+                "d": sec_d,
+                "e": sec_e,
+                "dogru_cevap": dogru_harf,
+                "aciklama": f"Doğru Yanıt: {dogru_cevap_metni}"
+            })
+
+    return sorular
+
+@app.route("/yukle-unite-sorulari", methods=["POST"])
 @giris_zorunlu
-def otomatik_klavuz_isle():
+def yukle_unite_sorulari():
     ders = request.form.get("ders_adi", "").strip()
-    drive_link = request.form.get("drive_url", "").strip()
-    yuklenen_dosya = request.files.get("klavuz_dosya")
+    unite_no = int(request.form.get("unite_no", 1))
+    dosya = request.files.get("soru_dosyasi")
 
-    pdf_bytes = None
-
-    if yuklenen_dosya and yuklenen_dosya.filename != "" and yuklenen_dosya.filename.lower().endswith(".pdf"):
-        try:
-            pdf_bytes = yuklenen_dosya.read()
-        except Exception as e:
-            session["bildirim"] = {"tur": "danger", "metin": f"Dosya okunamadı: {str(e)}"}
-            return redirect(url_for("icerik_merkezi", ders=ders))
-
-    elif drive_link:
-        dosya_id = drive_id_yakala(drive_link)
-        if not dosya_id:
-            session["bildirim"] = {"tur": "danger", "metin": "Geçersiz Google Drive bağlantısı."}
-            return redirect(url_for("icerik_merkezi", ders=ders))
-
-        indirme_url = f"https://drive.google.com/uc?export=download&id={dosya_id}"
-        try:
-            req = urllib.request.Request(indirme_url, headers={'User-Agent': 'Mozilla/5.0'})
-            with urllib.request.urlopen(req, timeout=20) as response:
-                pdf_bytes = response.read()
-        except Exception as e:
-            session["bildirim"] = {"tur": "danger", "metin": f"Drive dosya çekme hatası: {str(e)}. Cihazdan PDF yüklemeyi deneyin."}
-            return redirect(url_for("icerik_merkezi", ders=ders))
-
-    else:
-        session["bildirim"] = {"tur": "warning", "metin": "Lütfen cihazdan bir PDF dosyası seçin veya geçerli bir bağlantı girin."}
+    if not dosya or not dosya.filename.lower().endswith(".pdf"):
+        session["bildirim"] = {"tur": "danger", "metin": "Lütfen geçerli bir soru PDF'i seçin."}
         return redirect(url_for("icerik_merkezi", ders=ders))
 
+    metin = ""
     try:
-        ayiklanan = klavuz_pdf_ayikla(pdf_bytes)
-        toplam_madde = sum(len(maddeler) for maddeler in ayiklanan.values())
-
-        if toplam_madde == 0:
-            session["bildirim"] = {"tur": "danger", "metin": "PDF okundu ancak içinde kılavuz formatına uygun ünite ve bilgi satırları bulunamadı."}
-            return redirect(url_for("icerik_merkezi", ders=ders))
-
-        conn = veritabani_baglan()
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM unite_ozetleri WHERE TRIM(ders_adi) LIKE ?", (f"%{ders}%",))
-        for u_no, maddeler in ayiklanan.items():
-            for m in maddeler:
-                cursor.execute("INSERT INTO unite_ozetleri (ders_adi, unite_no, madde) VALUES (?, ?, ?)", (ders, u_no, m))
-
-        conn.commit()
-        conn.close()
-
-        session["bildirim"] = {"tur": "success", "metin": f"✅ İşlem Başarılı! {len(ayiklanan)} üniteden toplam {toplam_madde} hap bilgi sisteme aktarıldı."}
-        return redirect(url_for("ders_calis", ders=ders, unite=1))
-
+        reader = PdfReader(io.BytesIO(dosya.read()))
+        for page in reader.pages:
+            t = page.extract_text()
+            if t:
+                metin += t + "\n"
     except Exception as e:
-        session["bildirim"] = {"tur": "danger", "metin": f"Ayrıştırma hatası oluştu: {str(e)}"}
+        session["bildirim"] = {"tur": "danger", "metin": f"PDF okunamadı: {str(e)}"}
         return redirect(url_for("icerik_merkezi", ders=ders))
+
+    sorular = auzef_harfsiz_ve_harfli_soru_ayikla(metin, unite_no)
+
+    if not sorular:
+        session["bildirim"] = {"tur": "warning", "metin": f"PDF okundu ancak {unite_no}. ünite formatına uygun soru algılanamadı."}
+        return redirect(url_for("icerik_merkezi", ders=ders))
+
+    conn = veritabani_baglan()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM sorular WHERE TRIM(ders_adi) = TRIM(?) AND unite_no = ?", (ders, unite_no))
+
+    for s in sorular:
+        cursor.execute("""
+            INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, yildizli, kullanici_notu, unite_no)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, '', ?)
+        """, (ders, s["metin"], s["a"], s["b"], s["c"], s["d"], s["e"], s["dogru_cevap"], s["aciklama"], unite_no))
+
+    conn.commit()
+    conn.close()
+
+    session["bildirim"] = {"tur": "success", "metin": f"🎉 Tebrikler! '{ders}' dersinin {unite_no}. ünitesine ait {len(sorular)} soru başarıyla yüklendi."}
+    return redirect(url_for("unite_pekistirme_listesi", ders=ders))
 
 @app.route("/giris", methods=["GET", "POST"])
 def giris_yap():
@@ -539,130 +468,6 @@ def kaydet_drive_link():
 
     session["bildirim"] = {"tur": "success", "metin": f"'{ders}' - Ünite {unite_no} için Google Drive PDF kaynağı bağlandı!"}
     return redirect(url_for("ders_calis", ders=ders, unite=unite_no))
-
-def tekil_unite_klasik_soru_ayikla(metin, unite_no):
-    bloklar = re.split(r'(?:^|\n)\s*Soru\s*(\d{1,2})\s*:\s*', metin, flags=re.IGNORECASE)
-    ham_sorular = []
-    
-    if len(bloklar) > 1:
-        for i in range(1, len(bloklar), 2):
-            s_no = bloklar[i].strip()
-            icerik = bloklar[i+1].strip()
-            satirlar = [s.strip() for s in icerik.splitlines() if s.strip()]
-            
-            temiz = []
-            for s in satirlar:
-                if any(x in s.upper() for x in ["FAITH S.", "TELEGRAM", "SON SAYFA"]) or s.isdigit():
-                    continue
-                temiz.append(s)
-            
-            if not temiz:
-                continue
-                
-            soru_govdesi = []
-            cevap_govdesi = []
-            cevap_basladi = False
-            
-            for s in temiz:
-                if not cevap_basladi:
-                    soru_govdesi.append(s)
-                    if "?" in s or len(soru_govdesi) >= 3:
-                        cevap_basladi = True
-                else:
-                    cevap_govdesi.append(s)
-            
-            s_metin = " ".join(soru_govdesi).strip()
-            c_metin = " ".join(cevap_govdesi).strip()
-            
-            if not c_metin and len(soru_govdesi) > 1:
-                s_metin = " ".join(soru_govdesi[:-1]).strip()
-                c_metin = soru_govdesi[-1].strip()
-                
-            if s_metin and c_metin:
-                ham_sorular.append({"soru": s_metin, "cevap": c_metin})
-
-    tum_cevaplar = [x["cevap"] for x in ham_sorular]
-    sorular = []
-    
-    for h in ham_sorular:
-        c_dogru = h["cevap"]
-        havuz = [c for c in tum_cevaplar if c != c_dogru and len(c) > 1]
-        
-        secenekler = [c_dogru]
-        if len(havuz) >= 4:
-            secenekler.extend(random.sample(havuz, 4))
-        else:
-            secenekler.extend(havuz)
-            ekstra = 1
-            while len(secenekler) < 5:
-                secenekler.append(f"Seçenek {chr(64 + ekstra)}")
-                ekstra += 1
-                
-        random.shuffle(secenekler)
-        harfler = ["A", "B", "C", "D", "E"]
-        sec_dict = {}
-        dogru_harf = "A"
-        for idx, harf in enumerate(harfler):
-            sec_dict[harf] = secenekler[idx]
-            if secenekler[idx] == c_dogru:
-                dogru_harf = harf
-                
-        sorular.append({
-            "metin": h["soru"],
-            "a": sec_dict["A"],
-            "b": sec_dict["B"],
-            "c": sec_dict["C"],
-            "d": sec_dict["D"],
-            "e": sec_dict["E"],
-            "dogru_cevap": dogru_harf,
-            "aciklama": f"Doğru Cevap: {c_dogru}"
-        })
-        
-    return sorular
-
-@app.route("/yukle-unite-sorulari", methods=["POST"])
-@giris_zorunlu
-def yukle_unite_sorulari():
-    ders = request.form.get("ders_adi", "").strip()
-    unite_no = int(request.form.get("unite_no", 1))
-    dosya = request.files.get("soru_dosyasi")
-
-    if not dosya or not dosya.filename.lower().endswith(".pdf"):
-        session["bildirim"] = {"tur": "danger", "metin": "Lütfen geçerli bir soru PDF'i seçin."}
-        return redirect(url_for("icerik_merkezi", ders=ders))
-
-    metin = ""
-    try:
-        reader = PdfReader(io.BytesIO(dosya.read()))
-        for page in reader.pages:
-            y = page.extract_text()
-            if y:
-                metin += y + "\n"
-    except Exception as e:
-        session["bildirim"] = {"tur": "danger", "metin": f"PDF okunamadı: {str(e)}"}
-        return redirect(url_for("icerik_merkezi", ders=ders))
-
-    sorular = tekil_unite_klasik_soru_ayikla(metin, unite_no)
-
-    if not sorular:
-        session["bildirim"] = {"tur": "warning", "metin": f"PDF okundu ancak {unite_no}. üniteye ait soru algılanamadı."}
-        return redirect(url_for("icerik_merkezi", ders=ders))
-
-    conn = veritabani_baglan()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM sorular WHERE TRIM(ders_adi) = TRIM(?) AND unite_no = ?", (ders, unite_no))
-
-    for s in sorular:
-        cursor.execute("""
-            INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, yildizli, kullanici_notu, unite_no)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, '', ?)
-        """, (ders, s["metin"], s["a"], s["b"], s["c"], s["d"], s["e"], s["dogru_cevap"], s["aciklama"], unite_no))
-
-    conn.commit()
-    conn.close()
-
-    session["bildirim"] = {"tur": "success", "metin": f"Tebrikler! {ders} - Ünite {unite_no} için {len(sorular)} soru aktarıldı."}
-    return redirect(url_for("unite_pekistirme_listesi", ders=ders))
 
 @app.route("/ders-calis")
 @giris_zorunlu
