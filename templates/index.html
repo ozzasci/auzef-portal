@@ -864,6 +864,78 @@
                 </table>
             </div>
         </div>
+            <!-- Soru Düzenleme Ekranı -->
+        {% if durum == 'duzenle' %}
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
+                    <h5 class="fw-bold mb-3 text-primary"><i class="bi bi-pencil-square"></i> Soru Düzenle (#{{ soru.id }})</h5>
+                    <form method="POST" action="/soru-duzenle/{{ soru.id }}">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Ders Adı</label>
+                            <select name="ders_adi" class="form-select rounded-3" required>
+                                {% for d in dersler %}
+                                <option value="{{ d }}" {% if d == soru.ders_adi %}selected{% endif %}>{{ d }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Ünite Numarası</label>
+                            <select name="unite_no" class="form-select rounded-3">
+                                {% for i in range(1, 15) %}
+                                <option value="{{ i }}" {% if soru.unite_no == i %}selected{% endif %}>{{ i }}. Ünite</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Soru Metni</label>
+                            <textarea name="soru_metni" class="form-control rounded-3" rows="3" required>{{ soru.soru_metni }}</textarea>
+                        </div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">A Seçeneği</label>
+                                <input type="text" name="secenek_a" class="form-control rounded-3" value="{{ soru.secenek_a }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">B Seçeneği</label>
+                                <input type="text" name="secenek_b" class="form-control rounded-3" value="{{ soru.secenek_b }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">C Seçeneği</label>
+                                <input type="text" name="secenek_c" class="form-control rounded-3" value="{{ soru.secenek_c }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">D Seçeneği</label>
+                                <input type="text" name="secenek_d" class="form-control rounded-3" value="{{ soru.secenek_d }}" required>
+                            </div>
+                            <div class="col-md-12">
+                                <label class="form-label small fw-bold">E Seçeneği</label>
+                                <input type="text" name="secenek_e" class="form-control rounded-3" value="{{ soru.secenek_e }}" required>
+                            </div>
+                        </div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold">Doğru Cevap (Harf)</label>
+                                <select name="dogru_cevap" class="form-select rounded-3">
+                                    {% for h in ['A', 'B', 'C', 'D', 'E'] %}
+                                    <option value="{{ h }}" {% if soru.dogru_cevap == h %}selected{% endif %}>{{ h }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Açıklama / Çözüm Notu</label>
+                            <textarea name="aciklama" class="form-control rounded-3" rows="2">{{ soru.aciklama }}</textarea>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <a href="/yonetim" class="btn btn-outline-secondary rounded-pill px-4">İptal</a>
+                            <button type="submit" class="btn btn-primary rounded-pill px-5 fw-bold">Değişiklikleri Kaydet</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endif %}
 
         <!-- 13. İSTATİSTİK PANELİ -->
         {% elif durum == 'istatistik' %}
