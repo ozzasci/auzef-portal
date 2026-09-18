@@ -130,14 +130,13 @@ def veritabani_hazirla():
 
 veritabani_hazirla()
 
-# KILAVUZDAKİ TÜM CÜMLELERİN EKSİKSİZ VE TAM LİSTESİ
 GAYRIMUSLIM_OZETLERI = {
     1: [
         "Osmanlı'da Müslümanlara, 'millet-i hâkime' denilirdi.",
         "Osmanlı'da Gayrimüslimlere 'sâir milletler, milel-i gayrimüslime, Devlet-i Osmâniyye'nin bil-cümle tebaa-i sâdıkası, Tebaa-i sâdıka' denilirdi.",
         "Gayrimüslimler İslam Hukukuna göre zımmi statüsüyle yönetiliyorlardı.",
         "Gayrimüslimlerin devlete ödedikleri verginin adı cizye idi.",
-        "Fatih'in gayrimüslimlerle ilgili ilk uygulamalardan birisi Galata'da yaşayan Latinlere verilen bir ahitnâme ile bu topluluğun statüsünün belirlenmesiydi.",
+        "Fatih'in gayrimüslimlerle ilgili ilk uygulamalarından birisi Galata'da yaşayan Latinlere verilen bir ahitnâme ile bu topluluğun statüsünün belirlenmesiydi.",
         "Osmanlı tebaası olmayan yabancılara Levantenler denilirdi.",
         "Fetih öncesinde ve sırasında İstanbul'dan kaçıp sonradan tekrar şehre dönenlere Levantenler denilir.",
         "Millet başı olan patriklerin, göreve gelirken ödedikleri vergi adı pişkeş vergisi denilirdi.",
@@ -340,7 +339,6 @@ def varsayilan_ozetleri_yukle():
         ders_adi = "20. Yüzyıl Türkiye’sinde Gayrimüslimler ve Kurumları"
         cursor.execute("SELECT COUNT(*) FROM unite_ozetleri WHERE TRIM(ders_adi) LIKE ?", (f"%{ders_adi}%",))
         adet = cursor.fetchone()[0]
-        # Eğer veri tabanında tüm maddeler (100+) yoksa eskiyi temizleyip hepsini yaz
         if adet < 90:
             cursor.execute("DELETE FROM unite_ozetleri WHERE TRIM(ders_adi) LIKE ?", (f"%{ders_adi}%",))
             for u_no, maddeler in GAYRIMUSLIM_OZETLERI.items():
@@ -970,7 +968,7 @@ def unite_pekistirme_listesi():
                            aktif_ders=ders, 
                            dersler=GUZ_DERSLERI)
 
-
+# TEK VE LİMİTSİZ ÜNİTE TESTİ BAŞLATMA ROTASI
 @app.route("/unite-test-baslat/<int:unite_no>")
 @giris_zorunlu
 def unite_test_baslat(unite_no):
@@ -980,7 +978,6 @@ def unite_test_baslat(unite_no):
 
     conn = veritabani_baglan()
     cursor = conn.cursor()
-    # Seçilen üniteye ait TÜM soruları eksiksiz çek
     cursor.execute("""
         SELECT * FROM sorular 
         WHERE TRIM(ders_adi) LIKE ? AND unite_no = ?
@@ -993,7 +990,7 @@ def unite_test_baslat(unite_no):
         session["bildirim"] = {"tur": "warning", "metin": f"'{ders}' dersinin {unite_no}. ünitesine ait soru bulunamadı. Lütfen 'İçerik Yükle' alanından soru PDF'ini yükleyin."}
         return redirect(url_for("unite_pekistirme_listesi", ders=ders))
 
-    # Soru havuzunun tamamını al (Herhangi bir limit veya dilimleme yok)
+    # Yüklenmiş tüm soruları limitsiz al
     sorular = [dict(r) for r in satirlar]
     random.shuffle(sorular)
     sinav_oturumunu_temizle()
@@ -1072,6 +1069,7 @@ def kronoloji_egzersizi():
                            karisik_olaylar=karisik_olaylar,
                            uyari_mesaji=uyari_mesaji,
                            dersler=GUZ_DERSLERI)
+
 @app.route("/sinav-baslat", methods=["POST"])
 @giris_zorunlu
 def sinav_baslat():
@@ -1082,7 +1080,7 @@ def sinav_baslat():
     limit = int(request.form.get("limit", 20))
     ozel_havuz = request.form.get("ozel_havuz", "")
 
-    # Eğer tek bir ünite seçildiyse soru kısıtlamasını otomatik kaldır (hepsini sor)
+    # Eğer tek bir ünite seçildiyse sınırlamayı kaldır
     if unite_secim.startswith("UNITE_"):
         limit = 0
 
@@ -1140,8 +1138,6 @@ def sinav_baslat():
 
     tum_sorular = [dict(row) for row in satirlar]
     random.shuffle(tum_sorular)
-    
-    # limit 0 ise veya soru sayısı limitten azsa tüm soruları al
     secilen_sorular = tum_sorular[:limit] if (limit > 0 and len(tum_sorular) > limit) else tum_sorular
 
     sinav_oturumunu_temizle()
@@ -1157,7 +1153,6 @@ def sinav_baslat():
     session["toplam_sure_saniye"] = sure_dakika * 60
 
     return redirect(url_for("soru_goruntule"))
-
 
 @app.route("/soru", methods=["GET", "POST"])
 @giris_zorunlu
