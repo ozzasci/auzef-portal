@@ -540,6 +540,130 @@ def kaydet_drive_link():
     session["bildirim"] = {"tur": "success", "metin": f"'{ders}' - Ünite {unite_no} için Google Drive PDF kaynağı bağlandı!"}
     return redirect(url_for("ders_calis", ders=ders, unite=unite_no))
 
+def tekil_unite_klasik_soru_ayikla(metin, unite_no):
+    bloklar = re.split(r'(?:^|\n)\s*Soru\s*(\d{1,2})\s*:\s*', metin, flags=re.IGNORECASE)
+    ham_sorular = []
+    
+    if len(bloklar) > 1:
+        for i in range(1, len(bloklar), 2):
+            s_no = bloklar[i].strip()
+            icerik = bloklar[i+1].strip()
+            satirlar = [s.strip() for s in icerik.splitlines() if s.strip()]
+            
+            temiz = []
+            for s in satirlar:
+                if any(x in s.upper() for x in ["FAITH S.", "TELEGRAM", "SON SAYFA"]) or s.isdigit():
+                    continue
+                temiz.append(s)
+            
+            if not temiz:
+                continue
+                
+            soru_govdesi = []
+            cevap_govdesi = []
+            cevap_basladi = False
+            
+            for s in temiz:
+                if not cevap_basladi:
+                    soru_govdesi.append(s)
+                    if "?" in s or len(soru_govdesi) >= 3:
+                        cevap_basladi = True
+                else:
+                    cevap_govdesi.append(s)
+            
+            s_metin = " ".join(soru_govdesi).strip()
+            c_metin = " ".join(cevap_govdesi).strip()
+            
+            if not c_metin and len(soru_govdesi) > 1:
+                s_metin = " ".join(soru_govdesi[:-1]).strip()
+                c_metin = soru_govdesi[-1].strip()
+                
+            if s_metin and c_metin:
+                ham_sorular.append({"soru": s_metin, "cevap": c_metin})
+
+    tum_cevaplar = [x["cevap"] for x in ham_sorular]
+    sorular = []
+    
+    for h in ham_sorular:
+        c_dogru = h["cevap"]
+        havuz = [c for c in tum_cevaplar if c != c_dogru and len(c) > 1]
+        
+        secenekler = [c_dogru]
+        if len(havuz) >= 4:
+            secenekler.extend(random.sample(havuz, 4))
+        else:
+            secenekler.extend(havuz)
+            ekstra = 1
+            while len(secenekler) < 5:
+                secenekler.append(f"Seçenek {chr(64 + ekstra)}")
+                ekstra += 1
+                
+        random.shuffle(secenekler)
+        harfler = ["A", "B", "C", "D", "E"]
+        sec_dict = {}
+        dogru_harf = "A"
+        for idx, harf in enumerate(harfler):
+            sec_dict[harf] = secenekler[idx]
+            if secenekler[idx] == c_dogru:
+                dogru_harf = harf
+                
+        sorular.append({
+            "metin": h["soru"],
+            "a": sec_dict["A"],
+            "b": sec_dict["B"],
+            "c": sec_dict["C"],
+            "d": sec_dict["D"],
+            "e": sec_dict["E"],
+            "dogru_cevap": dogru_harf,
+            "aciklama": f"Doğru Cevap: {c_dogru}"
+        })
+        
+    return sorular
+
+@app.route("/yukle-unite-sorulari", methods=["POST"])
+@giris_zorunlu
+def yukle_unite_sorulari():
+    ders = request.form.get("ders_adi", "").strip()
+    unite_no = int(request.form.get("unite_no", 1))
+    dosya = request.files.get("soru_dosyasi")
+
+    if not dosya or not dosya.filename.lower().endswith(".pdf"):
+        session["bildirim"] = {"tur": "danger", "metin": "Lütfen geçerli bir soru PDF'i seçin."}
+        return redirect(url_for("icerik_merkezi", ders=ders))
+
+    metin = ""
+    try:
+        reader = PdfReader(io.BytesIO(dosya.read()))
+        for page in reader.pages:
+            y = page.extract_text()
+            if y:
+                metin += y + "\n"
+    except Exception as e:
+        session["bildirim"] = {"tur": "danger", "metin": f"PDF okunamadı: {str(e)}"}
+        return redirect(url_for("icerik_merkezi", ders=ders))
+
+    sorular = tekil_unite_klasik_soru_ayikla(metin, unite_no)
+
+    if not sorular:
+        session["bildirim"] = {"tur": "warning", "metin": f"PDF okundu ancak {unite_no}. üniteye ait soru algılanamadı."}
+        return redirect(url_for("icerik_merkezi", ders=ders))
+
+    conn = veritabani_baglan()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM sorular WHERE TRIM(ders_adi) = TRIM(?) AND unite_no = ?", (ders, unite_no))
+
+    for s in sorular:
+        cursor.execute("""
+            INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, yildizli, kullanici_notu, unite_no)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, '', ?)
+        """, (ders, s["metin"], s["a"], s["b"], s["c"], s["d"], s["e"], s["dogru_cevap"], s["aciklama"], unite_no))
+
+    conn.commit()
+    conn.close()
+
+    session["bildirim"] = {"tur": "success", "metin": f"Tebrikler! {ders} - Ünite {unite_no} için {len(sorular)} soru aktarıldı."}
+    return redirect(url_for("unite_pekistirme_listesi", ders=ders))
+
 @app.route("/ders-calis")
 @giris_zorunlu
 def ders_calis():
