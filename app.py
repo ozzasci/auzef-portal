@@ -160,7 +160,7 @@ def drive_id_yakala(link):
 def drive_link_donustur(link):
     dosya_id = drive_id_yakala(link)
     if dosya_id:
-        return f"https://drive.google.com/file/d/{dosya_id}/view?usp=sharing"
+        return f"https://drive.google.com/file/d/{dosya_id}/preview"
     return link
 
 GAYRIMUSLIM_OZETLERI = {
