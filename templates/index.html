@@ -739,27 +739,104 @@
             </div>
         </div>
 
-        <!-- 10. KRONOLOJİ -->
+       <!-- 10. KRONOLOJİ SIRALAMA EGZERSİZİ -->
         {% elif durum == 'kronoloji' %}
         <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
-            <h5 class="fw-bold text-primary mb-1"><i class="bi bi-clock-history"></i> Tarihsel Sıralama / Kronoloji</h5>
-            <p class="text-muted small mb-0">Olayları kronolojik sıraya göre inceleyin.</p>
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    <h5 class="fw-bold text-primary mb-1"><i class="bi bi-clock-history"></i> Tarihsel Sıralama / Kronoloji Egzersizi</h5>
+                    <p class="text-muted small mb-0">Olayları yukarı ve aşağı taşıyarak en eskiden en yeniye doğru doğru kronolojik sıraya dizin.</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-primary btn-sm rounded-pill px-3 fw-bold" onclick="siralamayiKarsilastir()">
+                        <i class="bi bi-check2-all"></i> Sıralamayı Kontrol Et
+                    </button>
+                    <a href="/kronoloji?ders={{ aktif_ders }}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                        <i class="bi bi-arrow-clockwise"></i> Yeni Olaylar Getir
+                    </a>
+                </div>
+            </div>
         </div>
+
         <div class="row justify-content-center">
-            <div class="col-md-8">
-                <ul class="list-group list-group-flush shadow-sm rounded-4 overflow-hidden" id="kronolojiListesi">
+            <div class="col-md-9">
+                <div id="sonucKutusu" class="alert d-none text-center fw-bold shadow-sm rounded-4 mb-3" role="alert"></div>
+
+                <ul class="list-group list-group-flush shadow-sm rounded-4 overflow-hidden mb-4" id="kronolojiListesi">
                     {% for olay in karisik_olaylar %}
-                    <li class="list-group-item p-3 border-light-subtle d-flex align-items-center justify-content-between" data-yil="{{ olay.yil }}">
-                        <div>
-                            <span class="badge bg-secondary me-2">{{ olay.yil }}</span>
-                            <span class="fw-semibold">{{ olay.olay }}</span>
-                            <div class="small text-muted mt-1">{{ olay.detay }}</div>
+                    <li class="list-group-item p-3 border-light-subtle d-flex align-items-center justify-content-between bg-white card-hover mb-2 rounded-3 border" data-yil="{{ olay.yil }}">
+                        <div class="d-flex align-items-center gap-3">
+                            <!-- Sıralama Butonları (Mobilde ve Masaüstünde Kolay Kullanım İçin) -->
+                            <div class="d-flex flex-column gap-1">
+                                <button class="btn btn-sm btn-light border py-0 px-2 lh-1 text-primary" onclick="yukariTasi(this)" title="Yukarı Taşı">
+                                    <i class="bi bi-chevron-up"></i>
+                                </button>
+                                <button class="btn btn-sm btn-light border py-0 px-2 lh-1 text-primary" onclick="asagiTasi(this)" title="Aşağı Taşı">
+                                    <i class="bi bi-chevron-down"></i>
+                                </button>
+                            </div>
+                            <div>
+                                <!-- Yıl bilgisi kontrol aşamasında açılacak, başlangıçta gizli veya nötr durabilir -->
+                                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary-subtle me-2 yil-badge" style="display: none;">{{ olay.yil }}</span>
+                                <span class="fw-semibold text-dark">{{ olay.olay }}</span>
+                                <div class="small text-muted mt-1">{{ olay.detay }}</div>
+                            </div>
+                        </div>
+                        <div class="text-muted cursor-grab">
+                            <i class="bi bi-grip-vertical fs-4"></i>
                         </div>
                     </li>
                     {% endfor %}
                 </ul>
             </div>
         </div>
+
+        <script>
+            function yukariTasi(btn) {
+                const li = btn.closest('li');
+                const onceki = li.previousElementSibling;
+                if (onceki) {
+                    li.parentNode.insertBefore(li, onceki);
+                }
+            }
+
+            function asagiTasi(btn) {
+                const li = btn.closest('li');
+                const sonraki = li.nextElementSibling;
+                if (sonraki) {
+                    li.parentNode.insertBefore(sonraki, li);
+                }
+            }
+
+            function siralamayiKarsilastir() {
+                const listeItems = document.querySelectorAll('#kronolojiListesi li');
+                let dogruMu = true;
+                let oncekiYil = -999999;
+
+                listeItems.forEach(li => {
+                    const yil = parseInt(li.getAttribute('data-yil'));
+                    const badge = li.querySelector('.yil-badge');
+                    badge.style.display = 'inline-block'; // Kontrol edilince yılları göster
+
+                    if (yil < oncekiYil) {
+                        dogruMu = false;
+                    }
+                    oncekiYil = yil;
+                });
+
+                const sonucKutusu = document.getElementById('sonucKutusu');
+                sonucKutusu.classList.remove('d-none', 'alert-success', 'alert-danger');
+
+                if (dogruMu) {
+                    sonucKutusu.className = 'alert alert-success text-center fw-bold shadow-sm rounded-4 mb-3';
+                    sonucKutusu.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i> Harika! Olayları kusursuz bir şekilde kronolojik sıraya dizdiniz!';
+                } else {
+                    sonucKutusu.className = 'alert alert-danger text-center fw-bold shadow-sm rounded-4 mb-3';
+                    sonucKutusu.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-2"></i> Sıralamada bazı hatalar var. Yılları inceleyerek tekrar düzenleyin!';
+                }
+            }
+        </script>
+        {% endif %}
 
         <!-- 11. ÜNİTE PEKİŞTİRME -->
         {% elif durum == 'unite_pekistirme' %}
