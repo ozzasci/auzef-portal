@@ -972,6 +972,8 @@ def unite_pekistirme_listesi():
 
 @app.route("/unite-test-baslat/<int:unite_no>")
 @giris_zorunlu
+@app.route("/unite-test-baslat/<int:unite_no>")
+@giris_zorunlu
 def unite_test_baslat(unite_no):
     ders = request.args.get("ders", "").strip()
     if not ders and GUZ_DERSLERI:
@@ -979,6 +981,7 @@ def unite_test_baslat(unite_no):
 
     conn = veritabani_baglan()
     cursor = conn.cursor()
+    # Seçilen üniteye ait TÜM soruları eksiksiz çek
     cursor.execute("""
         SELECT * FROM sorular 
         WHERE TRIM(ders_adi) LIKE ? AND unite_no = ?
@@ -991,11 +994,13 @@ def unite_test_baslat(unite_no):
         session["bildirim"] = {"tur": "warning", "metin": f"'{ders}' dersinin {unite_no}. ünitesine ait soru bulunamadı. Lütfen 'İçerik Yükle' alanından soru PDF'ini yükleyin."}
         return redirect(url_for("unite_pekistirme_listesi", ders=ders))
 
+    # Soru havuzunun tamamını al (Herhangi bir limit veya dilimleme yok)
     sorular = [dict(r) for r in satirlar]
+    random.shuffle(sorular)
     sinav_oturumunu_temizle()
 
     session["sorular"] = sorular
-    session["aktif_ders"] = f"{ders} (Ünite {unite_no} Pekiştirme)"
+    session["aktif_ders"] = f"{ders} (Ünite {unite_no} - {len(sorular)} Soru)"
     session["sinav_modu"] = "ogrenme"
     session["mevcut_indeks"] = 0
     session["cevaplar"] = []
