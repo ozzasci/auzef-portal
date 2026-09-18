@@ -29,6 +29,8 @@ GUZ_DERSLERI = [
 
 UNITE_BASLIKLARI = {i: f"{i}. Ünite" for i in range(1, 15)}[cite: 1]
 
+# --- VERİTABANI BAĞLANTISI VE TABLOLAR ---
+
 def veritabani_baglan():
     conn = sqlite3.connect(DB_NAME, timeout=30.0)[cite: 1]
     conn.row_factory = sqlite3.Row[cite: 1]
@@ -130,6 +132,8 @@ def veritabani_hazirla():
 
 veritabani_hazirla()[cite: 1]
 
+# --- DEKORATÖR VE YARDIMCILAR (HATA ÖNLEMEK İÇİN EN BAŞTA) ---
+
 def giris_zorunlu(f):
     @wraps(f)
     def wrap(*args, **kwargs):
@@ -162,6 +166,8 @@ def drive_link_donustur(link):
     if dosya_id:
         return f"https://drive.google.com/file/d/{dosya_id}/view?usp=sharing"[cite: 1]
     return link[cite: 1]
+
+# --- 14 ÜNİTE SABİT HAP BİLGİ SEEDER ---
 
 GAYRIMUSLIM_OZETLERI = {
     1: [
@@ -274,119 +280,14 @@ def varsayilan_ozetleri_yukle():
 
 varsayilan_ozetleri_yukle()
 
-def klavuz_pdf_ayikla(pdf_bytes):
-    reader = PdfReader(io.BytesIO(pdf_bytes))[cite: 1]
-    tam_metin = ""[cite: 1]
-    for page in reader.pages:[cite: 1]
-        txt = page.extract_text()[cite: 1]
-        if txt:[cite: 1]
-            tam_metin += txt + "\n"[cite: 1]
-
-    satirlar = tam_metin.splitlines()[cite: 1]
-    unite_verileri = {i: [] for i in range(1, 15)}
-    mevcut_unite = 1
-    tampon = ""
-
-    for satir in satirlar:[cite: 1]
-        s = satir.strip()[cite: 1]
-        if not s:[cite: 1]
-            continue[cite: 1]
-
-        s_upper = s.upper()
-        if any(kelime in s_upper for kelime in ["FAITH S. AKADEMİ", "TELEGRAM", "AUZEF TARİH", "SINIF KANALI"]):
-            continue
-        if re.match(r'^\s*20\.\s*(YY|YÜZYIL)', s, re.IGNORECASE) or s.endswith("KILAVUZU") or s.isdigit():
-            continue
-
-        baslik_m = re.match(r'^([1-9]|1[0-4])\.\s+[A-ZÇĞİIÖŞÜ\s\',-]{3,}', s)
-        if baslik_m:
-            if tampon and len(tampon) >= 15:
-                unite_verileri[mevcut_unite].append(tampon)
-                tampon = ""
-            mevcut_unite = int(baslik_m.group(1))
-            continue
-
-        if tampon:
-            tampon += " " + s
-        else:
-            tampon = s
-
-        if tampon.endswith((".", ":", "!", "?", "idi", "denirdi", "denilirdi", "olmuştur", "edilmiştir")):
-            if len(tampon) >= 15:
-                unite_verileri[mevcut_unite].append(tampon)
-            tampon = ""
-
-    if tampon and len(tampon) >= 15:
-        unite_verileri[mevcut_unite].append(tampon)
-
-    return {k: v for k, v in unite_verileri.items() if v}
-
-@app.route("/otomatik-klavuz-isle", methods=["POST"])
-@giris_zorunlu
-def otomatik_klavuz_isle():
-    ders = request.form.get("ders_adi", "").strip()[cite: 1]
-    drive_link = request.form.get("drive_url", "").strip()[cite: 1]
-    yuklenen_dosya = request.files.get("klavuz_dosya")[cite: 1]
-
-    pdf_bytes = None[cite: 1]
-
-    if yuklenen_dosya and yuklenen_dosya.filename != "" and yuklenen_dosya.filename.lower().endswith(".pdf"):
-        try:
-            pdf_bytes = yuklenen_dosya.read()
-        except Exception as e:
-            session["bildirim"] = {"tur": "danger", "metin": f"Dosya okunamadı: {str(e)}"}
-            return redirect(url_for("icerik_merkezi", ders=ders))
-
-    elif drive_link:[cite: 1]
-        dosya_id = drive_id_yakala(drive_link)[cite: 1]
-        if not dosya_id:[cite: 1]
-            session["bildirim"] = {"tur": "danger", "metin": "Geçersiz Google Drive bağlantısı."}[cite: 1]
-            return redirect(url_for("icerik_merkezi", ders=ders))[cite: 1]
-
-        indirme_url = f"https://drive.google.com/uc?export=download&id={dosya_id}"[cite: 1]
-        try:
-            req = urllib.request.Request(indirme_url, headers={'User-Agent': 'Mozilla/5.0'})
-            with urllib.request.urlopen(req, timeout=20) as response:
-                pdf_bytes = response.read()
-        except Exception as e:
-            session["bildirim"] = {"tur": "danger", "metin": f"Drive dosya çekme hatası: {str(e)}. Cihazdan PDF yüklemeyi deneyin."}
-            return redirect(url_for("icerik_merkezi", ders=ders))
-
-    else:
-        session["bildirim"] = {"tur": "warning", "metin": "Lütfen cihazdan bir PDF dosyası seçin veya geçerli bir bağlantı girin."}
-        return redirect(url_for("icerik_merkezi", ders=ders))
-
-    try:
-        ayiklanan = klavuz_pdf_ayikla(pdf_bytes)
-        toplam_madde = sum(len(maddeler) for maddeler in ayiklanan.values())
-
-        if toplam_madde == 0:
-            session["bildirim"] = {"tur": "danger", "metin": "PDF okundu ancak içinde kılavuz formatına uygun ünite ve bilgi satırları bulunamadı."}
-            return redirect(url_for("icerik_merkezi", ders=ders))
-
-        conn = veritabani_baglan()[cite: 1]
-        cursor = conn.cursor()[cite: 1]
-        cursor.execute("DELETE FROM unite_ozetleri WHERE TRIM(ders_adi) LIKE ?", (f"%{ders}%",))
-        for u_no, maddeler in ayiklanan.items():
-            for m in maddeler:
-                cursor.execute("INSERT INTO unite_ozetleri (ders_adi, unite_no, madde) VALUES (?, ?, ?)", (ders, u_no, m))
-
-        conn.commit()[cite: 1]
-        conn.close()[cite: 1]
-
-        session["bildirim"] = {"tur": "success", "metin": f"✅ İşlem Başarılı! {len(ayiklanan)} üniteden toplam {toplam_madde} hap bilgi sisteme aktarıldı."}
-        return redirect(url_for("ders_calis", ders=ders, unite=1))
-
-    except Exception as e:
-        session["bildirim"] = {"tur": "danger", "metin": f"Ayrıştırma hatası oluştu: {str(e)}"}
-        return redirect(url_for("icerik_merkezi", ders=ders))
+# --- TEK VE NET KULLANICI GİRİŞ & ÇIKIŞ METODLARI ---
 
 @app.route("/giris", methods=["GET", "POST"])
 def giris_yap():
-    if "kullanici_id" in session:[cite: 1]
+    if "kullanici_id" in session:
         return redirect(url_for("ana_sayfa"))[cite: 1]
 
-    if request.method == "POST":[cite: 1]
+    if request.method == "POST":
         kullanici_adi = request.form.get("kullanici_adi", "").strip().lower()[cite: 1]
         sifre = request.form.get("sifre", "")[cite: 1]
 
@@ -410,10 +311,10 @@ def giris_yap():
 
 @app.route("/kayit", methods=["GET", "POST"])
 def kayit_ol():
-    if "kullanici_id" in session:[cite: 1]
+    if "kullanici_id" in session:
         return redirect(url_for("ana_sayfa"))[cite: 1]
 
-    if request.method == "POST":[cite: 1]
+    if request.method == "POST":
         kullanici_adi = request.form.get("kullanici_adi", "").strip().lower()[cite: 1]
         ad_soyad = request.form.get("ad_soyad", "").strip()[cite: 1]
         sifre = request.form.get("sifre", "")[cite: 1]
@@ -449,6 +350,8 @@ def kayit_ol():
 def cikis_yap():
     session.clear()[cite: 1]
     return redirect(url_for("giris_yap"))[cite: 1]
+
+# --- ANA SAYFA VE DERS MODÜLLERİ ---
 
 @app.route("/")
 @giris_zorunlu
@@ -716,6 +619,8 @@ def unite_pekistirme_listesi():
                            aktif_ders=ders, 
                            dersler=GUZ_DERSLERI)[cite: 1]
 
+# --- SESSION OVERFLOW VE BAD GATEWAY ENGELLEYEN SINAV MOTORU ---
+
 @app.route("/unite-test-baslat/<int:unite_no>")
 @giris_zorunlu
 def unite_test_baslat(unite_no):
@@ -741,6 +646,7 @@ def unite_test_baslat(unite_no):
     random.shuffle(soru_idleri)
     sinav_oturumunu_temizle()
 
+    # Sadece ID dizisi saklanarak HTTP Header Overflow / Bad Gateway kesinlikle engellenir
     session["soru_idleri"] = soru_idleri
     session["aktif_ders"] = f"{ders} (Ünite {unite_no} - {len(soru_idleri)} Soru)"
     session["sinav_modu"] = "ogrenme"
@@ -1273,7 +1179,7 @@ def yedek_yukle():
             eklenen += 1[cite: 1]
         conn.commit()[cite: 1]
         conn.close()[cite: 1]
-        session["bildirim"] = {"tur": "success", "metin": f"Yedekten {eklenen} soru başarıyla geri yüklendi."}[cite: 1]
+        session["bildirim"] = {"tur": "success", "metin": f"Yedekten {eklenen} soru başarıyla yüklendi."}[cite: 1]
     except Exception as e:
         session["bildirim"] = {"tur": "danger", "metin": f"Hata: {str(e)}"}[cite: 1]
 
@@ -1296,7 +1202,7 @@ def veritabani_sifirla():
 
     session.clear()[cite: 1]
     session["bildirim"] = {"tur": "success", "metin": "Tüm veriler, kayıtlı PDF bağlantıları, özetler ve geçmiş silindi."}[cite: 1]
-    return redirect(url_for("giris_yap"))
+    return redirect(url_for("giris_yap"))[cite: 1]
 
 @app.route("/sw.js")
 def service_worker():
