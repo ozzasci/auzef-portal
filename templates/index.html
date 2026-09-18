@@ -562,7 +562,25 @@
                     </div>
                 </div>
             </div>
+<!-- TOPLU TÜM DERSLER SORU PDF YÜKLEME KARTI -->
+            <div class="upload-card border-warning mb-3">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="fs-4">📚</span>
+                    <h6 class="fw-bold m-0 text-warning-emphasis">Tüm Dersler Soru PDF'ini Toplu Yükle (31 Sayfa)</h6>
+                </div>
+                <p class="text-muted small mb-3">
+                    Elindeki 6 dersin tüm ünite sorularını içeren PDF'i buraya yükle. Sistem tüm dersleri ve üniteleri otomatik tanır, soruları şıklı teste dönüştürerek veritabanına işler.
+                </p>
 
+                <form method="POST" action="/toplu-soru-yukle" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <input type="file" name="toplu_pdf" class="form-control form-control-sm" accept=".pdf" required>
+                    </div>
+                    <button type="submit" class="btn btn-warning btn-sm w-100 rounded-pill fw-bold text-dark">
+                        ⚡ Tüm Derslerin Sorularını Sisteme İşle
+                    </button>
+                </form>
+            </div>
             <!-- OTOMATİK KILAVUZ / ÖZET YÜKLEME KARTI -->
             <div class="upload-card border-info-subtle mb-3">
                 <div class="d-flex align-items-center gap-2 mb-2">
