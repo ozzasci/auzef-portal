@@ -970,8 +970,7 @@ def unite_pekistirme_listesi():
                            aktif_ders=ders, 
                            dersler=GUZ_DERSLERI)
 
-@app.route("/unite-test-baslat/<int:unite_no>")
-@giris_zorunlu
+
 @app.route("/unite-test-baslat/<int:unite_no>")
 @giris_zorunlu
 def unite_test_baslat(unite_no):
