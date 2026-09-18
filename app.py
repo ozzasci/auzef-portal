@@ -500,8 +500,17 @@ def cikis_yap():
 def ana_sayfa():
     conn = veritabani_baglan()
     cursor = conn.cursor()
+    
+    # Veritabanındaki soru sayılarını alalım
     cursor.execute("SELECT ders_adi, COUNT(*) as soru_sayisi FROM sorular GROUP BY ders_adi")
-    dersler = cursor.fetchall()
+    veritabanindaki_dersler = {row["ders_adi"]: row["soru_sayisi"] for row in cursor.fetchall()}
+    
+    # GUZ_DERSLERI listesindeki tüm dersleri (sorusu olmasa bile) birleştirelim
+    dersler = []
+    for d in GUZ_DERSLERI:
+        adet = veritabanindaki_dersler.get(d, 0)
+        dersler.append({"ders_adi": d, "soru_sayisi": adet})
+
     cursor.execute("SELECT COUNT(*) FROM sorular")
     toplam_soru = cursor.fetchone()[0]
 
