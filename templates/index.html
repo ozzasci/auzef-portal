@@ -739,7 +739,7 @@
             </div>
         </div>
 
-       <!-- 10. KRONOLOJİ SIRALAMA EGZERSİZİ -->
+        <!-- 10. KRONOLOJİ -->
         {% elif durum == 'kronoloji' %}
         <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
@@ -766,7 +766,6 @@
                     {% for olay in karisik_olaylar %}
                     <li class="list-group-item p-3 border-light-subtle d-flex align-items-center justify-content-between bg-white card-hover mb-2 rounded-3 border" data-yil="{{ olay.yil }}">
                         <div class="d-flex align-items-center gap-3">
-                            <!-- Sıralama Butonları (Mobilde ve Masaüstünde Kolay Kullanım İçin) -->
                             <div class="d-flex flex-column gap-1">
                                 <button class="btn btn-sm btn-light border py-0 px-2 lh-1 text-primary" onclick="yukariTasi(this)" title="Yukarı Taşı">
                                     <i class="bi bi-chevron-up"></i>
@@ -776,13 +775,12 @@
                                 </button>
                             </div>
                             <div>
-                                <!-- Yıl bilgisi kontrol aşamasında açılacak, başlangıçta gizli veya nötr durabilir -->
                                 <span class="badge bg-primary bg-opacity-10 text-primary border border-primary-subtle me-2 yil-badge" style="display: none;">{{ olay.yil }}</span>
                                 <span class="fw-semibold text-dark">{{ olay.olay }}</span>
                                 <div class="small text-muted mt-1">{{ olay.detay }}</div>
                             </div>
                         </div>
-                        <div class="text-muted cursor-grab">
+                        <div class="text-muted">
                             <i class="bi bi-grip-vertical fs-4"></i>
                         </div>
                     </li>
@@ -816,7 +814,7 @@
                 listeItems.forEach(li => {
                     const yil = parseInt(li.getAttribute('data-yil'));
                     const badge = li.querySelector('.yil-badge');
-                    badge.style.display = 'inline-block'; // Kontrol edilince yılları göster
+                    badge.style.display = 'inline-block';
 
                     if (yil < oncekiYil) {
                         dogruMu = false;
@@ -836,13 +834,12 @@
                 }
             }
         </script>
-        {% endif %}
 
         <!-- 11. ÜNİTE PEKİŞTİRME -->
         {% elif durum == 'unite_pekistirme' %}
         <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
             <h5 class="fw-bold text-primary mb-1"><i class="bi bi-check2-square"></i> Ünite Pekiştirme Testleri</h5>
-            <p class="text-muted small mb-0">{{ aktif_ders }} dersine ait ünite soru sayıları.</p>
+            <p class="text-muted small mb-0">{{ aktif_ders }} dersine ait ünite soru sayıları ve test başlatma ekranı.</p>
         </div>
         <div class="row g-3">
             {% for u in uniteler %}
@@ -865,7 +862,8 @@
             </div>
             {% endfor %}
         </div>
-<!-- 12. SORU YÖNETİMİ -->
+
+        <!-- 12. SORU YÖNETİMİ -->
         {% elif durum == 'yonetim' %}
         <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
             <h5 class="fw-bold mb-3"><i class="bi bi-sliders"></i> Soru Yönetim Paneli</h5>
@@ -919,7 +917,7 @@
             </div>
         </div>
 
-        <!-- 13. SORU DÜZENLEME EKRANI (Bağımsız Blok) -->
+        <!-- 13. SORU DÜZENLEME EKRANI -->
         {% elif durum == 'duzenle' %}
         <div class="row justify-content-center">
             <div class="col-lg-8">
@@ -1047,7 +1045,7 @@
                 <div class="modal-body p-4 text-center">
                     <i class="bi bi-exclamation-triangle-fill text-danger display-4 mb-3"></i>
                     <h5 class="fw-bold">Tüm Verileri Sıfırla?</h5>
-                    <p class="text-muted small">Bu işlem tüm soruları ve geçmişinizi silecek.</p>
+                    <p class="text-muted small">Bu işlem tüm soruları, deneme geçmişinizi ve notlarınızı kalıcı olarak silecektir.</p>
                     <form action="/sifirla" method="POST" class="d-flex gap-2 justify-content-center mt-4">
                         <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">İptal</button>
                         <button type="submit" class="btn btn-danger rounded-pill px-4">Evet, Sıfırla</button>
