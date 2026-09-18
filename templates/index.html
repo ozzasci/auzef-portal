@@ -835,12 +835,25 @@
             }
         </script>
 
-        <!-- 11. ÜNİTE PEKİŞTİRME -->
+       <!-- 11. ÜNİTE PEKİŞTİRME LİSTESİ -->
         {% elif durum == 'unite_pekistirme' %}
         <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
-            <h5 class="fw-bold text-primary mb-1"><i class="bi bi-check2-square"></i> Ünite Pekiştirme Testleri</h5>
-            <p class="text-muted small mb-0">{{ aktif_ders }} dersine ait ünite soru sayıları ve test başlatma ekranı.</p>
+            <div class="row align-items-center g-3">
+                <div class="col-lg-6">
+                    <h5 class="fw-bold text-primary mb-1"><i class="bi bi-check2-square"></i> Ünite Pekiştirme Testleri</h5>
+                    <p class="text-muted small mb-0">Seçtiğiniz derse ait ünite soru sayılarını ve test başlatma ekranını görüntüleyin.</p>
+                </div>
+                <!-- Ders Değiştirme Açılır Kutusu Eklendi -->
+                <div class="col-lg-6">
+                    <select class="form-select rounded-3 fw-bold border-primary-subtle" onchange="location.href='/unite-pekistirme?ders=' + encodeURIComponent(this.value)">
+                        {% for d in dersler %}
+                        <option value="{{ d }}" {% if d == aktif_ders %}selected{% endif %}>{{ d }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
         </div>
+
         <div class="row g-3">
             {% for u in uniteler %}
             <div class="col-md-6 col-lg-4">
