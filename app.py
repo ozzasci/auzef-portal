@@ -720,20 +720,26 @@ def unite_durum_guncelle():
 @app.route("/video-kaydet", methods=["POST"])
 @giris_zorunlu
 def video_kaydet():
-    ders = request.form.get("ders")
-    unite = int(request.form.get("unite"))
+    ders = request.form.get("ders_adi", "").strip() or request.form.get("ders", "").strip()
+    unite = int(request.form.get("unite_no", 1) or request.form.get("unite", 1))
     url = request.form.get("video_url", "").strip()
+    kaynak_sayfa = request.form.get("kaynak_sayfa", "icerik_merkezi")
 
     conn = veritabani_baglan()
     cursor = conn.cursor()
     cursor.execute("DELETE FROM ders_videolari WHERE TRIM(ders_adi) = TRIM(?) AND unite_no = ?", (ders, unite))
-    cursor.execute("""
-        INSERT INTO ders_videolari (ders_adi, unite_no, video_url) 
-        VALUES (?, ?, ?)
-    """, (ders, unite, url))
+    if url:
+        cursor.execute("""
+            INSERT INTO ders_videolari (ders_adi, unite_no, video_url) 
+            VALUES (?, ?, ?)
+        """, (ders, unite, url))
     conn.commit()
     conn.close()
-    return redirect(url_for("ders_calis", ders=ders, unite=unite))
+
+    session["bildirim"] = {"tur": "success", "metin": f"'{ders}' - {unite}. Ünite videosu kaydedildi."}
+    if kaynak_sayfa == "ders_calis":
+        return redirect(url_for("ders_calis", ders=ders, unite=unite))
+    return redirect(url_for("icerik_merkezi", ders=ders))
 
 @app.route("/unite-pekistirme")
 @giris_zorunlu
