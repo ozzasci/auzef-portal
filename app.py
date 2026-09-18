@@ -130,157 +130,7 @@ def veritabani_hazirla():
 
 veritabani_hazirla()
 
-def guvenli_sik_olustur(dogru_cevap, diger_cevaplar):
-    havuz = [c for c in diger_cevaplar if c != dogru_cevap and len(c) > 1]
-    secenekler = [dogru_cevap]
-    if len(havuz) >= 4:
-        secenekler.extend(random.sample(havuz, 4))
-    else:
-        secenekler.extend(havuz)
-        ekstra = 1
-        while len(secenekler) < 5:
-            secenekler.append(f"Seçenek {chr(64 + ekstra)}")
-            ekstra += 1
-
-    random.shuffle(secenekler)
-    harfler = ["A", "B", "C", "D", "E"]
-    sec_dict = {}
-    dogru_harf = "A"
-    for idx, h in enumerate(harfler):
-        sec_dict[h] = secenekler[idx]
-        if secenekler[idx] == dogru_cevap:
-            dogru_harf = h
-    return sec_dict, dogru_harf
-
-@app.route("/toplu-soru-yukle", methods=["POST"])
-@giris_zorunlu
-def toplu_soru_yukle():
-    dosya = request.files.get("toplu_pdf")
-    if not dosya or not dosya.filename.lower().endswith(".pdf"):
-        session["bildirim"] = {"tur": "danger", "metin": "Lütfen geçerli bir PDF seçin."}
-        return redirect(url_for("icerik_merkezi"))
-
-    try:
-        reader = PdfReader(io.BytesIO(dosya.read()))
-        tam_metin = ""
-        for page in reader.pages:
-            t = page.extract_text()
-            if t:
-                tam_metin += t + "\n"
-
-        ders_eslesmeleri = [
-            ("GAYRİMÜSLİMLER", "20. Yüzyıl Türkiye’sinde Gayrimüslimler ve Kurumları"),
-            ("DİPLOMASİ", "Osmanlı Diplomasi Tarihi"),
-            ("İKTİSAT", "Osmanlı İktisat Tarihi"),
-            ("1789-1908", "Osmanlı Tarihi (1789-1908)"),
-            ("TEŞKİLATI VE KÜLTÜR", "Osmanlı Teşkilatı ve Kültür Tarihi"),
-            ("SÖMÜRGECİLİK", "Sömürgecilik Tarihi")
-        ]
-
-        # Sayfaları ve blokları düzgün parçala
-        satirlar = [s.strip() for s in tam_metin.splitlines() if s.strip()]
-        ham_sorular = []
-        aktif_ders = GUZ_DERSLERI[0]
-        aktif_unite = 1
-
-        i = 0
-        while i < len(satirlar):
-            satir = satirlar[i]
-
-            # Reklam ve sayfa altlarını temizle
-            if any(k in satir.upper() for k in ["FAITH S.", "TELEGRAM", "SON SAYFA"]) or satir.isdigit():
-                i += 1
-                continue
-
-            # Ders başlığı kontrolü
-            bulunan_ders = False
-            for anahtar, tam_isim in ders_eslesmeleri:
-                if anahtar in satir.upper() and ("TARİH" in satir.upper() or "KURUMLAR" in satir.upper()):
-                    aktif_ders = tam_isim
-                    bulunan_ders = True
-                    break
-            if bulunan_ders:
-                i += 1
-                continue
-
-            # Ünite başlığı kontrolü (Örn: 1. OSMANLI...)
-            unite_match = re.match(r'^([1-9]|1[0-4])\.\s+[A-ZÇĞİIÖŞÜ\s\',-]{3,}', satir)
-            if unite_match:
-                aktif_unite = int(unite_match.group(1))
-                i += 1
-                continue
-
-            # Soru satırı kontrolü
-            soru_match = re.match(r'^Soru\s*(\d{1,2})\s*:\s*(.*)', satir, re.IGNORECASE)
-            if soru_match:
-                soru_metni = soru_match.group(2).strip()
-                i += 1
-                cevap_metni = ""
-                
-                # Bir sonraki soru veya üniteye kadar olan satırları topla
-                while i < len(satirlar):
-                    sonraki = satirlar[i]
-                    if sonraki.upper().startswith("SORU ") or re.match(r'^([1-9]|1[0-4])\.\s+[A-ZÇĞİIÖŞÜ]', sonraki):
-                        break
-                    if any(k in sonraki.upper() for k in ["FAITH S.", "TELEGRAM"]) or sonraki.isdigit():
-                        i += 1
-                        continue
-                    if not cevap_metni:
-                        cevap_metni = sonraki
-                    else:
-                        cevap_metni += " " + sonraki
-                    i += 1
-
-                if soru_metni and cevap_metni:
-                    ham_sorular.append({
-                        "ders": aktif_ders,
-                        "unite": aktif_unite,
-                        "soru": soru_metni,
-                        "cevap": cevap_metni
-                    })
-                continue
-
-            i += 1
-
-        if not ham_sorular:
-            session["bildirim"] = {"tur": "warning", "metin": "PDF okundu fakat soru formatı ayrıştırılamadı."}
-            return redirect(url_for("icerik_merkezi"))
-
-        conn = veritabani_baglan()
-        cursor = conn.cursor()
-
-        # Eski soruları temizle
-        cursor.execute("DELETE FROM sorular")
-
-        tum_cevaplar = list(set([item["cevap"] for item in ham_sorular]))
-        toplam_eklenen = 0
-
-        for item in ham_sorular:
-            d_adi = item["ders"]
-            u_no = item["unite"]
-            s_metni = item["soru"]
-            c_metni = item["cevap"]
-
-            sec_dict, d_harf = guvenli_sik_olustur(c_metni, tum_cevaplar)
-
-            cursor.execute("""
-                INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, unite_no)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                d_adi, s_metni, sec_dict["A"], sec_dict["B"], sec_dict["C"], sec_dict["D"], sec_dict["E"],
-                d_harf, f"Doğru Cevap: {c_metni}", u_no
-            ))
-            toplam_eklenen += 1
-
-        conn.commit()
-        conn.close()
-
-        session["bildirim"] = {"tur": "success", "metin": f"Tebrikler! Toplam {toplam_eklenen} soru başarıyla şıklı teste dönüştürülerek tüm derslere işlendi."}
-        return redirect(url_for("ana_sayfa"))
-
-    except Exception as e:
-        session["bildirim"] = {"tur": "danger", "metin": f"İşlem hatası: {str(e)}"}
-        return redirect(url_for("icerik_merkezi"))
+# --- DEKORATÖR VE YARDIMCI FONKSİYONLAR (EN BAŞTA TANIMLANDI) ---
 
 def giris_zorunlu(f):
     @wraps(f)
@@ -314,6 +164,154 @@ def drive_link_donustur(link):
     if dosya_id:
         return f"https://drive.google.com/file/d/{dosya_id}/view?usp=sharing"
     return link
+
+def guvenli_sik_olustur(dogru_cevap, diger_cevaplar):
+    havuz = [c for c in diger_cevaplar if c != dogru_cevap and len(c) > 1]
+    secenekler = [dogru_cevap]
+    if len(havuz) >= 4:
+        secenekler.extend(random.sample(havuz, 4))
+    else:
+        secenekler.extend(havuz)
+        ekstra = 1
+        while len(secenekler) < 5:
+            secenekler.append(f"Seçenek {chr(64 + ekstra)}")
+            ekstra += 1
+
+    random.shuffle(secenekler)
+    harfler = ["A", "B", "C", "D", "E"]
+    sec_dict = {}
+    dogru_harf = "A"
+    for idx, h in enumerate(harfler):
+        sec_dict[h] = secenekler[idx]
+        if secenekler[idx] == dogru_cevap:
+            dogru_harf = h
+    return sec_dict, dogru_harf
+
+# --- TOPLU SORU PARSER VE YÜKLEME ---
+
+@app.route("/toplu-soru-yukle", methods=["POST"])
+@giris_zorunlu
+def toplu_soru_yukle():
+    dosya = request.files.get("toplu_pdf")
+    if not dosya or not dosya.filename.lower().endswith(".pdf"):
+        session["bildirim"] = {"tur": "danger", "metin": "Lütfen geçerli bir PDF seçin."}
+        return redirect(url_for("icerik_merkezi"))
+
+    try:
+        reader = PdfReader(io.BytesIO(dosya.read()))
+        tam_metin = ""
+        for page in reader.pages:
+            t = page.extract_text()
+            if t:
+                tam_metin += t + "\n"
+
+        ders_eslesmeleri = [
+            ("GAYRİMÜSLİMLER", "20. Yüzyıl Türkiye’sinde Gayrimüslimler ve Kurumları"),
+            ("DİPLOMASİ", "Osmanlı Diplomasi Tarihi"),
+            ("İKTİSAT", "Osmanlı İktisat Tarihi"),
+            ("1789-1908", "Osmanlı Tarihi (1789-1908)"),
+            ("TEŞKİLATI VE KÜLTÜR", "Osmanlı Teşkilatı ve Kültür Tarihi"),
+            ("SÖMÜRGECİLİK", "Sömürgecilik Tarihi")
+        ]
+
+        satirlar = [s.strip() for s in tam_metin.splitlines() if s.strip()]
+        ham_sorular = []
+        aktif_ders = GUZ_DERSLERI[0]
+        aktif_unite = 1
+
+        i = 0
+        while i < len(satirlar):
+            satir = satirlar[i]
+
+            if any(k in satir.upper() for k in ["FAITH S.", "TELEGRAM", "SON SAYFA"]) or satir.isdigit():
+                i += 1
+                continue
+
+            bulunan_ders = False
+            for anahtar, tam_isim in ders_eslesmeleri:
+                if anahtar in satir.upper() and ("TARİH" in satir.upper() or "KURUMLAR" in satir.upper()):
+                    aktif_ders = tam_isim
+                    bulunan_ders = True
+                    break
+            if bulunan_ders:
+                i += 1
+                continue
+
+            unite_match = re.match(r'^([1-9]|1[0-4])\.\s+[A-ZÇĞİIÖŞÜ\s\',-]{3,}', satir)
+            if unite_match:
+                aktif_unite = int(unite_match.group(1))
+                i += 1
+                continue
+
+            soru_match = re.match(r'^Soru\s*(\d{1,2})\s*:\s*(.*)', satir, re.IGNORECASE)
+            if soru_match:
+                soru_metni = soru_match.group(2).strip()
+                i += 1
+                cevap_metni = ""
+                
+                while i < len(satirlar):
+                    sonraki = satirlar[i]
+                    if sonraki.upper().startswith("SORU ") or re.match(r'^([1-9]|1[0-4])\.\s+[A-ZÇĞİIÖŞÜ]', sonraki):
+                        break
+                    if any(k in sonraki.upper() for k in ["FAITH S.", "TELEGRAM"]) or sonraki.isdigit():
+                        i += 1
+                        continue
+                    if not cevap_metni:
+                        cevap_metni = sonraki
+                    else:
+                        cevap_metni += " " + sonraki
+                    i += 1
+
+                if soru_metni and cevap_metni:
+                    ham_sorular.append({
+                        "ders": aktif_ders,
+                        "unite": aktif_unite,
+                        "soru": soru_metni,
+                        "cevap": cevap_metni
+                    })
+                continue
+
+            i += 1
+
+        if not ham_sorular:
+            session["bildirim"] = {"tur": "warning", "metin": "PDF okundu fakat soru formatı ayrıştırılamadı."}
+            return redirect(url_for("icerik_merkezi"))
+
+        conn = veritabani_baglan()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM sorular")
+
+        tum_cevaplar = list(set([item["cevap"] for item in ham_sorular]))
+        toplam_eklenen = 0
+
+        for item in ham_sorular:
+            d_adi = item["ders"]
+            u_no = item["unite"]
+            s_metni = item["soru"]
+            c_metni = item["cevap"]
+
+            sec_dict, d_harf = guvenli_sik_olustur(c_metni, tum_cevaplar)
+
+            cursor.execute("""
+                INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, unite_no)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                d_adi, s_metni, sec_dict["A"], sec_dict["B"], sec_dict["C"], sec_dict["D"], sec_dict["E"],
+                d_harf, f"Doğru Cevap: {c_metni}", u_no
+            ))
+            toplam_eklenen += 1
+
+        conn.commit()
+        conn.close()
+
+        session["bildirim"] = {"tur": "success", "metin": f"Tebrikler! Toplam {toplam_eklenen} soru başarıyla şıklı teste dönüştürülerek tüm derslere işlendi."}
+        return redirect(url_for("ana_sayfa"))
+
+    except Exception as e:
+        session["bildirim"] = {"tur": "danger", "metin": f"İşlem hatası: {str(e)}"}
+        return redirect(url_for("icerik_merkezi"))
+
+# --- KULLANICI GİRİŞ & ÇIKIŞ ROTLARI ---
 
 @app.route("/giris", methods=["GET", "POST"])
 def giris_yap():
@@ -383,6 +381,8 @@ def kayit_ol():
 def cikis_yap():
     session.clear()
     return redirect(url_for("giris_yap"))
+
+# --- ANA PORTAL VE DERS ÇALIŞMA ALANLARI ---
 
 @app.route("/")
 @giris_zorunlu
@@ -668,7 +668,7 @@ def unite_test_baslat(unite_no):
     conn.close()
 
     if not satirlar:
-        session["bildirim"] = {"tur": "warning", "metin": f"'{ders}' dersinin {unite_no}. ünitesine ait soru bulunamadı. Lütfen toplu soru PDF'ini yükleyin."}
+        session["bildirim"] = {"tur": "warning", "metin": f"'{ders}' dersinin {unite_no}. ünitesine ait soru bulunamadı. Lütfen soru PDF'ini yükleyin."}
         return redirect(url_for("unite_pekistirme_listesi", ders=ders))
 
     sorular = [dict(r) for r in satirlar]
