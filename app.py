@@ -632,8 +632,14 @@ def ders_calis():
     conn.close()
 
     embed_url = ""
+    is_direct_video = False
+    
     if video_url:
-        if "watch?v=" in video_url:
+        # Doğrudan video dosyası (.mp4, .webm vb.) mi kontrol et
+        if video_url.lower().endswith(('.mp4', '.webm', '.ogg', '.mov')):
+            is_direct_video = True
+            embed_url = video_url
+        elif "watch?v=" in video_url:
             embed_url = video_url.replace("watch?v=", "embed/")
         elif "youtu.be/" in video_url:
             embed_url = video_url.replace("youtu.be/", "www.youtube.com/embed/")
@@ -649,6 +655,7 @@ def ders_calis():
                            kaynak_turu=kaynak_turu, 
                            video_url=video_url, 
                            embed_url=embed_url, 
+                           is_direct_video=is_direct_video,
                            takip=takip_verileri, 
                            ozetler=ozet_maddeleri, 
                            unite_baslik=f"{secilen_unite}. Ünite", 
