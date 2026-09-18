@@ -163,7 +163,6 @@ def drive_link_donustur(link):
         return f"https://drive.google.com/file/d/{dosya_id}/view?usp=sharing"
     return link
 
-# GAYRIMÜSLİMLER HAP BİLGİ SEEDER
 GAYRIMUSLIM_OZETLERI = {
     1: [
         "Osmanlı'da Müslümanlara, 'millet-i hâkime' denilirdi.",
@@ -172,10 +171,12 @@ GAYRIMUSLIM_OZETLERI = {
         "Gayrimüslimlerin devlete ödedikleri verginin adı cizye idi.",
         "Fatih'in gayrimüslimlerle ilgili ilk uygulamalarından birisi Galata'da yaşayan Latinlere verilen bir ahitnâme ile bu topluluğun statüsünün belirlenmesiydi.",
         "Osmanlı tebaası olmayan yabancılara Levantenler denilirdi.",
+        "Fetih öncesinde ve sırasında İstanbul'dan kaçıp sonradan tekrar şehre dönenlere Levantenler denilir.",
         "Millet başı olan patriklerin, göreve gelirken ödedikleri vergi adı pişkeş vergisi denilirdi.",
         "Hahambaşıların ödedikleri vergiye Rav Akçesi denilirdi.",
+        "Dinî liderlerin yeniçerilerden oluşan ve emirlerinde bulunan askerî birlik Yasakçı denilirdi.",
         "Fatih, Rumların Patriklik merkezi olarak Ayasofya'dan sonra Havariyyun Kilisesini kullanmalarına izin verdi.",
-        "Ermeni cemaati içindeki cemaat idaresinde yetki sahibi olan sınıfa amira denir.",
+        "Ermeni cemaati içindeki cemaat idaresinde de yetki sahibi olan sınıfa amira denir.",
         "Fetih sonrası İstanbul'un ilk hahambaşısı Moşe Kapsali'dir."
     ],
     2: [
@@ -205,15 +206,133 @@ def varsayilan_ozetleri_yukle():
 
 varsayilan_ozetleri_yukle()
 
-# GÖNDERDİĞİNİZ AUZEF PDF FORMATINA ÖZEL AYRIŞTIRICI
+def klavuz_pdf_ayikla(pdf_bytes):
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    tam_metin = ""
+    for page in reader.pages:
+        txt = page.extract_text()
+        if txt:
+            tam_metin += txt + "\n"
+
+    satirlar = tam_metin.splitlines()
+    unite_verileri = {i: [] for i in range(1, 15)}
+    mevcut_unite = 1
+    tampon = ""
+
+    for satir in satirlar:
+        s = satir.strip()
+        if not s:
+            continue
+
+        s_upper = s.upper()
+        if any(kelime in s_upper for kelime in ["FAITH S. AKADEMİ", "TELEGRAM", "AUZEF TARİH", "SINIF KANALI"]):
+            continue
+        if re.match(r'^\s*20\.\s*(YY|YÜZYIL)', s, re.IGNORECASE) or s.endswith("KILAVUZU") or s.isdigit():
+            continue
+
+        baslik_m = re.match(r'^([1-9]|1[0-4])\.\s+[A-ZÇĞİIÖŞÜ\s\',-]{3,}', s)
+        if baslik_m:
+            if tampon and len(tampon) >= 15:
+                unite_verileri[mevcut_unite].append(tampon)
+                tampon = ""
+            mevcut_unite = int(baslik_m.group(1))
+            continue
+
+        if tampon:
+            tampon += " " + s
+        else:
+            tampon = s
+
+        if tampon.endswith((".", ":", "!", "?", "idi", "denirdi", "denilirdi", "olmuştur", "edilmiştir")):
+            if len(tampon) >= 15:
+                unite_verileri[mevcut_unite].append(tampon)
+            tampon = ""
+
+    if tampon and len(tampon) >= 15:
+        unite_verileri[mevcut_unite].append(tampon)
+
+    return {k: v for k, v in unite_verileri.items() if v}
+
+@app.route("/otomatik-klavuz-isle", methods=["POST"])
+@giris_zorunlu
+def otomatik_klavuz_isle():
+    ders = request.form.get("ders_adi", "").strip()
+    drive_link = request.form.get("drive_url", "").strip()
+    yuklenen_dosya = request.files.get("klavuz_dosya")
+
+    pdf_bytes = None
+    klavuz_yolu = ""
+
+    if yuklenen_dosya and yuklenen_dosya.filename != "" and yuklenen_dosya.filename.lower().endswith(".pdf"):
+        try:
+            pdf_bytes = yuklenen_dosya.read()
+            dosya_adi = f"klavuz_{abs(hash(ders))}_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
+            hedef_yol = os.path.join(UPLOAD_FOLDER, dosya_adi)
+            with open(hedef_yol, "wb") as f:
+                f.write(pdf_bytes)
+            klavuz_yolu = f"/static/kitaplar/{dosya_adi}"
+        except Exception as e:
+            session["bildirim"] = {"tur": "danger", "metin": f"Dosya okunamadı: {str(e)}"}
+            return redirect(url_for("icerik_merkezi", ders=ders))
+
+    elif drive_link:
+        dosya_id = drive_id_yakala(drive_link)
+        if not dosya_id:
+            session["bildirim"] = {"tur": "danger", "metin": "Geçersiz Google Drive bağlantısı."}
+            return redirect(url_for("icerik_merkezi", ders=ders))
+
+        indirme_url = f"https://drive.google.com/uc?export=download&id={dosya_id}"
+        try:
+            req = urllib.request.Request(indirme_url, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=20) as response:
+                pdf_bytes = response.read()
+            klavuz_yolu = drive_link_donustur(drive_link)
+        except Exception as e:
+            session["bildirim"] = {"tur": "danger", "metin": f"Drive dosya çekme hatası: {str(e)}. Cihazdan PDF yüklemeyi deneyin."}
+            return redirect(url_for("icerik_merkezi", ders=ders))
+
+    else:
+        session["bildirim"] = {"tur": "warning", "metin": "Lütfen cihazdan bir PDF dosyası seçin veya geçerli bir bağlantı girin."}
+        return redirect(url_for("icerik_merkezi", ders=ders))
+
+    try:
+        ayiklanan = klavuz_pdf_ayikla(pdf_bytes)
+        toplam_madde = sum(len(maddeler) for maddeler in ayiklanan.values())
+
+        if toplam_madde == 0:
+            session["bildirim"] = {"tur": "danger", "metin": "PDF okundu ancak içinde kılavuz formatına uygun ünite ve bilgi satırları bulunamadı."}
+            return redirect(url_for("icerik_merkezi", ders=ders))
+
+        conn = veritabani_baglan()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM unite_ozetleri WHERE TRIM(ders_adi) LIKE ?", (f"%{ders}%",))
+        for u_no, maddeler in ayiklanan.items():
+            for m in maddeler:
+                cursor.execute("INSERT INTO unite_ozetleri (ders_adi, unite_no, madde) VALUES (?, ?, ?)", (ders, u_no, m))
+
+        if klavuz_yolu:
+            cursor.execute("DELETE FROM unite_kaynaklari WHERE TRIM(ders_adi) LIKE ? AND kaynak_turu = 'klavuz_pdf'", (f"%{ders}%",))
+            cursor.execute("""
+                INSERT INTO unite_kaynaklari (ders_adi, unite_no, kaynak_turu, dosya_yolu)
+                VALUES (?, 0, 'klavuz_pdf', ?)
+            """, (ders, klavuz_yolu))
+
+        conn.commit()
+        conn.close()
+
+        session["bildirim"] = {"tur": "success", "metin": f"✅ İşlem Başarılı! {len(ayiklanan)} üniteden toplam {toplam_madde} hap bilgi aktarıldı ve Kılavuz PDF'i bağlandı."}
+        return redirect(url_for("ders_calis", ders=ders, unite=1))
+
+    except Exception as e:
+        session["bildirim"] = {"tur": "danger", "metin": f"Ayrıştırma hatası oluştu: {str(e)}"}
+        return redirect(url_for("icerik_merkezi", ders=ders))
+
 def auzef_harfsiz_ve_harfli_soru_ayikla(metin, unite_no=1):
-    # Üst/alt bilgileri ve sayfa izlerini temizle
     temiz = re.sub(r'about:blank\s*\d*/?\d*', '', metin)
     temiz = re.sub(r'\d{1,2}\.\d{1,2}\.\d{4}\s+\d{1,2}:\d{1,2}', '', temiz)
     temiz = re.sub(r'Ders:\s*.*?(?:\n|\|)', '', temiz, flags=re.IGNORECASE)
     temiz = re.sub(r'Ünite:\s*.*?\n', '', temiz, flags=re.IGNORECASE)
 
-    # Soru bloklarını ayır
     bloklar = re.split(r'(?:^|\n)\s*Soru\s*(\d{1,2})\s*:\s*', temiz, flags=re.IGNORECASE)
     sorular = []
 
@@ -222,7 +341,6 @@ def auzef_harfsiz_ve_harfli_soru_ayikla(metin, unite_no=1):
             s_no = bloklar[i].strip()
             icerik = bloklar[i+1].strip()
 
-            # Cevap: kısmını tespit et
             cevap_match = re.search(r'\n\s*Cevap\s*:\s*(.*)', icerik, flags=re.IGNORECASE)
             if not cevap_match:
                 continue
@@ -234,7 +352,6 @@ def auzef_harfsiz_ve_harfli_soru_ayikla(metin, unite_no=1):
             if len(satirlar) < 6:
                 continue
 
-            # Son 5 satır seçeneklerdir, öncesi soru köküdür
             sec_e = satirlar[-1]
             sec_d = satirlar[-2]
             sec_c = satirlar[-3]
@@ -242,7 +359,6 @@ def auzef_harfsiz_ve_harfli_soru_ayikla(metin, unite_no=1):
             sec_a = satirlar[-5]
             soru_kok = " ".join(satirlar[:-5]).strip()
 
-            # Doğru cevabın hangi şıkta olduğunu tespit et
             dogru_harf = "A"
             c_norm = dogru_cevap_metni.replace("Â", "A").replace("â", "a").strip().lower()
 
@@ -432,7 +548,7 @@ def yukle_pdf_dosya():
 
     conn = veritabani_baglan()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM unite_kaynaklari WHERE TRIM(ders_adi) = TRIM(?) AND unite_no = ?", (ders, unite_no))
+    cursor.execute("DELETE FROM unite_kaynaklari WHERE TRIM(ders_adi) = TRIM(?) AND unite_no = ? AND kaynak_turu != 'klavuz_pdf'", (ders, unite_no))
     cursor.execute("""
         INSERT INTO unite_kaynaklari (ders_adi, unite_no, kaynak_turu, dosya_yolu)
         VALUES (?, ?, 'yerel', ?)
@@ -458,7 +574,7 @@ def kaydet_drive_link():
 
     conn = veritabani_baglan()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM unite_kaynaklari WHERE TRIM(ders_adi) = TRIM(?) AND unite_no = ?", (ders, unite_no))
+    cursor.execute("DELETE FROM unite_kaynaklari WHERE TRIM(ders_adi) = TRIM(?) AND unite_no = ? AND kaynak_turu != 'klavuz_pdf'", (ders, unite_no))
     cursor.execute("""
         INSERT INTO unite_kaynaklari (ders_adi, unite_no, kaynak_turu, dosya_yolu)
         VALUES (?, ?, 'drive', ?)
@@ -480,12 +596,19 @@ def ders_calis():
 
     cursor.execute("""
         SELECT kaynak_turu, dosya_yolu FROM unite_kaynaklari 
-        WHERE TRIM(ders_adi) LIKE ? AND unite_no = ?
+        WHERE TRIM(ders_adi) LIKE ? AND unite_no = ? AND kaynak_turu != 'klavuz_pdf'
     """, (f"%{secilen_ders}%", secilen_unite))
     row_kaynak = cursor.fetchone()
     
     pdf_url = row_kaynak["dosya_yolu"] if row_kaynak else ""
     kaynak_turu = row_kaynak["kaynak_turu"] if row_kaynak else ""
+
+    cursor.execute("""
+        SELECT dosya_yolu FROM unite_kaynaklari 
+        WHERE TRIM(ders_adi) LIKE ? AND kaynak_turu = 'klavuz_pdf'
+    """, (f"%{secilen_ders}%",))
+    row_klavuz = cursor.fetchone()
+    klavuz_pdf_url = row_klavuz["dosya_yolu"] if row_klavuz else ""
 
     cursor.execute("""
         SELECT video_url FROM ders_videolari 
@@ -522,6 +645,7 @@ def ders_calis():
                            aktif_ders=secilen_ders, 
                            aktif_unite=secilen_unite, 
                            pdf_url=pdf_url, 
+                           klavuz_pdf_url=klavuz_pdf_url,
                            kaynak_turu=kaynak_turu, 
                            video_url=video_url, 
                            embed_url=embed_url, 
