@@ -501,11 +501,9 @@ def ana_sayfa():
     conn = veritabani_baglan()
     cursor = conn.cursor()
     
-    # Veritabanındaki soru sayılarını alalım
     cursor.execute("SELECT ders_adi, COUNT(*) as soru_sayisi FROM sorular GROUP BY ders_adi")
     veritabanindaki_dersler = {row["ders_adi"]: row["soru_sayisi"] for row in cursor.fetchall()}
     
-    # GUZ_DERSLERI listesindeki tüm dersleri (sorusu olmasa bile) birleştirelim
     dersler = []
     for d in GUZ_DERSLERI:
         adet = veritabanindaki_dersler.get(d, 0)
@@ -644,7 +642,6 @@ def ders_calis():
     is_direct_video = False
     
     if video_url:
-        # Doğrudan video dosyası (.mp4, .webm vb.) mi kontrol et
         if video_url.lower().endswith(('.mp4', '.webm', '.ogg', '.mov')):
             is_direct_video = True
             embed_url = video_url
@@ -691,8 +688,8 @@ def hafiza_kartlari():
         if not metin:
             continue
 
-        if " denilirdi" in metin or " denirdi" in metin or " adı verilmektedir" in metin:
-            parcalar = re.split(r' (?:denilirdi|denirdi|adı verilmektedir)', metin)
+        if " denilirdi" in metin or " denilirdi" in metin or " adı verilmektedir" in metin:
+            parcalar = re.split(r' (?:denilirdi|denilirdi|adı verilmektedir)', metin)
             on_yuz = parcalar[0] + " kavramı nasıl adlandırılırdı?"
             arka_yuz = metin
         elif " idi" in metin:
@@ -1322,13 +1319,13 @@ def yedek_indir():
         mimetype="application/json",
         headers={"Content-Disposition": f"attachment;filename=auzef_soru_yedegi_{tarih_etiketi}.json"}
     )
+
 @app.route("/sorulari-sifirla", methods=["POST"])
 @giris_zorunlu
 def sorulari_sifirla():
     try:
         conn = veritabani_baglan()
         cursor = conn.cursor()
-        # Sorular tablosundaki tüm kayıtları siliyoruz
         cursor.execute("DELETE FROM sorular")
         conn.commit()
         conn.close()
@@ -1336,7 +1333,8 @@ def sorulari_sifirla():
     except Exception as e:
         session["bildirim"] = {"tur": "danger", "metin": f"Hata: {str(e)}"}
     
-    return redirect(url_for("ana_sayfa"))
+    return redirect(url_for("soru_yonetimi"))
+
 @app.route("/yedek-yukle", methods=["POST"])
 @giris_zorunlu
 def yedek_yukle():
