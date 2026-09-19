@@ -876,10 +876,20 @@
             {% endfor %}
         </div>
 
-        <!-- 12. SORU YÖNETİMİ -->
+       <!-- 12. SORU YÖNETİMİ -->
         {% elif durum == 'yonetim' %}
         <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
-            <h5 class="fw-bold mb-3"><i class="bi bi-sliders"></i> Soru Yönetim Paneli</h5>
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3">
+                <h5 class="fw-bold m-0"><i class="bi bi-sliders"></i> Soru Yönetim Paneli</h5>
+                
+                <!-- Tüm Soruları Sıfırlama Butonu Eklendi -->
+                <form action="{{ url_for('sorulari_sifirla') }}" method="POST" onsubmit="return confirm('DİKKAT: Veritabanındaki tüm sorular kalıcı olarak silinecek. Emin misiniz?');">
+                    <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-3 fw-bold">
+                        <i class="bi bi-trash-fill me-1"></i> Tüm Soruları Sıfırla (Temizle)
+                    </button>
+                </form>
+            </div>
+
             <form method="GET" action="/yonetim" class="row g-2">
                 <div class="col-md-6">
                     <input type="text" name="kelime" class="form-control form-control-sm rounded-3" placeholder="Soru metninde ara..." value="{{ kelime }}">
@@ -929,7 +939,6 @@
                 </table>
             </div>
         </div>
-
         <!-- 13. SORU DÜZENLEME EKRANI -->
         {% elif durum == 'duzenle' %}
         <div class="row justify-content-center">
