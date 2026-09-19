@@ -1322,7 +1322,21 @@ def yedek_indir():
         mimetype="application/json",
         headers={"Content-Disposition": f"attachment;filename=auzef_soru_yedegi_{tarih_etiketi}.json"}
     )
-
+@app.route("/sorulari-sifirla", methods=["POST"])
+@giris_zorunlu
+def sorulari_sifirla():
+    try:
+        conn = veritabani_baglan()
+        cursor = conn.cursor()
+        # Sorular tablosundaki tüm kayıtları siliyoruz
+        cursor.execute("DELETE FROM sorular")
+        conn.commit()
+        conn.close()
+        session["bildirim"] = {"tur": "success", "metin": "Tüm soru havuzu başarıyla sıfırlandı."}
+    except Exception as e:
+        session["bildirim"] = {"tur": "danger", "metin": f"Hata: {str(e)}"}
+    
+    return redirect(url_for("ana_sayfa"))
 @app.route("/yedek-yukle", methods=["POST"])
 @giris_zorunlu
 def yedek_yukle():
