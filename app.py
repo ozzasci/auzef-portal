@@ -388,20 +388,44 @@ def yukle_unite_sorulari():
     ders = request.form.get("ders_adi", "").strip()
     unite_no = int(request.form.get("unite_no", 1))
     dosya = request.files.get("soru_dosyasi")
+    drive_link = request.form.get("drive_url", "").strip()
 
-    if not dosya or not dosya.filename.lower().endswith(".pdf"):
-        session["bildirim"] = {"tur": "danger", "metin": "Lütfen geçerli bir soru PDF'i seçin."}
+    pdf_bytes = None
+
+    if dosya and dosya.filename != "" and dosya.filename.lower().endswith(".pdf"):
+        try:
+            pdf_bytes = dosya.read()
+        except Exception as e:
+            session["bildirim"] = {"tur": "danger", "metin": f"Dosya okunamadı: {str(e)}"}
+            return redirect(url_for("icerik_merkezi", ders=ders))
+
+    elif drive_link:
+        dosya_id = drive_id_yakala(drive_link)
+        if not dosya_id:
+            session["bildirim"] = {"tur": "danger", "metin": "Geçersiz Google Drive bağlantısı."}
+            return redirect(url_for("icerik_merkezi", ders=ders))
+
+        indirme_url = f"https://drive.google.com/uc?export=download&id={dosya_id}"
+        try:
+            req = urllib.request.Request(indirme_url, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=20) as response:
+                pdf_bytes = response.read()
+        except Exception as e:
+            session["bildirim"] = {"tur": "danger", "metin": f"Drive dosya çekme hatası: {str(e)}"}
+            return redirect(url_for("icerik_merkezi", ders=ders))
+    else:
+        session["bildirim"] = {"tur": "warning", "metin": "Lütfen cihazdan bir PDF seçin veya geçerli bir Google Drive bağlantısı girin."}
         return redirect(url_for("icerik_merkezi", ders=ders))
 
     metin = ""
     try:
-        reader = PdfReader(io.BytesIO(dosya.read()))
+        reader = PdfReader(io.BytesIO(pdf_bytes))
         for page in reader.pages:
             t = page.extract_text()
             if t:
                 metin += t + "\n"
     except Exception as e:
-        session["bildirim"] = {"tur": "danger", "metin": f"PDF okunamadı: {str(e)}"}
+        session["bildirim"] = {"tur": "danger", "metin": f"PDF metinleri okunamadı: {str(e)}"}
         return redirect(url_for("icerik_merkezi", ders=ders))
 
     sorular = auzef_harfsiz_ve_harfli_soru_ayikla(metin, unite_no)
