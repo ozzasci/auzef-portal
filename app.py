@@ -436,8 +436,8 @@ def yukle_unite_sorulari():
 
     conn = veritabani_baglan()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM sorular WHERE TRIM(ders_adi) = TRIM(?) AND unite_no = ?", (ders, unite_no))
-
+    
+    # DİKKAT: Artık DELETE komutu kaldırıldı! Eskiler silinmez, üzerine güvenle eklenir.
     for s in sorular:
         cursor.execute("""
             INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, yildizli, kullanici_notu, unite_no)
@@ -447,7 +447,7 @@ def yukle_unite_sorulari():
     conn.commit()
     conn.close()
 
-    session["bildirim"] = {"tur": "success", "metin": f"🎉 Tebrikler! '{ders}' dersinin {unite_no}. ünitesine ait {len(sorular)} soru başarıyla yüklendi."}
+    session["bildirim"] = {"tur": "success", "metin": f"🎉 Tebrikler! '{ders}' dersinin {unite_no}. ünitesine ait {len(sorular)} soru veritabanına eklendi."}
     return redirect(url_for("unite_pekistirme_listesi", ders=ders))
 
 @app.route("/giris", methods=["GET", "POST"])
