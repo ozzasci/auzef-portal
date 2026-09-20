@@ -172,7 +172,7 @@ GAYRIMUSLIM_OZETLERI = {
         "Fatih'in gayrimüslimlerle ilgili ilk uygulamalarından birisi Galata'da yaşayan Latinlere verilen bir ahitnâme ile bu topluluğun statüsünün belirlenmesiydi.",
         "Osmanlı tebaası olmayan yabancılara Levantenler denilirdi.",
         "Fetih öncesinde ve sırasında İstanbul'dan kaçıp sonradan tekrar şehre dönenlere Levantenler denilir.",
-        "Millet başı olan patriklerin, göreve gelirken ödedikleri vergi adı pişkeş vergisi denilirdi.",
+        "Millet başı olan patriklerin, göreve gelirken ödemelikleri vergi adı pişkeş vergisi denilirdi.",
         "Hahambaşıların ödedikleri vergiye Rav Akçesi denilirdi.",
         "Dinî liderlerin yeniçerilerden oluşan ve emirlerinde bulunan askerî birlik Yasakçı denilirdi.",
         "Fatih, Rumların Patriklik merkezi olarak Ayasofya'dan sonra Havariyyun Kilisesini kullanmalarına izin verdi.",
@@ -195,10 +195,9 @@ def varsayilan_ozetleri_yukle():
         ders_adi = "20. Yüzyıl Türkiye’sinde Gayrimüslimler ve Kurumları"
         cursor.execute("SELECT COUNT(*) FROM unite_ozetleri WHERE TRIM(ders_adi) LIKE ?", (f"%{ders_adi}%",))
         if cursor.fetchone()[0] < 5:
-            cursor.execute("DELETE FROM unite_ozetleri WHERE TRIM(ders_adi) LIKE ?", (f"%{ders_adi}%",))
             for u_no, maddeler in GAYRIMUSLIM_OZETLERI.items():
                 for m in maddeler:
-                    cursor.execute("INSERT INTO unite_ozetleri (ders_adi, unite_no, madde) VALUES (?, ?, ?)", (ders_adi, u_no, m))
+                    cursor.execute("INSERT OR IGNORE INTO unite_ozetleri (ders_adi, unite_no, madde) VALUES (?, ?, ?)", (ders_adi, u_no, m))
             conn.commit()
         conn.close()
     except Exception as e:
@@ -288,7 +287,7 @@ def otomatik_klavuz_isle():
                 pdf_bytes = response.read()
             klavuz_yolu = drive_link_donustur(drive_link)
         except Exception as e:
-            session["bildirim"] = {"tur": "danger", "metin": f"Drive dosya çekme hatası: {str(e)}. Cihazdan PDF yüklemeyi deneyin."}
+            session["bildirim"] = {"tur": "danger", "metin": f"Drive dosya çekme hatası: {str(e)}."}
             return redirect(url_for("icerik_merkezi", ders=ders))
 
     else:
@@ -305,7 +304,6 @@ def otomatik_klavuz_isle():
 
         conn = veritabani_baglan()
         cursor = conn.cursor()
-        cursor.execute("DELETE FROM unite_ozetleri WHERE TRIM(ders_adi) LIKE ?", (f"%{ders}%",))
         for u_no, maddeler in ayiklanan.items():
             for m in maddeler:
                 cursor.execute("INSERT INTO unite_ozetleri (ders_adi, unite_no, madde) VALUES (?, ?, ?)", (ders, u_no, m))
@@ -320,7 +318,7 @@ def otomatik_klavuz_isle():
         conn.commit()
         conn.close()
 
-        session["bildirim"] = {"tur": "success", "metin": f"✅ İşlem Başarılı! {len(ayiklanan)} üniteden toplam {toplam_madde} hap bilgi aktarıldı ve Kılavuz PDF'i bağlandı."}
+        session["bildirim"] = {"tur": "success", "metin": f"✅ İşlem Başarılı! {len(ayiklanan)} üniteden toplam {toplam_madde} hap bilgi eklendi ve Kılavuz PDF'i bağlandı."}
         return redirect(url_for("ders_calis", ders=ders, unite=1))
 
     except Exception as e:
@@ -338,7 +336,6 @@ def auzef_harfsiz_ve_harfli_soru_ayikla(metin, unite_no=1):
 
     if len(bloklar) > 1:
         for i in range(1, len(bloklar), 2):
-            s_no = bloklar[i].strip()
             icerik = bloklar[i+1].strip()
 
             cevap_match = re.search(r'\n\s*Cevap\s*:\s*(.*)', icerik, flags=re.IGNORECASE)
@@ -437,7 +434,7 @@ def yukle_unite_sorulari():
     conn = veritabani_baglan()
     cursor = conn.cursor()
     
-    # DİKKAT: Artık DELETE komutu kaldırıldı! Eskiler silinmez, üzerine güvenle eklenir.
+    # Asla eskileri silmiyoruz, sadece üzerine ekliyoruz
     for s in sorular:
         cursor.execute("""
             INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, yildizli, kullanici_notu, unite_no)
@@ -579,15 +576,18 @@ def yukle_pdf_dosya():
 
     conn = veritabani_baglan()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM unite_kaynaklari WHERE TRIM(ders_adi) = TRIM(?) AND unite_no = ? AND kaynak_turu != 'klavuz_pdf'", (ders, unite_no))
+    # Kayıt eklemeden önce eskileri silmiyoruz, REPLACE ile güncellenmesini sağlıyoruz
     cursor.execute("""
-        INSERT INTO unite_kaynaklari (ders_adi, unite_no, kaynak_turu, dosya_yolu)
-        VALUES (?, ?, 'yerel', ?)
-    """, (ders, unite_no, f"/static/kitaplar/{dosya_adi}"))
+        INSERT OR REPLACE INTO unite_kaynaklari (id, ders_adi, unite_no, kaynak_turu, dosya_yolu)
+        VALUES (
+            (SELECT id FROM unite_kaynaklari WHERE TRIM(ders_adi) = TRIM(?) AND unite_no = ? AND kaynak_turu != 'klavuz_pdf' LIMIT 1),
+            ?, ?, 'yerel', ?
+        )
+    """, (ders, unite_no, ders, unite_no, f"/static/kitaplar/{dosya_adi}"))
     conn.commit()
     conn.close()
 
-    session["bildirim"] = {"tur": "success", "metin": f"'{ders}' dersinin {unite_no}. Ünite PDF'i başarıyla yüklendi!"}
+    session["bildirim"] = {"tur": "success", "metin": f"'{ders}' dersinin {unite_no}. Ünite PDF'i başarıyla yüklendi ve koruma altına alındı!"}
     return redirect(url_for("ders_calis", ders=ders, unite=unite_no))
 
 @app.route("/kaydet-drive-link", methods=["POST"])
@@ -605,11 +605,13 @@ def kaydet_drive_link():
 
     conn = veritabani_baglan()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM unite_kaynaklari WHERE TRIM(ders_adi) = TRIM(?) AND unite_no = ? AND kaynak_turu != 'klavuz_pdf'", (ders, unite_no))
     cursor.execute("""
-        INSERT INTO unite_kaynaklari (ders_adi, unite_no, kaynak_turu, dosya_yolu)
-        VALUES (?, ?, 'drive', ?)
-    """, (ders, unite_no, preview_link))
+        INSERT OR REPLACE INTO unite_kaynaklari (id, ders_adi, unite_no, kaynak_turu, dosya_yolu)
+        VALUES (
+            (SELECT id FROM unite_kaynaklari WHERE TRIM(ders_adi) = TRIM(?) AND unite_no = ? AND kaynak_turu != 'klavuz_pdf' LIMIT 1),
+            ?, ?, 'drive', ?
+        )
+    """, (ders, unite_no, ders, unite_no, preview_link))
     conn.commit()
     conn.close()
 
@@ -764,16 +766,18 @@ def video_kaydet():
 
     conn = veritabani_baglan()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM ders_videolari WHERE TRIM(ders_adi) = TRIM(?) AND unite_no = ?", (ders, unite))
-    if url:
-        cursor.execute("""
-            INSERT INTO ders_videolari (ders_adi, unite_no, video_url) 
-            VALUES (?, ?, ?)
-        """, (ders, unite, url))
+    # Videoların silinmesini önlemek için INSERT OR REPLACE kullanıyoruz
+    cursor.execute("""
+        INSERT OR REPLACE INTO ders_videolari (id, ders_adi, unite_no, video_url) 
+        VALUES (
+            (SELECT id FROM ders_videolari WHERE TRIM(ders_adi) = TRIM(?) AND unite_no = ? LIMIT 1),
+            ?, ?, ?
+        )
+    """, (ders, unite, ders, unite, url))
     conn.commit()
     conn.close()
 
-    session["bildirim"] = {"tur": "success", "metin": f"'{ders}' - {unite}. Ünite videosu kaydedildi."}
+    session["bildirim"] = {"tur": "success", "metin": f"'{ders}' - {unite}. Ünite videosu güvenle kaydedildi."}
     if kaynak_sayfa == "ders_calis":
         return redirect(url_for("ders_calis", ders=ders, unite=unite))
     return redirect(url_for("icerik_merkezi", ders=ders))
@@ -1393,10 +1397,9 @@ def yedek_yukle():
 @app.route("/sifirla", methods=["POST"])
 @giris_zorunlu
 def veritabani_sifirla():
-    # Sistem hiçbir veriyi otomatik silmez. 
-    # Yalnızca oturum sonlandırılır; sorularınız, PDF'leriniz, videolarınız ve geçmişiniz tamamen korunur.
+    # Asla hiçbir kaynak, PDF, video veya soru otomatik silinmez!
     session.clear()
-    session["bildirim"] = {"tur": "info", "metin": "Oturum güvenle kapatıldı. Tüm içerikleriniz, sorularınız ve geçmişiniz eksiksiz olarak korunmaktadır."}
+    session["bildirim"] = {"tur": "info", "metin": "Oturum güvenle kapatıldı. Tüm içerikleriniz, PDF'leriniz, videolarınız ve sorularınız eksiksiz korunmaktadır."}
     return redirect(url_for("giris_yap"))
 
 @app.route("/sw.js")
