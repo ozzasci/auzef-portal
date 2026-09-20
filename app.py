@@ -1369,20 +1369,10 @@ def yedek_yukle():
 @app.route("/sifirla", methods=["POST"])
 @giris_zorunlu
 def veritabani_sifirla():
-    conn = veritabani_baglan()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM sorular")
-    cursor.execute("DELETE FROM performans")
-    cursor.execute("DELETE FROM sinav_gecmisi")
-    cursor.execute("DELETE FROM unite_kaynaklari")
-    cursor.execute("DELETE FROM unite_takip")
-    cursor.execute("DELETE FROM ders_videolari")
-    cursor.execute("DELETE FROM unite_ozetleri")
-    conn.commit()
-    conn.close()
-
+    # Sistem hiçbir veriyi otomatik silmez. 
+    # Yalnızca oturum sonlandırılır; sorularınız, PDF'leriniz, videolarınız ve geçmişiniz tamamen korunur.
     session.clear()
-    session["bildirim"] = {"tur": "success", "metin": "Tüm veriler, kayıtlı PDF bağlantıları, özetler ve geçmiş silindi."}
+    session["bildirim"] = {"tur": "info", "metin": "Oturum güvenle kapatıldı. Tüm içerikleriniz, sorularınız ve geçmişiniz eksiksiz olarak korunmaktadır."}
     return redirect(url_for("giris_yap"))
 
 @app.route("/sw.js")
