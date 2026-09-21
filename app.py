@@ -16,7 +16,7 @@ app = Flask(__name__)
 app.secret_key = "auzef_portal_tam_surum_2026_gizli_anahtar"
 
 # Supabase PostgreSQL Bağlantı URI'si
-DATABASE_URL = "postgres://postgres.luvrwqfypquitdyqqpao:VERITABANI_SIFRENIZ@aws-0-eu-central-1.pooler.supabase.com:6543/postgres"
+DATABASE_URL = "postgres://postgres.luvrwqfypquitdyqqpao:1O2g3z1o2g3z@aws-0-eu-central-1.pooler.supabase.com:6543/postgres"
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "kitaplar")
