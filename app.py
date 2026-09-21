@@ -117,7 +117,6 @@ def ana_sayfa():
     conn.close()
     return render_template("index.html", durum="baslangic", dersler=dersler, toplam_soru=toplam_soru, yildizli_sayisi=yildizli_sayisi, hatali_sayisi=hatali_sayisi)
 
-# AYRI ÇIKMIŞ SORULAR SAYFASI
 @app.route("/cikmis-sorular-sayfasi")
 @giris_zorunlu
 def cikmis_sorular_sayfasi():
@@ -129,12 +128,10 @@ def icerik_merkezi():
     secilen_ders = request.args.get("ders", GUZ_DERSLERI[0]).strip()
     return render_template("index.html", durum="icerik_merkezi", aktif_ders=secilen_ders, dersler=GUZ_DERSLERI)
 
-# ÇIKMIŞ SORULARIN KOYU ŞIKLARINI OKUYAN AYRIŞTIRICI
 def auzef_cikmis_soru_ayikla(metin, unite_no=1):
     temiz = re.sub(r'about:blank\s*\d*/?\d*', '', metin)
     bloklar = re.split(r'(?:^|\n)\s*([1-9][0-9]?)\.\s+', temiz)
     sorular = []
-
     for i in range(1, len(bloklar), 2):
         if i + 1 >= len(bloklar):
             break
@@ -142,33 +139,19 @@ def auzef_cikmis_soru_ayikla(metin, unite_no=1):
         secenekler = re.findall(r'([A-E])\)\s*(.*?)(?=(?:[A-E]\)|$|\n\s*[1-9][0-9]?\.))', icerik, re.DOTALL)
         if len(secenekler) < 4:
             continue
-            
         ilk_sik_idx = icerik.find('A)')
         if ilk_sik_idx == -1:
             continue
         soru_kok = re.sub(r'\n', ' ', icerik[:ilk_sik_idx]).strip()
-
         s_dict = {}
         for harf, met in secenekler:
             s_dict[harf] = met.strip().replace('\n', ' ')
-
         dogru_harf = "A"
         for harf in ['A', 'B', 'C', 'D', 'E']:
             if f"**{harf}**" in icerik or f"\n{harf}\n" in icerik:
                 dogru_harf = harf
                 break
-
-        sorular.append({
-            "unite_no": unite_no,
-            "metin": soru_kok,
-            "a": s_dict.get('A', ''),
-            "b": s_dict.get('B', ''),
-            "c": s_dict.get('C', ''),
-            "d": s_dict.get('D', ''),
-            "e": s_dict.get('E', ''),
-            "dogru_cevap": dogru_harf,
-            "aciklama": "Geçmiş Yıl Çıkmış Soru Çözüm Havuzu"
-        })
+        sorular.append({"unite_no": unite_no, "metin": soru_kok, "a": s_dict.get('A', ''), "b": s_dict.get('B', ''), "c": s_dict.get('C', ''), "d": s_dict.get('D', ''), "e": s_dict.get('E', ''), "dogru_cevap": dogru_harf, "aciklama": "Çıkmış Soru Çözüm Havuzu"})
     return sorular
 
 @app.route("/yukle-unite-sorulari", methods=["POST"])
@@ -177,10 +160,8 @@ def yukle_unite_sorulari():
     ders = request.form.get("ders_adi", "").strip()
     unite_no = int(request.form.get("unite_no", 1))
     dosya = request.files.get("soru_dosyasi")
-
     if not dosya or not dosya.filename.lower().endswith(".pdf"):
         return redirect(url_for("icerik_merkezi", ders=ders))
-
     pdf_bytes = dosya.read()
     metin = ""
     reader = PdfReader(io.BytesIO(pdf_bytes))
@@ -188,9 +169,7 @@ def yukle_unite_sorulari():
         t = page.extract_text()
         if t:
             metin += t + "\n"
-
     sorular = auzef_cikmis_soru_ayikla(metin, unite_no)
-    
     conn = veritabani_baglan()
     cursor = conn.cursor()
     for s in sorular:
@@ -199,7 +178,6 @@ def yukle_unite_sorulari():
     conn.commit()
     cursor.close()
     conn.close()
-    
     return redirect(url_for("cikmis_sorular_sayfasi"))
 
 @app.route("/sinav-baslat", methods=["POST"])
@@ -209,40 +187,43 @@ def sinav_baslat():
     unite_secim = request.form.get("unite", "TUMU").strip()
     mod = request.form.get("mod", "sinav")
     ozel_havuz = request.form.get("ozel_havuz", "")
-
     conn = veritabani_baglan()
     cursor = conn.cursor()
-
-    if ozel_havuz == "cikmis_sorular":
+    if ozel_havuz == "yildizli":
+        cursor.execute("SELECT id FROM sorular WHERE yildizli = 1")
+    elif ozel_havuz == "hatalar":
+        cursor.execute("SELECT s.id FROM sorular s JOIN performans p ON s.id = p.soru_id WHERE p.son_durum = 'YANLIS'")
+    elif ozel_havuz == "cikmis_sorular":
         if unite_secim == "VIZE":
             cursor.execute("SELECT id FROM sorular WHERE TRIM(ders_adi) LIKE %s AND (unite_no BETWEEN 1 AND 7 OR unite_no = 0)", (f"%{ders}%",))
         elif unite_secim == "FINAL":
             cursor.execute("SELECT id FROM sorular WHERE TRIM(ders_adi) LIKE %s AND (unite_no BETWEEN 8 AND 14)", (f"%{ders}%",))
         else:
             cursor.execute("SELECT id FROM sorular WHERE TRIM(ders_adi) LIKE %s", (f"%{ders}%",))
+    elif unite_secim == "VIZE":
+        cursor.execute("SELECT id FROM sorular WHERE TRIM(ders_adi) LIKE %s AND (unite_no BETWEEN 1 AND 7 OR unite_no = 0)", (f"%{ders}%",))
+    elif unite_secim.startswith("UNITE_"):
+        u_no = int(unite_secim.replace("UNITE_", ""))
+        cursor.execute("SELECT id FROM sorular WHERE TRIM(ders_adi) LIKE %s AND unite_no = %s", (f"%{ders}%", u_no))
+    elif ders == "HEPSI":
+        cursor.execute("SELECT id FROM sorular")
     else:
         cursor.execute("SELECT id FROM sorular WHERE TRIM(ders_adi) LIKE %s", (f"%{ders}%",))
-
     satirlar = cursor.fetchall()
     cursor.close()
     conn.close()
-
     if not satirlar:
-        session["bildirim"] = {"tur": "warning", "metin": "Seçilen kritere uygun çıkmış soru bulunamadı. Lütfen İçerik Merkezi'nden soru PDF'i yükleyin."}
-        return redirect(url_for("cikmis_sorular_sayfasi"))
-
+        return redirect(url_for("ana_sayfa"))
     id_listesi = [r["id"] for r in satirlar]
     random.shuffle(id_listesi)
     sinav_oturumunu_temizle()
-
     session["soru_idleri"] = id_listesi
-    session["aktif_ders"] = f"{ders} (Çıkmış Sorular)"
+    session["aktif_ders"] = f"{ders} (Sınav)"
     session["sinav_modu"] = mod
     session["mevcut_indeks"] = 0
     session["dogru"] = 0
     session["yanlis"] = 0
     session["bos"] = 0
-
     return redirect(url_for("soru_goruntule"))
 
 @app.route("/soru", methods=["GET", "POST"])
@@ -252,65 +233,127 @@ def soru_goruntule():
     idx = session.get("mevcut_indeks", 0)
     if not s_ids or idx >= len(s_ids):
         return redirect(url_for("sonuc_goruntule"))
-
     conn = veritabani_baglan()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM sorular WHERE id = %s", (s_ids[idx],))
     soru = dict(cursor.fetchone())
     cursor.close()
     conn.close()
-
     if request.method == "POST":
         secilen = request.form.get("secenek", "")
-        if not secilen:
-            session["bos"] = session.get("bos", 0) + 1
-        elif secilen == soru["dogru_cevap"]:
-            session["dogru"] = session.get("dogru", 0) + 1
-        else:
-            session["yanlis"] = session.get("yanlis", 0) + 1
+        if not secilen: session["bos"] = session.get("bos", 0) + 1
+        elif secilen == soru["dogru_cevap"]: session["dogru"] = session.get("dogru", 0) + 1
+        else: session["yanlis"] = session.get("yanlis", 0) + 1
         session["mevcut_indeks"] = idx + 1
-        
         if session["sinav_modu"] == "ogrenme":
             return render_template("index.html", durum="geribildirim", soru=soru)
         return redirect(url_for("soru_goruntule"))
-
     return render_template("index.html", durum="soru", soru=soru, sira=idx + 1, toplam=len(s_ids), aktif_ders=session.get("aktif_ders"))
 
 @app.route("/sonuc")
 @giris_zorunlu
 def sonuc_goruntule():
-    d = session.get("dogru", 0)
-    y = session.get("yanlis", 0)
-    b = session.get("bos", 0)
-    toplam = d + y + b
-    net = d - (y * 0.25)
-    puan = max(0, (net / toplam) * 100) if toplam > 0 else 0
-    return render_template("index.html", durum="sonuc", dogru=d, yanlis=y, bos=b, net=round(net, 2), puan=round(puan, 1))
+    d = session.get("dogru", 0); y = session.get("yanlis", 0); b = session.get("bos", 0)
+    toplam = d + y + b; net = d - (y * 0.25)
+    return render_template("index.html", durum="sonuc", dogru=d, yanlis=y, bos=b, net=round(net, 2))
 
 @app.route("/ders-calis")
 @giris_zorunlu
 def ders_calis():
-    return render_template("index.html", durum="ogrenme_modu", dersler=GUZ_DERSLERI, aktif_ders=GUZ_DERSLERI[0], aktif_unite=1, unite_baslik="1. Ünite")
+    secilen_ders = request.args.get("ders", GUZ_DERSLERI[0]).strip()
+    secilen_unite = int(request.args.get("unite", 1))
+    conn = veritabani_baglan()
+    cursor = conn.cursor()
+    cursor.execute("SELECT dosya_yolu FROM unite_kaynaklari WHERE TRIM(ders_adi) LIKE %s AND unite_no = %s LIMIT 1", (f"%{secilen_ders}%", secilen_unite))
+    row = cursor.fetchone()
+    pdf_url = row["dosya_yolu"] if row else ""
+    cursor.execute("SELECT madde FROM unite_ozetleri WHERE TRIM(ders_adi) LIKE %s AND unite_no = %s", (f"%{secilen_ders}%", secilen_unite))
+    ozetler = [r["madde"] for r in cursor.fetchall()]
+    cursor.close()
+    conn.close()
+    return render_template("index.html", durum="ogrenme_modu", aktif_ders=secilen_ders, aktif_unite=secilen_unite, pdf_url=pdf_url, ozetler=ozetler, unite_baslik=f"{secilen_unite}. Ünite", dersler=GUZ_DERSLERI)
+
+@app.route("/hafiza-kartlari")
+@giris_zorunlu
+def hafiza_kartlari():
+    secilen_ders = request.args.get("ders", GUZ_DERSLERI[0]).strip()
+    secilen_unite = int(request.args.get("unite", 1))
+    conn = veritabani_baglan()
+    cursor = conn.cursor()
+    cursor.execute("SELECT madde FROM unite_ozetleri WHERE TRIM(ders_adi) LIKE %s AND unite_no = %s", (f"%{secilen_ders}%", secilen_unite))
+    satirlar = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    kartlar = [{"on": f"📌 {secilen_unite}. Ünite Sınav Bilgisi", "arka": s["madde"]} for s in satirlar]
+    return render_template("index.html", durum="flashcards", aktif_ders=secilen_ders, aktif_unite=secilen_unite, kartlar=kartlar, dersler=GUZ_DERSLERI)
 
 @app.route("/kronoloji")
 @giris_zorunlu
 def kronoloji_egzersizi():
-    return render_template("index.html", durum="kronoloji", dersler=GUZ_DERSLERI)
+    secilen_ders = request.args.get("ders", GUZ_DERSLERI[0]).strip()
+    karisik_olaylar = [{"yil": 1453, "olay": "İstanbul'un Fethi", "detay": "Fatih Sultan Mehmet"}, {"yil": 1461, "olay": "Trabzon'un Fethi", "detay": "Osmanlı dönemi"}]
+    return render_template("index.html", durum="kronoloji", aktif_ders=secilen_ders, karisik_olaylar=karisik_olaylar, dersler=GUZ_DERSLERI)
 
 @app.route("/unite-pekistirme")
 @giris_zorunlu
 def unite_pekistirme_listesi():
-    return render_template("index.html", durum="unite_pekistirme", dersler=GUZ_DERSLERI)
+    ders = request.args.get("ders", GUZ_DERSLERI[0]).strip()
+    conn = veritabani_baglan()
+    cursor = conn.cursor()
+    cursor.execute("SELECT unite_no, COUNT(*) as adet FROM sorular WHERE TRIM(ders_adi) LIKE %s GROUP BY unite_no", (f"%{ders}%",))
+    sayilar = {row["unite_no"]: row["adet"] for row in cursor.fetchall()}
+    cursor.close()
+    conn.close()
+    uniteler = [{"no": i, "baslik": f"Ünite {i}", "soru_sayisi": sayilar.get(i, 0)} for i in range(1, 15)]
+    return render_template("index.html", durum="unite_pekistirme", uniteler=uniteler, aktif_ders=ders, dersler=GUZ_DERSLERI)
+
+@app.route("/unite-test-baslat/<int:unite_no>")
+@giris_zorunlu
+def unite_test_baslat(unite_no):
+    ders = request.args.get("ders", GUZ_DERSLERI[0]).strip()
+    conn = veritabani_baglan()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM sorular WHERE TRIM(ders_adi) LIKE %s AND unite_no = %s", (f"%{ders}%", unite_no))
+    satirlar = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    if not satirlar: return redirect(url_for("unite_pekistirme_listesi", ders=ders))
+    id_listesi = [r["id"] for r in satirlar]
+    random.shuffle(id_listesi)
+    sinav_oturumunu_temizle()
+    session["soru_idleri"] = id_listesi
+    session["aktif_ders"] = f"{ders} (Ünite {unite_no})"
+    session["sinav_modu"] = "ogrenme"
+    session["mevcut_indeks"] = 0
+    session["dogru"] = 0; session["yanlis"] = 0; session["bos"] = 0
+    return redirect(url_for("soru_goruntule"))
 
 @app.route("/yonetim")
 @giris_zorunlu
 def soru_yonetimi():
-    return render_template("index.html", durum="yonetim", dersler=GUZ_DERSLERI)
+    conn = veritabani_baglan()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM sorular ORDER BY id DESC LIMIT 50")
+    sorular = [dict(r) for r in cursor.fetchall()]
+    cursor.close()
+    conn.close()
+    return render_template("index.html", durum="yonetim", sorular=sorular, dersler=GUZ_DERSLERI)
 
 @app.route("/istatistik")
 @giris_zorunlu
 def istatistik_paneli():
-    return render_template("index.html", durum="istatistik")
+    conn = veritabani_baglan()
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(p.soru_id) as cozulen, SUM(p.dogru_sayisi) as d, SUM(p.yanlis_sayisi) as y FROM performans p")
+    row = cursor.fetchone()
+    cozulen = row["cozulen"] or 0
+    d = row["d"] or 0
+    y = row["y"] or 0
+    net = d - (y * 0.25)
+    oran = round((d / cozulen) * 100, 1) if cozulen > 0 else 0
+    cursor.close()
+    conn.close()
+    return render_template("index.html", durum="istatistik", toplam_cozulen=cozulen, genel_net=round(net, 2), genel_oran=oran, dersler=GUZ_DERSLERI)
 
 @app.route("/sifirla", methods=["POST"])
 @giris_zorunlu
