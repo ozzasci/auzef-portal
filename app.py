@@ -1391,6 +1391,37 @@ def veritabani_sifirla():
 @app.route("/sw.js")
 def service_worker():
     return send_from_directory(os.path.join(app.root_path, "static"), "sw.js", mimetype="application/javascript")
+def otomatik_veri_yukle():
+    try:
+        conn = veritabani_baglan()
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM sorular")
+        sayi = cursor.fetchone()[0]
+        
+        # Eğer veritabanında hiç soru yoksa ve yedek dosyamız varsa otomatik yükle
+        if sayi == 0:
+            yedek_yolu = os.path.join(BASE_DIR, "otomatik_baslangic.json")
+            if os.path.exists(yedek_yolu):
+                with open(yedek_yolu, "r", encoding="utf-8") as f:
+                    veri = json.load(f)
+                    for s in veri:
+                        cursor.execute("""
+                            INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, yildizli, kullanici_notu, unite_no)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (
+                            s.get("ders_adi", ""), s.get("soru_metni", ""), s.get("secenek_a", ""), s.get("secenek_b", ""),
+                            s.get("secenek_c", ""), s.get("secenek_d", ""), s.get("secenek_e", ""), s.get("dogru_cevap", "A"),
+                            s.get("aciklama", ""), s.get("yildizli", 0), s.get("kullanici_notu", ""), s.get("unite_no", 0)
+                        ))
+                conn.commit()
+                print(">>> Otomatik başlangıç verileri başarıyla yüklendi!")
+        conn.close()
+    except Exception as e:
+        print("Otomatik yükleme hatası:", e)
+
+# Uygulama başlarken kontrolü tetikle
+otomatik_baslangic_dosyasi_kontrol = veritabani_hazirla()
+otomatik_veri_yukle()
 
 if __name__ == "__main__":
     app.run(debug=True)
