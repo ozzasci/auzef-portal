@@ -748,15 +748,18 @@
         <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div>
-                    <h5 class="fw-bold text-primary mb-1"><i class="bi bi-clock-history"></i> Tarihsel Sıralama / Kronoloji Egzersizi</h5>
-                    <p class="text-muted small mb-0">Olayları yukarı ve aşağı taşıyarak en eskiden en yeniye doğru doğru kronolojik sıraya dizin.</p>
+                    <h5 class="fw-bold text-primary mb-1"><i class="bi bi-clock-history"></i> Tarihsel Sıralama / Kronoloji Yarışı</h5>
+                    <p class="text-muted small mb-0">Olayları parmağınızla veya fareyle tutup sürükleyerek en eskiden en yeniye doğru sıralayın.</p>
                 </div>
-                <div class="d-flex gap-2">
-                    <button class="btn btn-outline-primary btn-sm rounded-pill px-3 fw-bold" onclick="siralamayiKarsilastir()">
-                        <i class="bi bi-check2-all"></i> Sıralamayı Kontrol Et
+                <div class="d-flex align-items-center gap-3">
+                    <span class="badge bg-dark px-3 py-2 rounded-pill fs-6">
+                        <i class="bi bi-stopwatch me-1"></i> <span id="kronometre">00:00</span>
+                    </span>
+                    <button class="btn btn-primary btn-sm rounded-pill px-4 fw-bold" onclick="siralamayiKarsilastir()">
+                        <i class="bi bi-check2-all me-1"></i> Kontrol Et
                     </button>
                     <a href="/kronoloji?ders={{ aktif_ders }}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
-                        <i class="bi bi-arrow-clockwise"></i> Yeni Olaylar Getir
+                        <i class="bi bi-arrow-clockwise"></i> Yenile
                     </a>
                 </div>
             </div>
@@ -766,27 +769,18 @@
             <div class="col-md-9">
                 <div id="sonucKutusu" class="alert d-none text-center fw-bold shadow-sm rounded-4 mb-3" role="alert"></div>
 
-                <ul class="list-group list-group-flush shadow-sm rounded-4 overflow-hidden mb-4" id="kronolojiListesi">
+                <ul class="list-group list-group-flush shadow-sm rounded-4 overflow-hidden mb-4 p-2 bg-light border" id="kronolojiListesi">
                     {% for olay in karisik_olaylar %}
-                    <li class="list-group-item p-3 border-light-subtle d-flex align-items-center justify-content-between bg-white card-hover mb-2 rounded-3 border" data-yil="{{ olay.yil }}">
+                    <li class="list-group-item p-3 border rounded-3 bg-white card-hover mb-2 d-flex align-items-center justify-content-between shadow-sm" draggable="true" data-yil="{{ olay.yil }}" style="cursor: grab;">
                         <div class="d-flex align-items-center gap-3">
-                            <div class="d-flex flex-column gap-1">
-                                <button class="btn btn-sm btn-light border py-0 px-2 lh-1 text-primary" onclick="yukariTasi(this)" title="Yukarı Taşı">
-                                    <i class="bi bi-chevron-up"></i>
-                                </button>
-                                <button class="btn btn-sm btn-light border py-0 px-2 lh-1 text-primary" onclick="asagiTasi(this)" title="Aşağı Taşı">
-                                    <i class="bi bi-chevron-down"></i>
-                                </button>
-                            </div>
+                            <div class="text-muted fs-5"><i class="bi bi-grip-vertical"></i></div>
                             <div>
                                 <span class="badge bg-primary bg-opacity-10 text-primary border border-primary-subtle me-2 yil-badge" style="display: none;">{{ olay.yil }}</span>
                                 <span class="fw-semibold text-dark">{{ olay.olay }}</span>
                                 <div class="small text-muted mt-1">{{ olay.detay }}</div>
                             </div>
                         </div>
-                        <div class="text-muted">
-                            <i class="bi bi-grip-vertical fs-4"></i>
-                        </div>
+                        <div class="badge bg-light text-secondary border">Sürükle</div>
                     </li>
                     {% endfor %}
                 </ul>
@@ -794,21 +788,43 @@
         </div>
 
         <script>
-            function yukariTasi(btn) {
-                const li = btn.closest('li');
-                const onceki = li.previousElementSibling;
-                if (onceki) {
-                    li.parentNode.insertBefore(li, onceki);
-                }
-            }
+            // Kronometre Mantığı
+            let saniyeSayac = 0;
+            const kronometreEl = document.getElementById('kronometre');
+            const timer = setInterval(() => {
+                saniyeSayac++;
+                let dk = Math.floor(saniyeSayac / 60);
+                let sn = saniyeSayac % 60;
+                kronometreEl.innerText = (dk < 10 ? '0' : '') + dk + ':' + (sn < 10 ? '0' : '') + sn;
+            }, 1000);
 
-            function asagiTasi(btn) {
-                const li = btn.closest('li');
-                const sonraki = li.nextElementSibling;
-                if (sonraki) {
-                    li.parentNode.insertBefore(sonraki, li);
+            // Sürükle-Bırak (Drag and Drop) Mantığı
+            const liste = document.getElementById('kronolojiListesi');
+            let suruklenenOge = null;
+
+            liste.addEventListener('dragstart', (e) => {
+                suruklenenOge = e.target.closest('li');
+                e.target.style.opacity = '0.4';
+            });
+
+            liste.addEventListener('dragend', (e) => {
+                e.target.style.opacity = '1';
+                suruklenenOge = null;
+            });
+
+            liste.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                const hedef = e.target.closest('li');
+                if (hedef && hedef !== suruklenenOge) {
+                    const rect = hedef.getBoundingClientRect();
+                    const yuzdeY = (e.clientY - rect.top) / rect.height;
+                    if (yuzdeY > 0.5) {
+                        liste.insertBefore(suruklenenOge, hedef.nextSibling);
+                    } else {
+                        liste.insertBefore(suruklenenOge, hedef);
+                    }
                 }
-            }
+            });
 
             function siralamayiKarsilastir() {
                 const listeItems = document.querySelectorAll('#kronolojiListesi li');
@@ -830,14 +846,16 @@
                 sonucKutusu.classList.remove('d-none', 'alert-success', 'alert-danger');
 
                 if (dogruMu) {
+                    clearInterval(timer);
                     sonucKutusu.className = 'alert alert-success text-center fw-bold shadow-sm rounded-4 mb-3';
-                    sonucKutusu.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i> Harika! Olayları kusursuz bir şekilde kronolojik sıraya dizdiniz!';
+                    sonucKutusu.innerHTML = `<i class="bi bi-check-circle-fill me-2"></i> Tebrikler! Bu kronolojiyi ${kronometreEl.innerText} sürede kusursuz tamamladın!`;
                 } else {
                     sonucKutusu.className = 'alert alert-danger text-center fw-bold shadow-sm rounded-4 mb-3';
-                    sonucKutusu.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-2"></i> Sıralamada bazı hatalar var. Yılları inceleyerek tekrar düzenleyin!';
+                    sonucKutusu.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-2"></i> Sıralamada hatalar var. Yılları kontrol ederek tekrar dene!';
                 }
             }
         </script>
+        {% endif %}
 
        <!-- 11. ÜNİTE PEKİŞTİRME LİSTESİ -->
         {% elif durum == 'unite_pekistirme' %}
