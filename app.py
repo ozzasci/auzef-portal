@@ -15,7 +15,7 @@ from pypdf import PdfReader
 app = Flask(__name__)
 app.secret_key = "auzef_portal_tam_surum_2026_gizli_anahtar"
 
-# Supabase PostgreSQL Bağlantı URI'si (Şifrenizi eklemeyi unutmayın)
+# Supabase PostgreSQL Bağlantı URI'si
 DATABASE_URL = "postgres://postgres.luvrwqfypquitdyqqpao:1O2g3z1o2g3z@aws-0-eu-central-1.pooler.supabase.com:6543/postgres"
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -333,7 +333,6 @@ def yukle_pdf_dosya():
     session["bildirim"] = {"tur": "success", "metin": f"'{ders}' dersinin {unite_no}. Ünite PDF'i başarıyla kaydedildi!"}
     return redirect(url_for("ders_calis", ders=ders, unite=unite_no))
 
-# --- KILAVUZ PDF İŞLEME VE ÖZET ÇIKARMA FONKSİYONU ---
 def klavuz_pdf_ayikla(pdf_bytes):
     reader = PdfReader(io.BytesIO(pdf_bytes))
     tam_metin = ""
@@ -453,7 +452,6 @@ def otomatik_klavuz_isle():
         session["bildirim"] = {"tur": "danger", "metin": f"Ayrıştırma hatası oluştu: {str(e)}"}
         return redirect(url_for("icerik_merkezi", ders=ders))
 
-# --- ÜNİTE SORU AYIKLAMA VE YÜKLEME FONKSİYONU ---
 def auzef_harfsiz_ve_harfli_soru_ayikla(metin, unite_no=1):
     temiz = re.sub(r'about:blank\s*\d*/?\d*', '', metin)
     temiz = re.sub(r'\d{1,2}\.\d{1,2}\.\d{4}\s+\d{1,2}:\d{1,2}', '', temiz)
@@ -863,10 +861,8 @@ def kronoloji_egzersizi():
             {"id": 5, "yil": 1835, "olay": "Hahambaşılık makamına yeniden resmi berat verilmesi", "detay": "II. Mahmud dönemi."},
             {"id": 6, "yil": 1856, "olay": "Islahat Fermanı ile millet nizamnamelerinin başlaması", "detay": "Tanzimat dönemi."}
         ]
-        uyari_mesaji = "Bu dersin soru havuzunda yeterli tarihli veri bulunamadığı için genel tarih seti yüklendi."
     else:
         karisik_olaylar = list(otomatik_olaylar)
-        uyari_mesaji = None
 
     random.shuffle(karisik_olaylar)
 
@@ -874,7 +870,6 @@ def kronoloji_egzersizi():
                            durum="kronoloji", 
                            aktif_ders=secilen_ders, 
                            karisik_olaylar=karisik_olaylar, 
-                           uyari_mesaji=uyari_mesaji, 
                            dersler=GUZ_DERSLERI)
 
 @app.route("/sinav-baslat", methods=["POST"])
@@ -1337,65 +1332,7 @@ def veritabani_sifirla():
     session.clear()
     session["bildirim"] = {"tur": "info", "metin": "Oturum güvenle kapatıldı. Bulut veritabanındaki tüm verileriniz eksiksiz korunmaktadır."}
     return redirect(url_for("giris_yap"))
-@app.route("/kronoloji")
-@giris_zorunlu
-def kronoloji_egzersizi():
-    secilen_ders = request.args.get("ders", GUZ_DERSLERI[0]).strip()
-    
-    conn = veritabani_baglan()
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT id, soru_metni, aciklama, dogru_cevap, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e 
-        FROM sorular 
-        WHERE TRIM(ders_adi) LIKE %s
-    """, (f"%{secilen_ders}%",))
-    satirlar = cursor.fetchall()
-    cursor.close()
-    conn.close()
 
-    otomatik_olaylar = []
-    gorulen_yillar = set()
-
-    for s in satirlar:
-        metin_havuzu = f"{s['soru_metni']} {s['aciklama']}"
-        yillar = re.findall(r'\b(1[3-9]\d{2})\b', metin_havuzu)
-        
-        if yillar:
-            yil = int(yillar[0])
-            if yil not in gorulen_yillar:
-                gorulen_yillar.add(yil)
-                olay_metni = s['soru_metni']
-                if len(olay_metni) > 130:
-                    olay_metni = olay_metni[:127] + "..."
-                
-                otomatik_olaylar.append({
-                    "id": s["id"],
-                    "yil": yil,
-                    "olay": olay_metni,
-                    "detay": f"Doğru Cevap: {s['dogru_cevap']} | {s['aciklama'][:90]}..." if s['aciklama'] else f"Doğru Seçenek: {s['dogru_cevap']}"
-                })
-        if len(otomatik_olaylar) >= 6:
-            break
-
-    if len(otomatik_olaylar) < 3:
-        karisik_olaylar = [
-            {"id": 1, "yil": 1453, "olay": "İstanbul'un fethi sonrası Gennadios'un Rum Patriği seçilmesi", "detay": "Fatih Sultan Mehmet dönemi."},
-            {"id": 2, "yil": 1461, "olay": "Episkopos Hovagim'in İstanbul Ermeni Patriği tayin edilmesi", "detay": "Fatih Sultan Mehmet dönemi."},
-            {"id": 3, "yil": 1492, "olay": "Sefarad Yahudilerinin Osmanlı topraklarına gelişi", "detay": "II. Bayezid dönemi."},
-            {"id": 4, "yil": 1602, "olay": "Fener Rum Patrikhanesi'nin Aya Yorgi'ye taşınması", "detay": "Patrikhane merkezi."},
-            {"id": 5, "yil": 1835, "olay": "Hahambaşılık makamına yeniden resmi berat verilmesi", "detay": "II. Mahmud dönemi."},
-            {"id": 6, "yil": 1856, "olay": "Islahat Fermanı ile millet nizamnamelerinin başlaması", "detay": "Tanzimat dönemi."}
-        ]
-    else:
-        karisik_olaylar = list(otomatik_olaylar)
-
-    random.shuffle(karisik_olaylar)
-
-    return render_template("index.html", 
-                           durum="kronoloji", 
-                           aktif_ders=secilen_ders, 
-                           karisik_olaylar=karisik_olaylar, 
-                           dersler=GUZ_DERSLERI)
 @app.route("/sw.js")
 def service_worker():
     return send_from_directory(os.path.join(app.root_path, "static"), "sw.js", mimetype="application/javascript")
