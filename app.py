@@ -7,7 +7,7 @@ import json
 import random
 from datetime import datetime
 from functools import wraps
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify, Response
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from pypdf import PdfReader
 
@@ -15,10 +15,6 @@ app = Flask(__name__)
 app.secret_key = "auzef_portal_tam_surum_2026_gizli_anahtar"
 
 DATABASE_URL = "postgres://postgres.luvrwqfypquitdyqqpao:1O2g3z1o2g3z@aws-0-eu-central-1.pooler.supabase.com:6543/postgres"
-
-BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "kitaplar")
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 GUZ_DERSLERI = [
     "20. Yüzyıl Türkiye’sinde Gayrimüslimler ve Kurumları",
@@ -179,6 +175,27 @@ def yukle_unite_sorulari():
     cursor.close()
     conn.close()
     return redirect(url_for("cikmis_sorular_sayfasi"))
+
+@app.route("/otomatik-klavuz-isle", methods=["POST"])
+@giris_zorunlu
+def otomatik_klavuz_isle():
+    ders = request.form.get("ders_adi", "").strip()
+    dosya = request.files.get("klavuz_dosya")
+    if not dosya:
+        return redirect(url_for("icerik_merkezi", ders=ders))
+    pdf_bytes = dosya.read()
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    tam_metin = ""
+    for page in reader.pages:
+        t = page.extract_text()
+        if t: tam_metin += t + "\n"
+    conn = veritabani_baglan()
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO unite_ozetleri (ders_adi, unite_no, madde) VALUES (%s, 1, %s)", (ders, tam_metin[:500]))
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return redirect(url_for("ders_calis", ders=ders))
 
 @app.route("/sinav-baslat", methods=["POST"])
 @giris_zorunlu
