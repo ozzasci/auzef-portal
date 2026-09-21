@@ -13,9 +13,11 @@ from pypdf import PdfReader
 
 app = Flask(__name__)
 app.secret_key = "auzef_portal_tam_surum_2026_gizli_anahtar"
-DB_NAME = "auzef_calisma.db"
 
-UPLOAD_FOLDER = os.path.join(app.root_path, "static", "kitaplar")
+# Veritabanı ve dosya yollarını mutlak (absolute) yola sabitliyoruz ki her restart'ta kaybolmasın
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+DB_NAME = os.path.join(BASE_DIR, "auzef_calisma.db")
+UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "kitaplar")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 GUZ_DERSLERI = [
@@ -434,7 +436,6 @@ def yukle_unite_sorulari():
     conn = veritabani_baglan()
     cursor = conn.cursor()
     
-    # Asla eskileri silmiyoruz, sadece üzerine ekliyoruz
     for s in sorular:
         cursor.execute("""
             INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, yildizli, kullanici_notu, unite_no)
@@ -576,18 +577,12 @@ def yukle_pdf_dosya():
 
     conn = veritabani_baglan()
     cursor = conn.cursor()
-    # Kayıt eklemeden önce eskileri silmiyoruz, REPLACE ile güncellenmesini sağlıyoruz
-    cursor.execute("""
-        INSERT OR REPLACE INTO unite_kaynaklari (id, ders_adi, unite_no, kaynak_turu, dosya_yolu)
-        VALUES (
-            (SELECT id FROM unite_kaynaklari WHERE TRIM(ders_adi) = TRIM(?) AND unite_no = ? AND kaynak_turu != 'klavuz_pdf' LIMIT 1),
-            ?, ?, 'yerel', ?
-        )
-    """, (ders, unite_no, ders, unite_no, f"/static/kitaplar/{dosya_adi}"))
+    cursor.execute("INSERT INTO unite_kaynaklari (ders_adi, unite_no, kaynak_turu, dosya_yolu) VALUES (?, ?, 'yerel', ?)", 
+                   (ders, unite_no, f"/static/kitaplar/{dosya_adi}"))
     conn.commit()
     conn.close()
 
-    session["bildirim"] = {"tur": "success", "metin": f"'{ders}' dersinin {unite_no}. Ünite PDF'i başarıyla yüklendi ve koruma altına alındı!"}
+    session["bildirim"] = {"tur": "success", "metin": f"'{ders}' dersinin {unite_no}. Ünite PDF'i başarıyla kaydedildi!"}
     return redirect(url_for("ders_calis", ders=ders, unite=unite_no))
 
 @app.route("/kaydet-drive-link", methods=["POST"])
@@ -605,13 +600,8 @@ def kaydet_drive_link():
 
     conn = veritabani_baglan()
     cursor = conn.cursor()
-    cursor.execute("""
-        INSERT OR REPLACE INTO unite_kaynaklari (id, ders_adi, unite_no, kaynak_turu, dosya_yolu)
-        VALUES (
-            (SELECT id FROM unite_kaynaklari WHERE TRIM(ders_adi) = TRIM(?) AND unite_no = ? AND kaynak_turu != 'klavuz_pdf' LIMIT 1),
-            ?, ?, 'drive', ?
-        )
-    """, (ders, unite_no, ders, unite_no, preview_link))
+    cursor.execute("INSERT INTO unite_kaynaklari (ders_adi, unite_no, kaynak_turu, dosya_yolu) VALUES (?, ?, 'drive', ?)", 
+                   (ders, unite_no, preview_link))
     conn.commit()
     conn.close()
 
@@ -630,6 +620,7 @@ def ders_calis():
     cursor.execute("""
         SELECT kaynak_turu, dosya_yolu FROM unite_kaynaklari 
         WHERE TRIM(ders_adi) LIKE ? AND unite_no = ? AND kaynak_turu != 'klavuz_pdf'
+        ORDER BY id DESC LIMIT 1
     """, (f"%{secilen_ders}%", secilen_unite))
     row_kaynak = cursor.fetchone()
     
@@ -639,6 +630,7 @@ def ders_calis():
     cursor.execute("""
         SELECT dosya_yolu FROM unite_kaynaklari 
         WHERE TRIM(ders_adi) LIKE ? AND kaynak_turu = 'klavuz_pdf'
+        ORDER BY id DESC LIMIT 1
     """, (f"%{secilen_ders}%",))
     row_klavuz = cursor.fetchone()
     klavuz_pdf_url = row_klavuz["dosya_yolu"] if row_klavuz else ""
@@ -646,6 +638,7 @@ def ders_calis():
     cursor.execute("""
         SELECT video_url FROM ders_videolari 
         WHERE TRIM(ders_adi) LIKE ? AND unite_no = ?
+        ORDER BY id DESC LIMIT 1
     """, (f"%{secilen_ders}%", secilen_unite))
     row_video = cursor.fetchone()
     video_url = row_video["video_url"] if row_video else ""
@@ -766,18 +759,11 @@ def video_kaydet():
 
     conn = veritabani_baglan()
     cursor = conn.cursor()
-    # Videoların silinmesini önlemek için INSERT OR REPLACE kullanıyoruz
-    cursor.execute("""
-        INSERT OR REPLACE INTO ders_videolari (id, ders_adi, unite_no, video_url) 
-        VALUES (
-            (SELECT id FROM ders_videolari WHERE TRIM(ders_adi) = TRIM(?) AND unite_no = ? LIMIT 1),
-            ?, ?, ?
-        )
-    """, (ders, unite, ders, unite, url))
+    cursor.execute("INSERT INTO ders_videolari (ders_adi, unite_no, video_url) VALUES (?, ?, ?)", (ders, unite, url))
     conn.commit()
     conn.close()
 
-    session["bildirim"] = {"tur": "success", "metin": f"'{ders}' - {unite}. Ünite videosu güvenle kaydedildi."}
+    session["bildirim"] = {"tur": "success", "metin": f"'{ders}' - {unite}. Ünite videosu başarıyla kaydedildi."}
     if kaynak_sayfa == "ders_calis":
         return redirect(url_for("ders_calis", ders=ders, unite=unite))
     return redirect(url_for("icerik_merkezi", ders=ders))
@@ -1397,7 +1383,7 @@ def yedek_yukle():
 @app.route("/sifirla", methods=["POST"])
 @giris_zorunlu
 def veritabani_sifirla():
-    # Asla hiçbir kaynak, PDF, video veya soru otomatik silinmez!
+    # Asla hiçbir veri silinmez
     session.clear()
     session["bildirim"] = {"tur": "info", "metin": "Oturum güvenle kapatıldı. Tüm içerikleriniz, PDF'leriniz, videolarınız ve sorularınız eksiksiz korunmaktadır."}
     return redirect(url_for("giris_yap"))
