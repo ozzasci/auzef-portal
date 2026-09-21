@@ -1337,7 +1337,65 @@ def veritabani_sifirla():
     session.clear()
     session["bildirim"] = {"tur": "info", "metin": "Oturum güvenle kapatıldı. Bulut veritabanındaki tüm verileriniz eksiksiz korunmaktadır."}
     return redirect(url_for("giris_yap"))
+@app.route("/kronoloji")
+@giris_zorunlu
+def kronoloji_egzersizi():
+    secilen_ders = request.args.get("ders", GUZ_DERSLERI[0]).strip()
+    
+    conn = veritabani_baglan()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT id, soru_metni, aciklama, dogru_cevap, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e 
+        FROM sorular 
+        WHERE TRIM(ders_adi) LIKE %s
+    """, (f"%{secilen_ders}%",))
+    satirlar = cursor.fetchall()
+    cursor.close()
+    conn.close()
 
+    otomatik_olaylar = []
+    gorulen_yillar = set()
+
+    for s in satirlar:
+        metin_havuzu = f"{s['soru_metni']} {s['aciklama']}"
+        yillar = re.findall(r'\b(1[3-9]\d{2})\b', metin_havuzu)
+        
+        if yillar:
+            yil = int(yillar[0])
+            if yil not in gorulen_yillar:
+                gorulen_yillar.add(yil)
+                olay_metni = s['soru_metni']
+                if len(olay_metni) > 130:
+                    olay_metni = olay_metni[:127] + "..."
+                
+                otomatik_olaylar.append({
+                    "id": s["id"],
+                    "yil": yil,
+                    "olay": olay_metni,
+                    "detay": f"Doğru Cevap: {s['dogru_cevap']} | {s['aciklama'][:90]}..." if s['aciklama'] else f"Doğru Seçenek: {s['dogru_cevap']}"
+                })
+        if len(otomatik_olaylar) >= 6:
+            break
+
+    if len(otomatik_olaylar) < 3:
+        karisik_olaylar = [
+            {"id": 1, "yil": 1453, "olay": "İstanbul'un fethi sonrası Gennadios'un Rum Patriği seçilmesi", "detay": "Fatih Sultan Mehmet dönemi."},
+            {"id": 2, "yil": 1461, "olay": "Episkopos Hovagim'in İstanbul Ermeni Patriği tayin edilmesi", "detay": "Fatih Sultan Mehmet dönemi."},
+            {"id": 3, "yil": 1492, "olay": "Sefarad Yahudilerinin Osmanlı topraklarına gelişi", "detay": "II. Bayezid dönemi."},
+            {"id": 4, "yil": 1602, "olay": "Fener Rum Patrikhanesi'nin Aya Yorgi'ye taşınması", "detay": "Patrikhane merkezi."},
+            {"id": 5, "yil": 1835, "olay": "Hahambaşılık makamına yeniden resmi berat verilmesi", "detay": "II. Mahmud dönemi."},
+            {"id": 6, "yil": 1856, "olay": "Islahat Fermanı ile millet nizamnamelerinin başlaması", "detay": "Tanzimat dönemi."}
+        ]
+    else:
+        karisik_olaylar = list(otomatik_olaylar)
+
+    random.shuffle(karisik_olaylar)
+
+    return render_template("index.html", 
+                           durum="kronoloji", 
+                           aktif_ders=secilen_ders, 
+                           karisik_olaylar=karisik_olaylar, 
+                           dersler=GUZ_DERSLERI)
 @app.route("/sw.js")
 def service_worker():
     return send_from_directory(os.path.join(app.root_path, "static"), "sw.js", mimetype="application/javascript")
