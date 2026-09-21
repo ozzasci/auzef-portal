@@ -455,53 +455,52 @@ def otomatik_klavuz_isle():
 def auzef_harfsiz_ve_harfli_soru_ayikla(metin, unite_no=1):
     temiz = re.sub(r'about:blank\s*\d*/?\d*', '', metin)
     temiz = re.sub(r'\d{1,2}\.\d{1,2}\.\d{4}\s+\d{1,2}:\d{1,2}', '', temiz)
-    temiz = re.sub(r'Ders:\s*.*?(?:\n|\|)', '', temiz, flags=re.IGNORECASE)
-    temiz = re.sub(r'Ünite:\s*.*?\n', '', temiz, flags=re.IGNORECASE)
-
-    bloklar = re.split(r'(?:^|\n)\s*Soru\s*(\d{1,2})\s*:\s*', temiz, flags=re.IGNORECASE)
+    
+    # Soru numaralarına göre parçala (Örn: "1. ", "2. ")
+    bloklar = re.split(r'(?:^|\n)\s*([1-9][0-9]?)\.\s+', temiz)
     sorular = []
 
-    if len(bloklar) > 1:
-        for i in range(1, len(bloklar), 2):
-            icerik = bloklar[i+1].strip()
-            cevap_match = re.search(r'\n\s*Cevap\s*:\s*(.*)', icerik, flags=re.IGNORECASE)
-            if not cevap_match:
-                continue
+    for i in range(1, len(bloklar), 2):
+        if i + 1 >= len(bloklar):
+            break
+        icerik = bloklar[i+1].strip()
+        
+        # A, B, C, D, E şıklarını yakala
+        secenekler = re.findall(r'([A-E])\)\s*(.*?)(?=(?:[A-E]\)|$|\n\s*[1-9][0-9]?\.))', icerik, re.DOTALL)
+        
+        if len(secenekler) < 4:
+            continue
+            
+        ilk_sik_idx = icerik.find('A)')
+        if ilk_sik_idx == -1:
+            continue
+        soru_kok = icerik[:ilk_sik_idx].strip()
+        soru_kok = re.sub(r'\n', ' ', soru_kok)
 
-            dogru_cevap_metni = cevap_match.group(1).strip()
-            govde = icerik[:cevap_match.start()].strip()
+        s_dict = {}
+        for harf, met in secenekler:
+            s_dict[harf] = met.strip().replace('\n', ' ')
 
-            satirlar = [s.strip() for s in govde.splitlines() if s.strip()]
-            if len(satirlar) < 6:
-                continue
+        # Doğru şık tespiti: Çıkmış sorularda doğru şıklar kalın/koyu ya da özel işaretli gelebilir
+        dogru_harf = "A"
+        for harf in ['A', 'B', 'C', 'D', 'E']:
+            # Eğer şık metninde veya PDF çıktısında doğru şık vurgulanmışsa
+            if f"**{harf}**" in icerik or f"\n{harf}\n" in icerik:
+                dogru_harf = harf
+                break
 
-            sec_e = satirlar[-1]
-            sec_d = satirlar[-2]
-            sec_c = satirlar[-3]
-            sec_b = satirlar[-4]
-            sec_a = satirlar[-5]
-            soru_kok = " ".join(satirlar[:-5]).strip()
-
-            dogru_harf = "A"
-            c_norm = dogru_cevap_metni.replace("Â", "A").replace("â", "a").strip().lower()
-
-            for harf, val in [("A", sec_a), ("B", sec_b), ("C", sec_c), ("D", sec_d), ("E", sec_e)]:
-                v_norm = val.replace("Â", "A").replace("â", "a").strip().lower()
-                if v_norm == c_norm or v_norm in c_norm or c_norm in v_norm:
-                    dogru_harf = harf
-                    break
-
-            sorular.append({
-                "unite_no": unite_no,
-                "metin": soru_kok,
-                "a": sec_a,
-                "b": sec_b,
-                "c": sec_c,
-                "d": sec_d,
-                "e": sec_e,
-                "dogru_cevap": dogru_harf,
-                "aciklama": f"Doğru Yanıt: {dogru_cevap_metni}"
-            })
+        sorular.append({
+            "unite_no": unite_no,
+            "metin": soru_kok,
+            "a": s_dict.get('A', ''),
+            "b": s_dict.get('B', ''),
+            "c": s_dict.get('C', ''),
+            "d": s_dict.get('D', ''),
+            "e": s_dict.get('E', ''),
+            "dogru_cevap": dogru_harf,
+            "aciklama": "Geçmiş Yıl Çıkmış Soru Çözüm Havuzu"
+        })
+        
     return sorular
 
 @app.route("/yukle-unite-sorulari", methods=["POST"])
@@ -877,13 +876,10 @@ def kronoloji_egzersizi():
 def sinav_baslat():
     ders = request.form.get("ders", "HEPSI").strip()
     unite_secim = request.form.get("unite", "TUMU").strip()
-    sure_dakika = int(request.form.get("sure", 0))
+    sure_dakika = int(request.form.get("sure", 30))
     mod = request.form.get("mod", "sinav")
     limit = int(request.form.get("limit", 20))
     ozel_havuz = request.form.get("ozel_havuz", "")
-
-    if unite_secim.startswith("UNITE_"):
-        limit = 0
 
     conn = veritabani_baglan()
     cursor = conn.cursor()
@@ -898,6 +894,22 @@ def sinav_baslat():
             WHERE p.son_durum = 'YANLIS'
         """)
         aktif_ders_adi = "🎯 Yanlışlar & Telafi Havuzu"
+    elif ozel_havuz == "cikmis_sorular":
+        if unite_secim == "VIZE":
+            cursor.execute("""
+                SELECT id FROM sorular 
+                WHERE TRIM(ders_adi) LIKE %s AND (unite_no BETWEEN 1 AND 7 OR unite_no = 0)
+            """, (f"%{ders}%",))
+            aktif_ders_adi = f"{ders} (Vize Çıkmış Sorular)"
+        elif unite_secim == "FINAL":
+            cursor.execute("""
+                SELECT id FROM sorular 
+                WHERE TRIM(ders_adi) LIKE %s AND (unite_no BETWEEN 8 AND 14)
+            """, (f"%{ders}%",))
+            aktif_ders_adi = f"{ders} (Final Çıkmış Sorular)"
+        else:
+            cursor.execute("SELECT id FROM sorular WHERE TRIM(ders_adi) LIKE %s", (f"%{ders}%",))
+            aktif_ders_adi = f"{ders} (Tüm Çıkmış Sorular)"
     elif ders == "HEPSI":
         cursor.execute("SELECT id FROM sorular")
         aktif_ders_adi = "Tüm Dersler (Karışık)"
@@ -916,27 +928,15 @@ def sinav_baslat():
             """, (f"%{ders}%", u_no))
             aktif_ders_adi = f"{ders} (Ünite {u_no})"
         else:
-            cursor.execute("""
-                SELECT id FROM sorular 
-                WHERE TRIM(ders_adi) LIKE %s
-            """, (f"%{ders}%",))
+            cursor.execute("SELECT id FROM sorular WHERE TRIM(ders_adi) LIKE %s", (f"%{ders}%",))
             aktif_ders_adi = ders
 
     satirlar = cursor.fetchall()
     cursor.close()
     conn.close()
 
-    if not satirlar and ders != "HEPSI":
-        conn = veritabani_baglan()
-        cursor = conn.cursor()
-        cursor.execute("SELECT id FROM sorular WHERE TRIM(ders_adi) LIKE %s", (f"%{ders}%",))
-        satirlar = cursor.fetchall()
-        cursor.close()
-        conn.close()
-        aktif_ders_adi = ders
-
     if not satirlar:
-        session["bildirim"] = {"tur": "warning", "metin": "Seçilen kritere ait soru bulunamadı."}
+        session["bildirim"] = {"tur": "warning", "metin": "Seçilen kritere ait çıkmış soru bulunamadı. Lütfen önce İçerik Merkezi'nden soru PDF'i yükleyin."}
         return redirect(url_for("ana_sayfa"))
 
     tum_idlar = [row["id"] for row in satirlar]
@@ -956,7 +956,6 @@ def sinav_baslat():
     session["toplam_sure_saniye"] = sure_dakika * 60
 
     return redirect(url_for("soru_goruntule"))
-
 @app.route("/soru", methods=["GET", "POST"])
 @giris_zorunlu
 def soru_goruntule():
