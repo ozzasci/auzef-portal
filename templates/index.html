@@ -260,43 +260,6 @@
             </div>
         </div>
 
-        <!-- ÇIKMIŞ SORULAR VE VİZE/FİNAL HAZIRLIK KARTI -->
-        <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
-            <h5 class="fw-bold mb-3 text-primary"><i class="bi bi-patch-check-fill me-2"></i> Vize & Final Çıkmış Sorular Simülasyonu</h5>
-            <p class="text-muted small">İçerik Merkezi'nden yüklediğiniz geçmiş yıl soruları ile gerçek sınav formatında yarışın.</p>
-            
-            <form action="/sinav-baslat" method="POST">
-                <input type="hidden" name="ozel_havuz" value="cikmis_sorular">
-                <div class="row g-3 align-items-center">
-                    <div class="col-md-4">
-                        <select name="ders" class="form-select rounded-3">
-                            {% for d in dersler %}
-                            <option value="{{ d['ders_adi'] }}">{{ d['ders_adi'] }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <select name="unite" class="form-select rounded-3">
-                            <option value="VIZE">Vize Çıkmış Sorular (1-7)</option>
-                            <option value="FINAL">Final Çıkmış Sorular (8-14)</option>
-                            <option value="TUMU">Tüm Çıkmış Sorular</option>
-                        </select>
-                    </div>
-                    <div class="col-md-2">
-                        <select name="mod" class="form-select rounded-3">
-                            <option value="sinav">Sınav Modu</option>
-                            <option value="ogrenme">Öğrenme Modu</option>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <button type="submit" class="btn btn-success w-100 rounded-pill fw-bold shadow-sm">
-                            <i class="bi bi-play-circle me-1"></i> Sınavı Başlat
-                        </button>
-                    </div>
-                </div>
-            </form>
-        </div>
-
         <div class="row g-4">
             <div class="col-lg-7">
                 <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
@@ -447,6 +410,7 @@
             </div>
 
             <div class="col-md-9">
+                <!-- VİDEO BÖLÜMÜ -->
                 {% if embed_url %}
                 <div class="card border-0 shadow-sm rounded-4 p-3 bg-white mb-3">
                     <div class="d-flex justify-content-between align-items-center mb-2">
@@ -455,19 +419,26 @@
                             <i class="bi bi-box-arrow-up-right"></i> Videoyu Üniversite Sayfasında Aç
                         </a>
                     </div>
+                    <div class="alert alert-light border small text-muted mb-0">
+                        <i class="bi bi-info-circle text-primary me-1"></i> İstanbul Üniversitesi webcast videoları güvenlik gereği harici oynatıcılara doğrudan gösterilememektedir. Butona tıklayarak videoyu resmi oynatıcıda izleyebilirsiniz.
+                    </div>
                 </div>
                 {% endif %}
 
+                <!-- KİTAP PDF -->
                 {% if pdf_url %}
                 <div class="card border-0 shadow-sm rounded-4 p-3 bg-white mb-3">
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <h6 class="fw-bold m-0"><i class="bi bi-file-pdf text-danger me-1"></i> Ders Kitabı ({{ unite_baslik }})</h6>
-                        <a href="{{ pdf_url }}" target="_blank" class="btn btn-sm btn-outline-secondary rounded-pill py-0 px-2 small">Tam Ekran</a>
+                        <a href="{{ pdf_url }}" target="_blank" class="btn btn-sm btn-outline-secondary rounded-pill py-0 px-2 small">
+                            <i class="bi bi-box-arrow-up-right"></i> Tam Ekran
+                        </a>
                     </div>
                     <iframe src="{{ pdf_url }}" class="w-100 rounded-3" style="height: 550px;" frameborder="0"></iframe>
                 </div>
                 {% endif %}
 
+                <!-- HAP BİLGİLER -->
                 <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-3">
                     <div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-3">
                         <h6 class="fw-bold m-0"><i class="bi bi-stars text-warning me-1"></i> Ünite Hap Bilgileri & Özetler</h6>
@@ -486,7 +457,9 @@
                         {% endfor %}
                     </ul>
                     {% else %}
-                    <div class="text-center text-muted py-4"><p class="small m-0">Bu üniteye ait hap bilgi bulunmuyor.</p></div>
+                    <div class="text-center text-muted py-4">
+                        <p class="small m-0">Bu üniteye ait hap bilgi henüz bulunmuyor. İçerik Merkezi'nden ders kılavuzunu işleyebilirsiniz.</p>
+                    </div>
                     {% endif %}
                 </div>
             </div>
@@ -496,8 +469,47 @@
         {% elif durum == 'flashcards' %}
         <div class="text-center mb-4">
             <h4 class="fw-bold text-primary">{{ aktif_ders }}</h4>
-            <p class="text-muted small">İnteraktif Bilgi Kartları</p>
-            <a href="/ders-calis?ders={{ aktif_ders }}&unite={{ aktif_unite }}" class="btn btn-sm btn-outline-secondary rounded-pill"><i class="bi bi-arrow-left"></i> Dön</a>
+            <p class="text-muted small">{{ aktif_unite }}. Ünite İnteraktif Bilgi Kartları (Karta tıklayarak çevirin)</p>
+            <a href="/ders-calis?ders={{ aktif_ders }}&unite={{ aktif_unite }}" class="btn btn-sm btn-outline-secondary rounded-pill">
+                <i class="bi bi-arrow-left"></i> Ders Ekranına Dön
+            </a>
+        </div>
+
+        <div class="row justify-content-center">
+            <div class="col-md-8 col-lg-6">
+                {% if kartlar %}
+                <div id="kartAlani" class="flashcard-box" onclick="this.classList.toggle('flipped')">
+                    <div class="flashcard-inner">
+                        <div class="flashcard-front">
+                            <h5 id="onYuz" class="fw-bold m-0"></h5>
+                        </div>
+                        <div class="flashcard-back">
+                            <p id="arkaYuz" class="m-0 fs-6"></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                    <button class="btn btn-outline-dark btn-sm rounded-pill px-3" onclick="oncekiKart()"><i class="bi bi-chevron-left"></i> Önceki</button>
+                    <span id="kartSayac" class="small fw-bold text-muted"></span>
+                    <button class="btn btn-outline-dark btn-sm rounded-pill px-3" onclick="sonrakiKart()">Sonraki <i class="bi bi-chevron-right"></i></button>
+                </div>
+                <script>
+                    const kartlar = {{ kartlar|tojson }};
+                    let indeks = 0;
+                    function goster() {
+                        document.getElementById('kartAlani').classList.remove('flipped');
+                        document.getElementById('onYuz').innerText = kartlar[indeks].on;
+                        document.getElementById('arkaYuz').innerText = kartlar[indeks].arka;
+                        document.getElementById('kartSayac').innerText = `${indeks + 1} / ${kartlar.length}`;
+                    }
+                    function sonrakiKart() { if(indeks < kartlar.length - 1) { indeks++; goster(); } }
+                    function oncekiKart() { if(indeks > 0) { indeks--; goster(); } }
+                    window.onload = goster;
+                </script>
+                {% else %}
+                <div class="alert alert-info text-center">Bu üniteye ait kart bulunamadı.</div>
+                {% endif %}
+            </div>
         </div>
 
         <!-- 6. İÇERİK MERKEZİ -->
@@ -512,44 +524,144 @@
                     {% endfor %}
                 </select>
             </div>
-            <small class="text-muted">Bu ekrandan geçmiş yıl çıkmış sorularını ve ünite testlerini PDF olarak yükleyebilirsiniz.</small>
+            <small class="text-muted">Seçili ders için soru, ünite kitapları, kılavuzlar ve ders videolarını aşağıdan yönetebilirsiniz.</small>
         </div>
 
         <div class="row g-4">
             <div class="col-md-6">
                 <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
-                    <h6 class="fw-bold text-success mb-2"><i class="bi bi-file-earmark-check"></i> 🎯 Soru Havuzu / Çıkmış Soru Yükle</h6>
+                    <h6 class="fw-bold text-success mb-2"><i class="bi bi-file-earmark-check"></i> 🎯 Ünite Soru Havuzu Yükle</h6>
                     <form action="/yukle-unite-sorulari" method="POST" enctype="multipart/form-data">
                         <input type="hidden" name="ders_adi" value="{{ aktif_ders }}">
                         <div class="mb-3">
-                            <label class="form-label small fw-bold">Ünite / Kapsam Numarası</label>
+                            <label class="form-label small fw-bold">Ünite Numarası</label>
                             <select name="unite_no" class="form-select form-select-sm rounded-3">
                                 {% for i in range(1, 15) %}
-                                <option value="{{ i }}">{{ i }}. Ünite / Bölüm</option>
+                                <option value="{{ i }}">{{ i }}. Ünite</option>
                                 {% endfor %}
                             </select>
                         </div>
                         <div class="mb-2">
-                            <label class="form-label small fw-bold">PDF Dosyası Seç</label>
-                            <input type="file" name="soru_dosyasi" class="form-control form-control-sm" accept=".pdf" required>
+                            <label class="form-label small fw-bold">Cihazdan PDF Yükle</label>
+                            <input type="file" name="soru_dosyasi" class="form-control form-control-sm" accept=".pdf">
                         </div>
-                        <button type="submit" class="btn btn-success btn-sm w-100 rounded-pill fw-bold mt-2">Soruları Veritabanına İşle</button>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold"><i class="bi bi-google-drive text-warning"></i> Veya Google Drive Linki</label>
+                            <input type="url" name="drive_url" class="form-control form-control-sm" placeholder="https://drive.google.com/file/d/...">
+                        </div>
+                        <button type="submit" class="btn btn-success btn-sm w-100 rounded-pill fw-bold">Soruları Veritabanına Yaz</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
+                    <h6 class="fw-bold text-danger mb-2"><i class="bi bi-file-earmark-text"></i> 📄 Ders Kılavuzu & Hap Bilgi</h6>
+                    <form action="/otomatik-klavuz-isle" method="POST" enctype="multipart/form-data">
+                        <input type="hidden" name="ders_adi" value="{{ aktif_ders }}">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Kılavuz PDF Dosyası</label>
+                            <input type="file" name="klavuz_dosya" class="form-control form-control-sm" accept=".pdf">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Veya Google Drive Linki</label>
+                            <input type="url" name="drive_url" class="form-control form-control-sm" placeholder="https://drive.google.com/file/d/...">
+                        </div>
+                        <button type="submit" class="btn btn-danger btn-sm w-100 rounded-pill fw-bold">Kılavuzu Çözümle ve Bağla</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
+                    <h6 class="fw-bold text-primary mb-2"><i class="bi bi-book-half"></i> 📚 Ünite Ders Kitabı (PDF / Drive)</h6>
+                    <form action="/kaydet-drive-link" method="POST" class="mb-3 border-bottom pb-3">
+                        <input type="hidden" name="ders_adi" value="{{ aktif_ders }}">
+                        <div class="mb-2">
+                            <label class="form-label small fw-bold">Ünite Numarası</label>
+                            <select name="unite_no" class="form-select form-select-sm rounded-3">
+                                {% for i in range(1, 15) %}
+                                <option value="{{ i }}">{{ i }}. Ünite</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small fw-bold"><i class="bi bi-google-drive text-warning"></i> Google Drive Linki</label>
+                            <input type="url" name="drive_url" class="form-control form-control-sm" placeholder="https://drive.google.com/file/d/..." required>
+                        </div>
+                        <button type="submit" class="btn btn-outline-primary btn-sm w-100 rounded-pill fw-bold">Drive Kitabını Bağla</button>
+                    </form>
+
+                    <form action="/yukle-pdf-dosya" method="POST" enctype="multipart/form-data">
+                        <input type="hidden" name="ders_adi" value="{{ aktif_ders }}">
+                        <div class="mb-2">
+                            <label class="form-label small fw-bold">Veya Cihazdan PDF Yükle</label>
+                            <div class="row g-2">
+                                <div class="col-5">
+                                    <select name="unite_no" class="form-select form-select-sm rounded-3">
+                                        {% for i in range(1, 15) %}
+                                        <option value="{{ i }}">{{ i }}. Ünite</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-7">
+                                    <input type="file" name="pdf_dosya" class="form-control form-control-sm" accept=".pdf" required>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-outline-secondary btn-sm w-100 rounded-pill fw-bold">Cihazdan PDF Yükle</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
+                    <h6 class="fw-bold text-danger mb-2"><i class="bi bi-film"></i> 🎥 Ünite Dersi Videosu Ekle</h6>
+                    <form action="/video-kaydet" method="POST">
+                        <input type="hidden" name="ders_adi" value="{{ aktif_ders }}">
+                        <input type="hidden" name="kaynak_sayfa" value="icerik_merkezi">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Ünite Numarası</label>
+                            <select name="unite_no" class="form-select form-select-sm rounded-3">
+                                {% for i in range(1, 15) %}
+                                <option value="{{ i }}">{{ i }}. Ünite</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Video URL / Web Linki</label>
+                            <input type="url" name="video_url" class="form-control form-control-sm" placeholder="Webcast, YouTube veya .mp4 linki..." required>
+                        </div>
+                        <button type="submit" class="btn btn-danger btn-sm w-100 rounded-pill fw-bold">Ders Videosunu Kaydet</button>
                     </form>
                 </div>
             </div>
         </div>
 
-        <!-- 7. SORU EKRANI -->
+        <!-- 7. SINAV / SORU EKRANI -->
         {% elif durum == 'soru' %}
         <div class="row justify-content-center">
             <div class="col-lg-8">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <span class="badge bg-primary px-3 py-2 rounded-pill fs-6">{{ aktif_ders }}</span>
-                    <span class="fw-bold text-muted">{{ sira }} / {{ toplam }}</span>
+                    <div class="d-flex align-items-center gap-3">
+                        {% if kalan_saniye and kalan_saniye|int > 0 %}
+                        <span class="badge bg-dark px-3 py-2 rounded-pill fs-6"><i class="bi bi-clock me-1"></i> <span id="sureMetni">--:--</span></span>
+                        {% endif %}
+                        <span class="fw-bold text-muted">{{ sira }} / {{ toplam }}</span>
+                    </div>
                 </div>
+
                 <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-3">
-                    <h5 class="fw-bold lh-base mb-4">{{ soru.soru_metni }}</h5>
-                    <form method="POST" action="/soru">
+                    <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                        <h5 class="fw-bold lh-base m-0">{{ soru.soru_metni }}</h5>
+                        <button class="btn btn-light border-0 text-warning fs-5 p-0" onclick="yildizDegistir({{ soru.id }}, this)">
+                            <i class="bi bi-star{% if soru.yildizli %}-fill{% endif %}"></i>
+                        </button>
+                    </div>
+
+                    <form id="soruFormu" method="POST" action="/soru">
+                        <input type="hidden" name="kalan_saniye" id="kalanSaniyeInput" value="{{ kalan_saniye }}">
                         <div class="d-grid gap-2 mb-4">
                             {% for harf, metin in [('A', soru.secenek_a), ('B', soru.secenek_b), ('C', soru.secenek_c), ('D', soru.secenek_d), ('E', soru.secenek_e)] %}
                             <label class="btn btn-outline-light text-dark text-start border p-3 rounded-3 d-flex align-items-center gap-3 card-hover">
@@ -558,20 +670,56 @@
                             </label>
                             {% endfor %}
                         </div>
-                        <button type="submit" class="btn btn-primary rounded-pill px-5 fw-bold w-100">Cevapla & İlerle</button>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="/testi-bitir" class="btn btn-outline-danger rounded-pill px-4" onclick="return confirm('Testi sonlandırmak istediğinize emin misiniz?')">Testi Bitir</a>
+                            <button type="submit" class="btn btn-primary rounded-pill px-5 fw-bold">Cevapla & İlerle</button>
+                        </div>
                     </form>
                 </div>
             </div>
         </div>
+
+        {% if kalan_saniye and kalan_saniye|int > 0 %}
+        <script>
+            let sure = parseInt("{{ kalan_saniye }}");
+            const sureEl = document.getElementById('sureMetni');
+            const inpEl = document.getElementById('kalanSaniyeInput');
+            const zamanlayici = setInterval(() => {
+                let dk = Math.floor(sure / 60);
+                let sn = sure % 60;
+                sureEl.innerText = (dk < 10 ? '0' : '') + dk + ':' + (sn < 10 ? '0' : '') + sn;
+                if(inpEl) inpEl.value = sure;
+                if (sure <= 0) {
+                    clearInterval(zamanlayici);
+                    location.href = '/testi-bitir';
+                }
+                sure--;
+            }, 1000);
+        </script>
+        {% endif %}
 
         <!-- 8. GERİ BİLDİRİM -->
         {% elif durum == 'geribildirim' %}
         <div class="row justify-content-center">
             <div class="col-lg-8">
                 <div class="card border-0 shadow-sm rounded-4 p-4 bg-white text-center">
-                    <h4 class="fw-bold mb-3">{% if sonuc == 'DOGRU' %}Doğru!{% else %}Yanlış!{% endif %}</h4>
+                    <div class="display-3 mb-2">
+                        {% if sonuc == 'DOGRU' %}
+                        <i class="bi bi-check-circle-fill text-success"></i>
+                        {% elif sonuc == 'YANLIS' %}
+                        <i class="bi bi-x-circle-fill text-danger"></i>
+                        {% else %}
+                        <i class="bi bi-dash-circle-fill text-secondary"></i>
+                        {% endif %}
+                    </div>
+                    <h4 class="fw-bold mb-3">
+                        {% if sonuc == 'DOGRU' %}Harika, Doğru Cevap!{% elif sonuc == 'YANLIS' %}Yanlış Cevap!{% else %}Boş Bırakıldı!{% endif %}
+                    </h4>
                     <p class="text-muted mb-4">{{ soru.aciklama }}</p>
-                    <a href="/soru" class="btn btn-primary rounded-pill px-5 py-2 fw-bold mx-auto">Sıradaki Soru</a>
+                    <a href="/soru?kalan_sure={{ kalan_saniye }}" class="btn btn-primary rounded-pill px-5 py-2 fw-bold mx-auto">
+                        Sıradaki Soruya Geç <i class="bi bi-arrow-right"></i>
+                    </a>
                 </div>
             </div>
         </div>
@@ -581,9 +729,17 @@
         <div class="row justify-content-center">
             <div class="col-lg-8">
                 <div class="card border-0 shadow-sm rounded-4 p-4 bg-white text-center mb-4">
-                    <h4 class="fw-bold mb-3">Sınav Tamamlandı</h4>
-                    <p>Doğru: {{ dogru }} | Yanlış: {{ yanlis }} | Net: {{ net }} | Puan: {{ puan }}</p>
-                    <a href="/" class="btn btn-primary rounded-pill px-4">Ana Sayfa</a>
+                    <h4 class="fw-bold mb-3">Test Tamamlandı</h4>
+                    <div class="row g-2 mb-4">
+                        <div class="col-3"><div class="p-3 bg-success bg-opacity-10 text-success rounded-3"><div class="small">Doğru</div><h4 class="fw-bold m-0">{{ dogru }}</h4></div></div>
+                        <div class="col-3"><div class="p-3 bg-danger bg-opacity-10 text-danger rounded-3"><div class="small">Yanlış</div><h4 class="fw-bold m-0">{{ yanlis }}</h4></div></div>
+                        <div class="col-3"><div class="p-3 bg-secondary bg-opacity-10 text-secondary rounded-3"><div class="small">Boş</div><h4 class="fw-bold m-0">{{ bos }}</h4></div></div>
+                        <div class="col-3"><div class="p-3 bg-primary bg-opacity-10 text-primary rounded-3"><div class="small">Net</div><h4 class="fw-bold m-0">{{ net }}</h4></div></div>
+                    </div>
+                    <div class="d-flex justify-content-center gap-3">
+                        <a href="/" class="btn btn-outline-primary rounded-pill px-4">Ana Sayfa</a>
+                        <a href="/istatistik" class="btn btn-primary rounded-pill px-4">İstatistikleri Gör</a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -591,16 +747,382 @@
         <!-- 10. KRONOLOJİ -->
         {% elif durum == 'kronoloji' %}
         <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
-            <h5 class="fw-bold text-primary mb-1"><i class="bi bi-clock-history"></i> Kronoloji Yarışı</h5>
+            <div class="row align-items-center g-3">
+                <div class="col-lg-5">
+                    <h5 class="fw-bold text-primary mb-1"><i class="bi bi-clock-history"></i> Kronoloji Yarışı</h5>
+                    <p class="text-muted small mb-0">Olayları sürükleyerek en eskiden en yeniye doğru sıralayın.</p>
+                </div>
+                <div class="col-lg-4">
+                    <select class="form-select form-select-sm rounded-3 fw-bold border-primary-subtle" onchange="location.href='/kronoloji?ders=' + encodeURIComponent(this.value)">
+                        {% for d in dersler %}
+                        <option value="{{ d }}" {% if d == aktif_ders %}selected{% endif %}>{{ d }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-lg-3 text-lg-end d-flex align-items-center justify-content-lg-end gap-2">
+                    <span class="badge bg-dark px-3 py-2 rounded-pill">
+                        <i class="bi bi-stopwatch me-1"></i> <span id="kronometre">00:00</span>
+                    </span>
+                    <a href="/kronoloji?ders={{ aktif_ders }}" class="btn btn-outline-secondary btn-sm rounded-pill px-3" title="Yenile">
+                        <i class="bi bi-arrow-clockwise"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="mt-3 text-center">
+                <button class="btn btn-primary btn-sm rounded-pill px-5 fw-bold shadow-sm" onclick="siralamayiKarsilastir()">
+                    <i class="bi bi-check2-all me-1"></i> Sıralamayı Kontrol Et
+                </button>
+            </div>
         </div>
+
+        <div class="row justify-content-center">
+            <div class="col-md-9">
+                <div id="sonucKutusu" class="alert d-none text-center fw-bold shadow-sm rounded-4 mb-3" role="alert"></div>
+
+                <ul class="list-group list-group-flush shadow-sm rounded-4 overflow-hidden mb-4 p-2 bg-light border" id="kronolojiListesi">
+                    {% for olay in karisik_olaylar %}
+                    <li class="list-group-item p-3 border rounded-3 bg-white card-hover mb-2 d-flex align-items-center justify-content-between shadow-sm" draggable="true" data-yil="{{ olay.yil }}" style="cursor: grab;">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="text-muted fs-5"><i class="bi bi-grip-vertical"></i></div>
+                            <div>
+                                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary-subtle me-2 yil-badge" style="display: none;">{{ olay.yil }}</span>
+                                <span class="fw-semibold text-dark">{{ olay.olay }}</span>
+                                <div class="small text-muted mt-1">{{ olay.detay }}</div>
+                            </div>
+                        </div>
+                        <div class="badge bg-light text-secondary border">Sürükle</div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        <script>
+            let saniyeSayac = 0;
+            const kronometreEl = document.getElementById('kronometre');
+            const timer = setInterval(() => {
+                saniyeSayac++;
+                let dk = Math.floor(saniyeSayac / 60);
+                let sn = saniyeSayac % 60;
+                kronometreEl.innerText = (dk < 10 ? '0' : '') + dk + ':' + (sn < 10 ? '0' : '') + sn;
+            }, 1000);
+
+            const liste = document.getElementById('kronolojiListesi');
+            let suruklenenOge = null;
+
+            liste.addEventListener('dragstart', (e) => {
+                suruklenenOge = e.target.closest('li');
+                e.target.style.opacity = '0.4';
+            });
+
+            liste.addEventListener('dragend', (e) => {
+                e.target.style.opacity = '1';
+                suruklenenOge = null;
+            });
+
+            liste.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                const hedef = e.target.closest('li');
+                if (hedef && hedef !== suruklenenOge) {
+                    const rect = hedef.getBoundingClientRect();
+                    const yuzdeY = (e.clientY - rect.top) / rect.height;
+                    if (yuzdeY > 0.5) {
+                        liste.insertBefore(suruklenenOge, hedef.nextSibling);
+                    } else {
+                        liste.insertBefore(suruklenenOge, hedef);
+                    }
+                }
+            });
+
+            function siralamayiKarsilastir() {
+                const listeItems = document.querySelectorAll('#kronolojiListesi li');
+                let dogruMu = true;
+                let oncekiYil = -999999;
+
+                listeItems.forEach(li => {
+                    const yil = parseInt(li.getAttribute('data-yil'));
+                    const badge = li.querySelector('.yil-badge');
+                    badge.style.display = 'inline-block';
+
+                    if (yil < oncekiYil) {
+                        dogruMu = false;
+                    }
+                    oncekiYil = yil;
+                });
+
+                const sonucKutusu = document.getElementById('sonucKutusu');
+                sonucKutusu.classList.remove('d-none', 'alert-success', 'alert-danger');
+
+                if (dogruMu) {
+                    clearInterval(timer);
+                    sonucKutusu.className = 'alert alert-success text-center fw-bold shadow-sm rounded-4 mb-3';
+                    sonucKutusu.innerHTML = `<i class="bi bi-check-circle-fill me-2"></i> Tebrikler! Bu kronolojiyi ${kronometreEl.innerText} sürede kusursuz tamamladın!`;
+                } else {
+                    sonucKutusu.className = 'alert alert-danger text-center fw-bold shadow-sm rounded-4 mb-3';
+                    sonucKutusu.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-2"></i> Sıralamada hatalar var. Yılları kontrol ederek tekrar dene!';
+                }
+            }
+        </script>
+
+       <!-- 11. ÜNİTE PEKİŞTİRME LİSTESİ -->
         {% elif durum == 'unite_pekistirme' %}
-        <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4"><h5>Ünite Pekiştirme</h5></div>
+        <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
+            <div class="row align-items-center g-3">
+                <div class="col-lg-6">
+                    <h5 class="fw-bold text-primary mb-1"><i class="bi bi-check2-square"></i> Ünite Pekiştirme Testleri</h5>
+                    <p class="text-muted small mb-0">Seçtiğiniz derse ait ünite soru sayılarını ve test başlatma ekranını görüntüleyin.</p>
+                </div>
+                <div class="col-lg-6">
+                    <select class="form-select rounded-3 fw-bold border-primary-subtle" onchange="location.href='/unite-pekistirme?ders=' + encodeURIComponent(this.value)">
+                        {% for d in dersler %}
+                        <option value="{{ d }}" {% if d == aktif_ders %}selected{% endif %}>{{ d }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3">
+            {% for u in uniteler %}
+            <div class="col-md-6 col-lg-4">
+                <div class="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 d-flex flex-column justify-content-between card-hover">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <h6 class="fw-bold m-0 text-dark">{{ u.baslik }}</h6>
+                        <span class="badge bg-primary bg-opacity-10 text-primary rounded-pill">{{ u.soru_sayisi }} Soru</span>
+                    </div>
+                    <div>
+                        {% if u.soru_sayisi > 0 %}
+                        <a href="/unite-test-baslat/{{ u.no }}?ders={{ aktif_ders }}" class="btn btn-custom-primary btn-sm w-100 rounded-pill fw-bold">
+                            <i class="bi bi-play-fill"></i> Testi Başlat
+                        </a>
+                        {% else %}
+                        <button class="btn btn-light btn-sm w-100 rounded-pill text-muted" disabled>Soru Yok</button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+       <!-- 12. SORU YÖNETİMİ -->
         {% elif durum == 'yonetim' %}
-        <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4"><h5>Soru Yönetimi</h5></div>
+        <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3">
+                <h5 class="fw-bold m-0"><i class="bi bi-sliders"></i> Soru Yönetim Paneli</h5>
+                <form action="{{ url_for('sorulari_sifirla') }}" method="POST" onsubmit="return confirm('DİKKAT: Veritabanındaki tüm sorular kalıcı olarak silinecek. Emin misiniz?');">
+                    <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-3 fw-bold">
+                        <i class="bi bi-trash-fill me-1"></i> Tüm Soruları Sıfırla (Temizle)
+                    </button>
+                </form>
+            </div>
+
+            <form method="GET" action="/yonetim" class="row g-2">
+                <div class="col-md-6">
+                    <input type="text" name="kelime" class="form-control form-control-sm rounded-3" placeholder="Soru metninde ara..." value="{{ kelime }}">
+                </div>
+                <div class="col-md-4">
+                    <select name="ders" class="form-select form-select-sm rounded-3">
+                        <option value="">Tüm Dersler</option>
+                        {% for d in dersler %}
+                        <option value="{{ d }}" {% if d == secilen_ders %}selected{% endif %}>{{ d }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-dark btn-sm w-100 rounded-3">Filtrele</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="card border-0 shadow-sm rounded-4 bg-white overflow-hidden">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 small">
+                    <thead class="table-light">
+                        <tr>
+                            <th>#ID</th>
+                            <th>Ders / Ünite</th>
+                            <th>Soru Metni</th>
+                            <th>Doğru Şık</th>
+                            <th class="text-end">İşlemler</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in sorular %}
+                        <tr>
+                            <td class="fw-bold">{{ s.id }}</td>
+                            <td><span class="badge bg-light text-dark border">{{ s.ders_adi }} (Ü:{{ s.unite_no }})</span></td>
+                            <td>{{ s.soru_metni[:70] }}...</td>
+                            <td><span class="badge bg-success">{{ s.dogru_cevap }}</span></td>
+                            <td class="text-end">
+                                <a href="/soru-duzenle/{{ s.id }}" class="btn btn-sm btn-outline-primary rounded-pill"><i class="bi bi-pencil"></i></a>
+                                <form action="/soru-sil/{{ s.id }}" method="POST" class="d-inline" onsubmit="return confirm('Bu soruyu silmek istediğinize emin misiniz?')">
+                                    <button class="btn btn-sm btn-outline-danger rounded-pill"><i class="bi bi-trash"></i></button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 13. SORU DÜZENLEME EKRANI -->
+        {% elif durum == 'duzenle' %}
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
+                    <h5 class="fw-bold mb-3 text-primary"><i class="bi bi-pencil-square"></i> Soru Düzenle (#{{ soru.id }})</h5>
+                    <form method="POST" action="/soru-duzenle/{{ soru.id }}">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Ders Adı</label>
+                            <select name="ders_adi" class="form-select rounded-3" required>
+                                {% for d in dersler %}
+                                <option value="{{ d }}" {% if d == soru.ders_adi %}selected{% endif %}>{{ d }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Ünite Numarası</label>
+                            <select name="unite_no" class="form-select rounded-3">
+                                {% for i in range(1, 15) %}
+                                <option value="{{ i }}" {% if soru.unite_no == i %}selected{% endif %}>{{ i }}. Ünite</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Soru Metni</label>
+                            <textarea name="soru_metni" class="form-control rounded-3" rows="3" required>{{ soru.soru_metni }}</textarea>
+                        </div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">A Seçeneği</label>
+                                <input type="text" name="secenek_a" class="form-control rounded-3" value="{{ soru.secenek_a }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">B Seçeneği</label>
+                                <input type="text" name="secenek_b" class="form-control rounded-3" value="{{ soru.secenek_b }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">C Seçeneği</label>
+                                <input type="text" name="secenek_c" class="form-control rounded-3" value="{{ soru.secenek_c }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">D Seçeneği</label>
+                                <input type="text" name="secenek_d" class="form-control rounded-3" value="{{ soru.secenek_d }}" required>
+                            </div>
+                            <div class="col-md-12">
+                                <label class="form-label small fw-bold">E Seçeneği</label>
+                                <input type="text" name="secenek_e" class="form-control rounded-3" value="{{ soru.secenek_e }}" required>
+                            </div>
+                        </div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold">Doğru Cevap (Harf)</label>
+                                <select name="dogru_cevap" class="form-select rounded-3">
+                                    {% for h in ['A', 'B', 'C', 'D', 'E'] %}
+                                    <option value="{{ h }}" {% if soru.dogru_cevap == h %}selected{% endif %}>{{ h }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Açıklama / Çözüm Notu</label>
+                            <textarea name="aciklama" class="form-control rounded-3" rows="2">{{ soru.aciklama }}</textarea>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <a href="/yonetim" class="btn btn-outline-secondary rounded-pill px-4">İptal</a>
+                            <button type="submit" class="btn btn-primary rounded-pill px-5 fw-bold">Değişiklikleri Kaydet</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- 14. İSTATİSTİK -->
         {% elif durum == 'istatistik' %}
-        <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4"><h5>İstatistik</h5></div>
+        <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
+            <h5 class="fw-bold text-primary mb-3"><i class="bi bi-bar-chart-line-fill"></i> Genel Başarı ve Analiz</h5>
+            <div class="row g-3">
+                <div class="col-md-4"><div class="p-3 bg-light rounded-3 text-center"><span class="small text-muted">Çözülen Soru</span><h4 class="fw-bold m-0">{{ toplam_cozulen }}</h4></div></div>
+                <div class="col-md-4"><div class="p-3 bg-light rounded-3 text-center"><span class="small text-muted">Toplam Net</span><h4 class="fw-bold m-0">{{ genel_net }}</h4></div></div>
+                <div class="col-md-4"><div class="p-3 bg-light rounded-3 text-center"><span class="small text-muted">Başarı Oranı</span><h4 class="fw-bold m-0">%{{ genel_oran }}</h4></div></div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
+            <h6 class="fw-bold mb-3">Ders Bazlı Performans</h6>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle small">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Ders</th>
+                            <th>Çözülen</th>
+                            <th>Doğru</th>
+                            <th>Yanlış</th>
+                            <th>Net</th>
+                            <th>Başarı Oranı</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in rapor %}
+                        <tr>
+                            <td class="fw-bold">{{ r.ders_adi }}</td>
+                            <td>{{ r.cozulen }}</td>
+                            <td class="text-success fw-bold">{{ r.dogru }}</td>
+                            <td class="text-danger fw-bold">{{ r.yanlis }}</td>
+                            <td>{{ r.net }}</td>
+                            <td>
+                                <div class="progress" style="height: 6px;">
+                                    <div class="progress-bar bg-success" style="width: {{ r.oran }}%"></div>
+                                </div>
+                                <span class="small text-muted">%{{ r.oran }}</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
         {% endif %}
+
     </main>
+
+    <!-- SIFIRLA MODAL -->
+    <div class="modal fade" id="sifirlaModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow">
+                <div class="modal-body p-4 text-center">
+                    <i class="bi bi-exclamation-triangle-fill text-danger display-4 mb-3"></i>
+                    <h5 class="fw-bold">Tüm Verileri Sıfırla?</h5>
+                    <p class="text-muted small">Bu işlem tüm soruları, deneme geçmişinizi ve notlarınızı kalıcı olarak silecektir.</p>
+                    <form action="/sifirla" method="POST" class="d-flex gap-2 justify-content-center mt-4">
+                        <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">İptal</button>
+                        <button type="submit" class="btn btn-danger rounded-pill px-4">Evet, Sıfırla</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function durumGuncelle(tur, deger) {
+            fetch('/unite-durum-guncelle', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `ders={{ aktif_ders }}&unite={{ aktif_unite }}&tur=${tur}&deger=${deger ? 1 : 0}`
+            });
+        }
+        function yildizDegistir(soruId, btn) {
+            fetch(`/yildiz-degistir/${soruId}`, { method: 'POST' })
+            .then(r => r.json())
+            .then(res => {
+                if(res.basarili) {
+                    const icon = btn.querySelector('i');
+                    icon.className = res.yildizli ? 'bi bi-star-fill' : 'bi bi-star';
+                }
+            });
+        }
+    </script>
 </body>
 </html>
