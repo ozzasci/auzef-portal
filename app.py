@@ -283,6 +283,56 @@ def icerik_merkezi():
     secilen_ders = request.args.get("ders", GUZ_DERSLERI[0]).strip()
     return render_template("index.html", durum="icerik_merkezi", aktif_ders=secilen_ders, dersler=GUZ_DERSLERI)
 
+@app.route("/kaydet-drive-link", methods=["POST"])
+@giris_zorunlu
+def kaydet_drive_link():
+    ders = request.form.get("ders_adi", "").strip()
+    unite_no = int(request.form.get("unite_no", 1))
+    raw_link = request.form.get("drive_url", "").strip()
+
+    if not raw_link:
+        session["bildirim"] = {"tur": "danger", "metin": "Lütfen geçerli bir Google Drive bağlantısı yapıştırın."}
+        return redirect(url_for("icerik_merkezi", ders=ders))
+
+    preview_link = drive_link_donustur(raw_link)
+
+    conn = veritabani_baglan()
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO unite_kaynaklari (ders_adi, unite_no, kaynak_turu, dosya_yolu) VALUES (%s, %s, 'drive', %s)", 
+                   (ders, unite_no, preview_link))
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    session["bildirim"] = {"tur": "success", "metin": f"'{ders}' - Ünite {unite_no} için Google Drive PDF kaynağı bağlandı!"}
+    return redirect(url_for("ders_calis", ders=ders, unite=unite_no))
+
+@app.route("/yukle-pdf-dosya", methods=["POST"])
+@giris_zorunlu
+def yukle_pdf_dosya():
+    ders = request.form.get("ders_adi", "").strip()
+    unite_no = int(request.form.get("unite_no", 1))
+    dosya = request.files.get("pdf_dosya")
+
+    if not dosya or not dosya.filename.lower().endswith(".pdf"):
+        session["bildirim"] = {"tur": "danger", "metin": "Lütfen geçerli bir .pdf dosyası seçin."}
+        return redirect(url_for("icerik_merkezi", ders=ders))
+
+    dosya_adi = f"{abs(hash(ders))}_{unite_no}_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
+    hedef_yol = os.path.join(UPLOAD_FOLDER, dosya_adi)
+    dosya.save(hedef_yol)
+
+    conn = veritabani_baglan()
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO unite_kaynaklari (ders_adi, unite_no, kaynak_turu, dosya_yolu) VALUES (%s, %s, 'yerel', %s)", 
+                   (ders, unite_no, f"/static/kitaplar/{dosya_adi}"))
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    session["bildirim"] = {"tur": "success", "metin": f"'{ders}' dersinin {unite_no}. Ünite PDF'i başarıyla kaydedildi!"}
+    return redirect(url_for("ders_calis", ders=ders, unite=unite_no))
+
 @app.route("/ders-calis")
 @giris_zorunlu
 def ders_calis():
