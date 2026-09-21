@@ -16,6 +16,10 @@ app.secret_key = "auzef_portal_tam_surum_2026_gizli_anahtar"
 
 DATABASE_URL = "postgres://postgres.luvrwqfypquitdyqqpao:1O2g3z1o2g3z@aws-0-eu-central-1.pooler.supabase.com:6543/postgres"
 
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "kitaplar")
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
 GUZ_DERSLERI = [
     "20. Yüzyıl Türkiye’sinde Gayrimüslimler ve Kurumları",
     "Osmanlı Diplomasi Tarihi",
@@ -35,6 +39,9 @@ def veritabani_hazirla():
     cursor.execute("CREATE TABLE IF NOT EXISTS sorular (id SERIAL PRIMARY KEY, ders_adi TEXT, soru_metni TEXT, secenek_a TEXT, secenek_b TEXT, secenek_c TEXT, secenek_d TEXT, secenek_e TEXT, dogru_cevap TEXT, aciklama TEXT, yildizli INTEGER DEFAULT 0, kullanici_notu TEXT DEFAULT '', unite_no INTEGER DEFAULT 0)")
     cursor.execute("CREATE TABLE IF NOT EXISTS sinav_gecmisi (id SERIAL PRIMARY KEY, tarih TEXT, ders_adi TEXT, dogru INTEGER, yanlis INTEGER, bos INTEGER, net REAL, puan REAL)")
     cursor.execute("CREATE TABLE IF NOT EXISTS performans (soru_id INTEGER PRIMARY KEY, dogru_sayisi INTEGER DEFAULT 0, yanlis_sayisi INTEGER DEFAULT 0, son_durum TEXT DEFAULT '')")
+    cursor.execute("CREATE TABLE IF NOT EXISTS unite_kaynaklari (id SERIAL PRIMARY KEY, ders_adi TEXT, unite_no INTEGER, kaynak_turu TEXT, dosya_yolu TEXT)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS unite_takip (id SERIAL PRIMARY KEY, ders_adi TEXT, unite_no INTEGER, okundu INTEGER DEFAULT 0, izlendi INTEGER DEFAULT 0)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS unite_ozetleri (id SERIAL PRIMARY KEY, ders_adi TEXT, unite_no INTEGER, madde TEXT)")
     conn.commit()
     cursor.close()
     conn.close()
@@ -110,7 +117,7 @@ def ana_sayfa():
     conn.close()
     return render_template("index.html", durum="baslangic", dersler=dersler, toplam_soru=toplam_soru, yildizli_sayisi=yildizli_sayisi, hatali_sayisi=hatali_sayisi)
 
-# ÇIKMIŞ SORULAR AYRI SEKME ROTALARI
+# AYRI ÇIKMIŞ SORULAR SAYFASI
 @app.route("/cikmis-sorular-sayfasi")
 @giris_zorunlu
 def cikmis_sorular_sayfasi():
@@ -122,6 +129,7 @@ def icerik_merkezi():
     secilen_ders = request.args.get("ders", GUZ_DERSLERI[0]).strip()
     return render_template("index.html", durum="icerik_merkezi", aktif_ders=secilen_ders, dersler=GUZ_DERSLERI)
 
+# ÇIKMIŞ SORULARIN KOYU ŞIKLARINI OKUYAN AYRIŞTIRICI
 def auzef_cikmis_soru_ayikla(metin, unite_no=1):
     temiz = re.sub(r'about:blank\s*\d*/?\d*', '', metin)
     bloklar = re.split(r'(?:^|\n)\s*([1-9][0-9]?)\.\s+', temiz)
@@ -220,7 +228,7 @@ def sinav_baslat():
     conn.close()
 
     if not satirlar:
-        session["bildirim"] = {"tur": "warning", "metin": "Seçilen kritere uygun çıkmış soru bulunamadı. Önce İçerik Merkezi'nden yükleme yapın."}
+        session["bildirim"] = {"tur": "warning", "metin": "Seçilen kritere uygun çıkmış soru bulunamadı. Lütfen İçerik Merkezi'nden soru PDF'i yükleyin."}
         return redirect(url_for("cikmis_sorular_sayfasi"))
 
     id_listesi = [r["id"] for r in satirlar]
@@ -278,6 +286,11 @@ def sonuc_goruntule():
     net = d - (y * 0.25)
     puan = max(0, (net / toplam) * 100) if toplam > 0 else 0
     return render_template("index.html", durum="sonuc", dogru=d, yanlis=y, bos=b, net=round(net, 2), puan=round(puan, 1))
+
+@app.route("/ders-calis")
+@giris_zorunlu
+def ders_calis():
+    return render_template("index.html", durum="ogrenme_modu", dersler=GUZ_DERSLERI, aktif_ders=GUZ_DERSLERI[0], aktif_unite=1, unite_baslik="1. Ünite")
 
 @app.route("/kronoloji")
 @giris_zorunlu
