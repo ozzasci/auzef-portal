@@ -527,7 +527,8 @@
             <small class="text-muted">Seçili ders için soru, ünite kitapları, kılavuzlar ve ders videolarını aşağıdan yönetebilirsiniz.</small>
         </div>
 
-        <div class="col-md-6">
+        <div class="row g-4">
+            <div class="col-md-6">
                 <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
                     <h6 class="fw-bold text-success mb-2"><i class="bi bi-file-earmark-check"></i> 🎯 Ünite Soru Havuzu Yükle</h6>
                     <form action="/yukle-unite-sorulari" method="POST" enctype="multipart/form-data">
@@ -788,7 +789,6 @@
         </div>
 
         <script>
-            // Kronometre Mantığı
             let saniyeSayac = 0;
             const kronometreEl = document.getElementById('kronometre');
             const timer = setInterval(() => {
@@ -798,7 +798,6 @@
                 kronometreEl.innerText = (dk < 10 ? '0' : '') + dk + ':' + (sn < 10 ? '0' : '') + sn;
             }, 1000);
 
-            // Sürükle-Bırak (Drag and Drop) Mantığı
             const liste = document.getElementById('kronolojiListesi');
             let suruklenenOge = null;
 
@@ -855,7 +854,6 @@
                 }
             }
         </script>
-        {% endif %}
 
        <!-- 11. ÜNİTE PEKİŞTİRME LİSTESİ -->
         {% elif durum == 'unite_pekistirme' %}
@@ -865,7 +863,6 @@
                     <h5 class="fw-bold text-primary mb-1"><i class="bi bi-check2-square"></i> Ünite Pekiştirme Testleri</h5>
                     <p class="text-muted small mb-0">Seçtiğiniz derse ait ünite soru sayılarını ve test başlatma ekranını görüntüleyin.</p>
                 </div>
-                <!-- Ders Değiştirme Açılır Kutusu Eklendi -->
                 <div class="col-lg-6">
                     <select class="form-select rounded-3 fw-bold border-primary-subtle" onchange="location.href='/unite-pekistirme?ders=' + encodeURIComponent(this.value)">
                         {% for d in dersler %}
@@ -903,8 +900,6 @@
         <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3">
                 <h5 class="fw-bold m-0"><i class="bi bi-sliders"></i> Soru Yönetim Paneli</h5>
-                
-                <!-- Tüm Soruları Sıfırlama Butonu Eklendi -->
                 <form action="{{ url_for('sorulari_sifirla') }}" method="POST" onsubmit="return confirm('DİKKAT: Veritabanındaki tüm sorular kalıcı olarak silinecek. Emin misiniz?');">
                     <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-3 fw-bold">
                         <i class="bi bi-trash-fill me-1"></i> Tüm Soruları Sıfırla (Temizle)
@@ -961,6 +956,7 @@
                 </table>
             </div>
         </div>
+
         <!-- 13. SORU DÜZENLEME EKRANI -->
         {% elif durum == 'duzenle' %}
         <div class="row justify-content-center">
