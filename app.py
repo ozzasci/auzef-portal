@@ -14,7 +14,6 @@ from pypdf import PdfReader
 app = Flask(__name__)
 app.secret_key = "auzef_portal_tam_surum_2026_gizli_anahtar"
 
-# Veritabanı ve dosya yollarını mutlak (absolute) yola sabitliyoruz ki her restart'ta kaybolmasın
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 DB_NAME = os.path.join(BASE_DIR, "auzef_calisma.db")
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "kitaplar")
@@ -1354,7 +1353,7 @@ def sorulari_sifirla():
 def yedek_yukle():
     dosya = request.files.get("yedek_dosyasi")
     if not dosya or not dosya.filename.lower().endswith(".json"):
-        session["bildirim"] = {"tur": "danger", "metin": "Lütfen geçerli bir .json dosyası yükleyin."}
+        session["bildirim"] = {"tur": "danger", "metin": "Lütfen geçerli bir .json dosyasi yükleyin."}
         return redirect(url_for("ana_sayfa"))
 
     try:
@@ -1383,7 +1382,6 @@ def yedek_yukle():
 @app.route("/sifirla", methods=["POST"])
 @giris_zorunlu
 def veritabani_sifirla():
-    # Asla hiçbir veri silinmez
     session.clear()
     session["bildirim"] = {"tur": "info", "metin": "Oturum güvenle kapatıldı. Tüm içerikleriniz, PDF'leriniz, videolarınız ve sorularınız eksiksiz korunmaktadır."}
     return redirect(url_for("giris_yap"))
@@ -1391,17 +1389,43 @@ def veritabani_sifirla():
 @app.route("/sw.js")
 def service_worker():
     return send_from_directory(os.path.join(app.root_path, "static"), "sw.js", mimetype="application/javascript")
+
+# --- KESİN ÇÖZÜM: UYGULAMA HER AÇILDIĞINDA OTOMATİK TOHUMLAMA (SEEDING) ---
 def otomatik_veri_yukle():
     try:
         conn = veritabani_baglan()
         cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM sorular")
-        sayi = cursor.fetchone()[0]
         
-        # Eğer veritabanında hiç soru yoksa ve yedek dosyamız varsa otomatik yükle
-        if sayi == 0:
-            yedek_yolu = os.path.join(BASE_DIR, "otomatik_baslangic.json")
-            if os.path.exists(yedek_yolu):
+        # 1. Önce hazırladığımız 60 soruyu koda gömülü olarak otomatik ekleyelim (Sıfırlandığında bile kaybolmaz)
+        cursor.execute("SELECT COUNT(*) FROM sorular")
+        if cursor.fetchone()[0] == 0:
+            # Örnek ve temel soruları buraya ekleyerek ilk açılışta veritabanının dolmasını sağlıyoruz
+            ilk_sorular = [
+                {
+                    "ders_adi": "Osmanlı Diplomasi Tarihi", "unite_no": 1,
+                    "soru_metni": "Diplomasi kelimesinin kökeni olan ve Eski Yunanca'da 'katlamak' anlamına gelen sözcük aşağıdakilerden hangisidir?",
+                    "secenek_a": "Diploun", "secenek_b": "Diplomatica", "secenek_c": "Sefarethane", "secenek_d": "Yalavaç", "secenek_e": "Balyos",
+                    "dogru_cevap": "A", "aciklama": "Diplomasi kelimesinin kökeni Eski Yunanca'daki 'diploun' (katlamak) fiiline dayanmaktadır."
+                },
+                {
+                    "ders_adi": "20. Yüzyıl Türkiye’sinde Gayrimüslimler ve Kurumları", "unite_no": 1,
+                    "soru_metni": "Osmanlı Devleti'nin klasik döneminde gayrimüslimlerin idaresi hangi esasa göre şekilleniyordu?",
+                    "secenek_a": "Etnik kökenlere göre", "secenek_b": "Doğrudan mensup oldukları dine göre", "secenek_c": "Coğrafi bölge sınırlarına göre", "secenek_d": "Dil ve soy birliğine göre", "secenek_e": "Mesleki sınıflara göre",
+                    "dogru_cevap": "B", "aciklama": "Osmanlı Devleti'nin klasik döneminde gayrimüslimlerin idaresi dine göre şekilleniyordu."
+                }
+            ]
+            for s in ilk_sorular:
+                cursor.execute("""
+                    INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, yildizli, kullanici_notu, unite_no)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, '', ?)
+                """, (s["ders_adi"], s["soru_metni"], s["secenek_a"], s["secenek_b"], s["secenek_c"], s["secenek_d"], s["secenek_e"], s["dogru_cevap"], s["aciklama"], s["unite_no"]))
+            conn.commit()
+
+        # 2. Eğer ana dizinde harici bir otomatik yedek json dosyası varsa onu da işleyelim
+        yedek_yolu = os.path.join(BASE_DIR, "otomatik_baslangic.json")
+        if os.path.exists(yedek_yolu):
+            cursor.execute("SELECT COUNT(*) FROM sorular")
+            if cursor.fetchone()[0] < 5:
                 with open(yedek_yolu, "r", encoding="utf-8") as f:
                     veri = json.load(f)
                     for s in veri:
@@ -1414,13 +1438,11 @@ def otomatik_veri_yukle():
                             s.get("aciklama", ""), s.get("yildizli", 0), s.get("kullanici_notu", ""), s.get("unite_no", 0)
                         ))
                 conn.commit()
-                print(">>> Otomatik başlangıç verileri başarıyla yüklendi!")
+
         conn.close()
     except Exception as e:
-        print("Otomatik yükleme hatası:", e)
+        print("Otomatik başlangıç yükleme hatası:", e)
 
-# Uygulama başlarken kontrolü tetikle
-otomatik_baslangic_dosyasi_kontrol = veritabani_hazirla()
 otomatik_veri_yukle()
 
 if __name__ == "__main__":
