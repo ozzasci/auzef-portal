@@ -6,11 +6,13 @@ import io
 import json
 import random
 import urllib.request
+import csv
 from datetime import datetime
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, Response, send_from_directory
 from werkzeug.security import generate_password_hash, check_password_hash
 from pypdf import PdfReader
+from flask import flash # Eğer flash mesajları kullanıyorsan
 
 app = Flask(__name__)
 app.secret_key = "auzef_portal_tam_surum_2026_gizli_anahtar"
@@ -1323,6 +1325,55 @@ def yedek_yukle():
         session["bildirim"] = {"tur": "success", "metin": f"Yedekten {eklenen} soru başarıyla yüklendi."}
     except Exception as e:
         session["bildirim"] = {"tur": "danger", "metin": f"Hata: {str(e)}"}
+
+    return redirect(url_for("ana_sayfa"))
+    @app.route("/csv-yedek-yukle", methods=["POST"])
+@giris_zorunlu
+def csv_yedek_yukle():
+    dosya = request.files.get("yedek_dosyasi")
+    if not dosya or not dosya.filename.lower().endswith(".csv"):
+        session["bildirim"] = {"tur": "danger", "metin": "Lütfen geçerli bir .csv dosyası yükleyin."}
+        return redirect(url_for("ana_sayfa"))
+
+    try:
+        # Dosya içeriğini oku ve decode et
+        stream = io.TextIOWrapper(dosya.stream, encoding="utf-8")
+        csv_okuyucu = csv.DictReader(stream)
+        
+        conn = veritabani_baglan()
+        cursor = conn.cursor()
+        eklenen = 0
+
+        for satir in csv_okuyucu:
+            # CSV'den gelen verileri güvenli bir şekilde al (Alternatif kolon isimleri destekli)
+            ders_adi = satir.get("ders_adi") or satir.get("Ders") or "Sömürgecilik Tarihi"
+            soru_metni = satir.get("soru_metni") or satir.get("question") or satir.get("Soru") or ""
+            
+            # Eğer NotebookLM formatında 'answerOptions' gibi metinler varsa temizle veya varsayılan ata
+            secenek_a = satir.get("secenek_a") or satir.get("A") or "Seçenek A"
+            secenek_b = satir.get("secenek_b") or satir.get("B") or "Seçenek B"
+            secenek_c = satir.get("secenek_c") or satir.get("C") or "Seçenek C"
+            secenek_d = satir.get("secenek_d") or satir.get("D") or "Seçenek D"
+            secenek_e = satir.get("secenek_e") or satir.get("E") or "Seçenek E"
+            dogru_cevap = (satir.get("dogru_cevap") or satir.get("Dogru") or "A").upper()
+            aciklama = satir.get("aciklama") or satir.get("rationale") or "Çıkmış Soru Çözüm Havuzu"
+            unite_no = int(satir.get("unite_no") or 1)
+
+            if not soru_metni:
+                continue
+
+            cursor.execute("""
+                INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, unite_no)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, unite_no))
+            eklenen += 1
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+        session["bildirim"] = {"tur": "success", "metin": f"CSV dosyasından {eklenen} soru başarıyla yüklendi!"}
+    except Exception as e:
+        session["bildirim"] = {"tur": "danger", "metin": f"CSV işleme hatası: {str(e)}"}
 
     return redirect(url_for("ana_sayfa"))
 
