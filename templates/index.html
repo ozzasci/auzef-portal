@@ -348,12 +348,12 @@
                             <i class="bi bi-trash"></i> Sıfırla
                         </button>
                     </div>
-                    <form action="/yedek-yukle" method="POST" enctype="multipart/form-data">
-                        <div class="input-group input-group-sm">
-                            <input type="file" name="yedek_dosyasi" class="form-control" accept=".json" required>
-                            <button class="btn btn-dark" type="submit">Yedek Yükle</button>
-                        </div>
-                    </form>
+                 <form action="/yedek-yukle" method="POST" enctype="multipart/form-data">
+    <div class="input-group input-group-sm">
+        <input type="file" name="yedek_dosyasi" class="form-control" accept=".json,.csv" required>
+        <button class="btn btn-dark" type="submit">Yedek Yükle</button>
+    </div>
+</form>
                 </div>
             </div>
         </div>
