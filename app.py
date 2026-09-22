@@ -1316,34 +1316,55 @@ def yedek_yukle():
                     INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, yildizli, kullanici_notu, unite_no)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """, (
-                    s.get("ders_adi", ""), s.get("soru_metni", ""), s.get("secenek_a", ""), s.get("secenek_b", ""),
-                    s.get("secenek_c", ""), s.get("secenek_d", ""), s.get("secenek_e", ""), s.get("dogru_cevap", "A"),
-                    s.get("aciklama", ""), s.get("yildizli", 0), s.get("kullanici_notu", ""), s.get("unite_no", 0)
+                    s.get("ders_adi", "Genel Ders"), s.get("soru_metni", "") or s.get("question", ""), 
+                    s.get("secenek_a", "A şıkkı"), s.get("secenek_b", "B şıkkı"),
+                    s.get("secenek_c", "C şıkkı"), s.get("secenek_d", "D şıkkı"), s.get("secenek_e", "E şıkkı"), 
+                    s.get("dogru_cevap", "A"), s.get("aciklama", "Çıkmış Soru Çözüm Havuzu"), 
+                    s.get("yildizli", 0), s.get("kullanici_notu", ""), s.get("unite_no", 1)
                 ))
                 eklenen += 1
 
         elif dosya_adi.endswith(".csv"):
-            stream = io.TextIOWrapper(dosya.stream, encoding="utf-8")
-            csv_okuyucu = csv.DictReader(stream)
-            for satir in csv_okuyucu:
-                ders_adi = satir.get("ders_adi") or satir.get("Ders") or "Sömürgecilik Tarihi"
-                soru_metni = satir.get("soru_metni") or satir.get("question") or satir.get("Soru") or ""
-                secenek_a = satir.get("secenek_a") or satir.get("A") or "Seçenek A"
-                secenek_b = satir.get("secenek_b") or satir.get("B") or "Seçenek B"
-                secenek_c = satir.get("secenek_c") or satir.get("C") or "Seçenek C"
-                secenek_d = satir.get("secenek_d") or satir.get("D") or "Seçenek D"
-                secenek_e = satir.get("secenek_e") or satir.get("E") or "Seçenek E"
-                dogru_cevap = (satir.get("dogru_cevap") or satir.get("Dogru") or "A").upper().strip()
-                aciklama = satir.get("aciklama") or satir.get("rationale") or "Çıkmış Soru Çözüm Havuzu"
-                unite_no = int(satir.get("unite_no") or 1)
+            icerik_metni = dosya.read().decode("utf-8", errors="ignore")
+            satirlar = icerik_metni.splitlines()
+            
+            for satir_str in satirlar:
+                satir_str = satir_str.strip()
+                if not satir_str:
+                    continue
+                
+                soru_metni = ""
+                cevap_metni = "A"
+                
+                # Q: ... ; A: ... formatını kontrol et
+                if "Q:" in satir_str and "A:" in satir_str:
+                    parcalar = satir_str.split("A:")
+                    soru_metni = parcalar[0].replace("Q:", "").strip()
+                    cevap_metni = parcalar[1].strip() if len(parcalar) > 1 else "A"
+                elif ";" in satir_str:
+                    parcalar = satir_str.split(";")
+                    soru_metni = parcalar[0].replace("Q:", "").strip()
+                    cevap_metni = parcalar[1].strip() if len(parcalar) > 1 else "A"
+                else:
+                    soru_metni = satir_str
 
                 if not soru_metni:
                     continue
 
                 cursor.execute("""
-                    INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, unite_no)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """, (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, unite_no))
+                    INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, yildizli, kullanici_notu, unite_no)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 0, '', 1)
+                """, (
+                    "Sömürgecilik Tarihi", 
+                    soru_metni, 
+                    cevap_metni, 
+                    "Diğer Seçenek B", 
+                    "Diğer Seçenek C", 
+                    "Diğer Seçenek D", 
+                    "Diğer Seçenek E", 
+                    "A", 
+                    "NotebookLM Test Aktarımı"
+                ))
                 eklenen += 1
         else:
             session["bildirim"] = {"tur": "warning", "metin": "Sadece .json ve .csv uzantılı dosyalar desteklenmektedir."}
@@ -1354,7 +1375,7 @@ def yedek_yukle():
         conn.commit()
         cursor.close()
         conn.close()
-        session["bildirim"] = {"tur": "success", "metin": f"Yedekten toplam {eklenen} soru başarıyla yüklendi."}
+        session["bildirim"] = {"tur": "success", "metin": f"Yedekten toplam {eklenen} soru başarıyla yüklendi!"}
     except Exception as e:
         session["bildirim"] = {"tur": "danger", "metin": f"Hata: {str(e)}"}
 
