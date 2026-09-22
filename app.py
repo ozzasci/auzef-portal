@@ -1312,16 +1312,27 @@ def yedek_yukle():
         if dosya_adi.endswith(".json"):
             veri = json.load(dosya)
             for s in veri:
-                cursor.execute("""
-                    INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, yildizli, kullanici_notu, unite_no)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """, (
-                    s.get("ders_adi", "Genel Ders"), s.get("soru_metni", "") or s.get("question", ""), 
-                    s.get("secenek_a", "A şıkkı"), s.get("secenek_b", "B şıkkı"),
-                    s.get("secenek_c", "C şıkkı"), s.get("secenek_d", "D şıkkı"), s.get("secenek_e", "E şıkkı"), 
-                    s.get("dogru_cevap", "A"), s.get("aciklama", "Çıkmış Soru Çözüm Havuzu"), 
-                    s.get("yildizli", 0), s.get("kullanici_notu", ""), s.get("unite_no", 1)
-                ))
+                # Eğer JSON bir bilgi kartı / özet formatındaysa
+                if "madde" in s or "on" in s:
+                    madde_metni = s.get("madde") or f"{s.get('on')} -> {s.get('arka')}"
+                    ders = s.get("ders_adi", "Sömürgecilik Tarihi")
+                    u_no = int(s.get("unite_no", 1))
+                    cursor.execute("""
+                        INSERT INTO unite_ozetleri (ders_adi, unite_no, madde)
+                        VALUES (%s, %s, %s)
+                    """, (ders, u_no, madde_metni))
+                else:
+                    # Normal soru formatı
+                    cursor.execute("""
+                        INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, yildizli, kullanici_notu, unite_no)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (
+                        s.get("ders_adi", "Genel Ders"), s.get("soru_metni", "") or s.get("question", ""), 
+                        s.get("secenek_a", "A"), s.get("secenek_b", "B"),
+                        s.get("secenek_c", "C"), s.get("secenek_d", "D"), s.get("secenek_e", "E"), 
+                        s.get("dogru_cevap", "A"), s.get("aciklama", "Çıkmış Soru Çözüm Havuzu"), 
+                        s.get("yildizli", 0), s.get("kullanici_notu", ""), s.get("unite_no", 1)
+                    ))
                 eklenen += 1
 
         elif dosya_adi.endswith(".csv"):
@@ -1333,39 +1344,43 @@ def yedek_yukle():
                 if not satir_str:
                     continue
                 
-                soru_metni = ""
-                cevap_metni = "A"
-                
-                # Q: ... ; A: ... formatını kontrol et
+                # Bilgi kartı formatı (Q: ... ; A: ...) kontrolü
                 if "Q:" in satir_str and "A:" in satir_str:
                     parcalar = satir_str.split("A:")
-                    soru_metni = parcalar[0].replace("Q:", "").strip()
-                    cevap_metni = parcalar[1].strip() if len(parcalar) > 1 else "A"
-                elif ";" in satir_str:
-                    parcalar = satir_str.split(";")
-                    soru_metni = parcalar[0].replace("Q:", "").strip()
-                    cevap_metni = parcalar[1].strip() if len(parcalar) > 1 else "A"
+                    soru_kismi = parcalar[0].replace("Q:", "").strip()
+                    cevap_kismi = parcalar[1].strip() if len(parcalar) > 1 else ""
+                    
+                    # Bilgi kartını hap bilgi/özet olarak veritabanına ekle
+                    madde_metni = f"Soru: {soru_kismi} | Cevap: {cevap_kismi}"
+                    cursor.execute("""
+                        INSERT INTO unite_ozetleri (ders_adi, unite_no, madde)
+                        VALUES (%s, 1, %s)
+                    """, ("Sömürgecilik Tarihi", madde_metni))
+                    eklenen += 1
                 else:
-                    soru_metni = satir_str
+                    # Normal soru formatı desteği
+                    parcalar = satir_str.split(";")
+                    soru_metni = parcalar[0].strip()
+                    cevap_metni = parcalar[1].strip() if len(parcalar) > 1 else "A"
 
-                if not soru_metni:
-                    continue
+                    if not soru_metni:
+                        continue
 
-                cursor.execute("""
-                    INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, yildizli, kullanici_notu, unite_no)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 0, '', 1)
-                """, (
-                    "Sömürgecilik Tarihi", 
-                    soru_metni, 
-                    cevap_metni, 
-                    "Diğer Seçenek B", 
-                    "Diğer Seçenek C", 
-                    "Diğer Seçenek D", 
-                    "Diğer Seçenek E", 
-                    "A", 
-                    "NotebookLM Test Aktarımı"
-                ))
-                eklenen += 1
+                    cursor.execute("""
+                        INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, yildizli, kullanici_notu, unite_no)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 0, '', 1)
+                    """, (
+                        "Sömürgecilik Tarihi", 
+                        soru_metni, 
+                        cevap_metni, 
+                        "Seçenek B", 
+                        "Seçenek C", 
+                        "Seçenek D", 
+                        "Seçenek E", 
+                        "A", 
+                        "NotebookLM Kart Aktarımı"
+                    ))
+                    eklenen += 1
         else:
             session["bildirim"] = {"tur": "warning", "metin": "Sadece .json ve .csv uzantılı dosyalar desteklenmektedir."}
             cursor.close()
@@ -1375,7 +1390,7 @@ def yedek_yukle():
         conn.commit()
         cursor.close()
         conn.close()
-        session["bildirim"] = {"tur": "success", "metin": f"Yedekten toplam {eklenen} soru başarıyla yüklendi!"}
+        session["bildirim"] = {"tur": "success", "metin": f"Yedekten toplam {eklenen} öğe (kart/soru) başarıyla yüklendi!"}
     except Exception as e:
         session["bildirim"] = {"tur": "danger", "metin": f"Hata: {str(e)}"}
 
