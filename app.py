@@ -1309,13 +1309,26 @@ def yedek_yukle():
     eklenen_soru = 0
     eklenen_kart = 0
 
+    # Dosya adından ders adı tespiti yapalım
+    hedef_ders = "20. Yüzyıl Türkiye’sinde Gayrimüslimler ve Kurumları"
+    if "iktisat" in dosya_adi:
+        hedef_ders = "Osmanlı İktisat Tarihi"
+    elif "sömürgecilik" in dosya_adi or "somurgecilik" in dosya_adi:
+        hedef_ders = "Sömürgecilik Tarihi"
+    elif "diplomasi" in dosya_adi:
+        hedef_ders = "Osmanlı Diplomasi Tarihi"
+    elif "teşkilat" in dosya_adi or "teskilat" in dosya_adi:
+        hedef_ders = "Osmanlı Teşkilatı ve Kültür Tarihi"
+    elif "tarihi" in dosya_adi:
+        hedef_ders = "Osmanlı Tarihi (1789-1908)"
+
     try:
         if dosya_adi.endswith(".json"):
             veri = json.load(dosya)
             for s in veri:
                 if "madde" in s or "on" in s:
                     madde_metni = s.get("madde") or f"Soru: {s.get('on')} | Cevap: {s.get('arka')}"
-                    ders = s.get("ders_adi", "Sömürgecilik Tarihi")
+                    ders = s.get("ders_adi", hedef_ders)
                     u_no = int(s.get("unite_no", 1))
                     cursor.execute("""
                         INSERT INTO unite_ozetleri (ders_adi, unite_no, madde)
@@ -1327,7 +1340,7 @@ def yedek_yukle():
                         INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, yildizli, kullanici_notu, unite_no)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """, (
-                        s.get("ders_adi", "Genel Ders"), s.get("soru_metni", "") or s.get("question", ""), 
+                        s.get("ders_adi", hedef_ders), s.get("soru_metni", "") or s.get("question", ""), 
                         s.get("secenek_a", "A"), s.get("secenek_b", "B"),
                         s.get("secenek_c", "C"), s.get("secenek_d", "D"), s.get("secenek_e", "E"), 
                         s.get("dogru_cevap", "A"), s.get("aciklama", "Çıkmış Soru Çözüm Havuzu"), 
@@ -1339,51 +1352,55 @@ def yedek_yukle():
             icerik_metni = dosya.read().decode("utf-8", errors="ignore")
             satirlar = icerik_metni.splitlines()
             
+            # Dosya adında 'kart' geçiyorsa doğrudan bilgi kartlarına (unite_ozetleri) aktar
+            is_kart_dosyasi = "kart" in dosya_adi
+
             for satir_str in satirlar:
                 satir_str = satir_str.strip()
                 if not satir_str:
                     continue
                 
-                # BİLGİ KARTI / KART FORMATI KONTROLÜ (Q: ... ; A: ...)
+                # Q: ... ; A: ... formatını ayrıştır
+                soru_kismi = ""
+                cevap_kismi = "A"
+
                 if "Q:" in satir_str and "A:" in satir_str:
                     parcalar = satir_str.split("A:")
                     soru_kismi = parcalar[0].replace("Q:", "").strip()
                     cevap_kismi = parcalar[1].strip() if len(parcalar) > 1 else ""
-                    
-                    # Kartları doğrudan 'unite_ozetleri' tablosuna (Hap Bilgiler / Flashcards) atıyoruz
+                elif ";" in satir_str:
+                    parcalar = satir_str.split(";")
+                    soru_kismi = parcalar[0].replace("Q:", "").strip()
+                    cevap_kismi = parcalar[1].replace("A:", "").strip() if len(parcalar) > 1 else "A"
+                else:
+                    soru_kismi = satir_str
+
+                if not soru_kismi:
+                    continue
+
+                if is_kart_dosyasi:
+                    # Bilgi Kartı olarak kaydet
                     madde_metni = f"{soru_kismi} -> {cevap_kismi}"
                     cursor.execute("""
                         INSERT INTO unite_ozetleri (ders_adi, unite_no, madde)
                         VALUES (%s, 1, %s)
-                    """, ("Sömürgecilik Tarihi", madde_metni))
+                    """, (hedef_ders, madde_metni))
                     eklenen_kart += 1
                 else:
-                    # NORMAL TEST SORUSU FORMATI
-                    soru_metni = ""
-                    cevap_metni = "A"
-                    if ";" in satir_str:
-                        parcalar = satir_str.split(";")
-                        soru_metni = parcalar[0].replace("Q:", "").strip()
-                        cevap_metni = parcalar[1].replace("A:", "").strip() if len(parcalar) > 1 else "A"
-                    else:
-                        soru_metni = satir_str
-
-                    if not soru_metni:
-                        continue
-
+                    # Test Sorusu olarak kaydet
                     cursor.execute("""
                         INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, yildizli, kullanici_notu, unite_no)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 0, '', 1)
                     """, (
-                        "Sömürgecilik Tarihi", 
-                        soru_metni, 
-                        cevap_metni, 
+                        hedef_ders, 
+                        soru_kismi, 
+                        cevap_kismi, 
                         "Seçenek B", 
                         "Seçenek C", 
                         "Seçenek D", 
                         "Seçenek E", 
                         "A", 
-                        "NotebookLM Soru Aktarımı"
+                        "NotebookLM Test Aktarımı"
                     ))
                     eklenen_soru += 1
         else:
@@ -1400,14 +1417,13 @@ def yedek_yukle():
         if eklenen_soru > 0: mesaj.append(f"{eklenen_soru} soru soru havuzuna")
         if eklenen_kart > 0: mesaj.append(f"{eklenen_kart} bilgi kartı hafıza kartlarına")
         
-        bildirim_metni = " ve ".join(mesaj) + " başarıyla eklendi!" if mesaj else "Hiçbir veri eklenemedi."
+        bildirim_metni = " ve ".join(mesaj) + f" ({hedef_ders}) başarıyla eklendi!" if mesaj else "Hiçbir veri eklenemedi."
         session["bildirim"] = {"tur": "success", "metin": bildirim_metni}
         
     except Exception as e:
         session["bildirim"] = {"tur": "danger", "metin": f"Hata: {str(e)}"}
 
     return redirect(url_for("ana_sayfa"))
-
 @app.route("/sifirla", methods=["POST"])
 @giris_zorunlu
 def veritabani_sifirla():
