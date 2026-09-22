@@ -1309,18 +1309,20 @@ def yedek_yukle():
     eklenen_soru = 0
     eklenen_kart = 0
 
-    # Dosya adından ders adı tespiti yapalım
-    hedef_ders = "20. Yüzyıl Türkiye’sinde Gayrimüslimler ve Kurumları"
-    if "iktisat" in dosya_adi:
+    # Dosya adından ders adı tespiti (Türkçe karakter duyarlı ve esnek)
+    hedef_ders = GUZ_DERSLERI[0] # Varsayılan
+    if any(k in dosya_adi for k in ["iktisat", "iktisat_tarihi", "iktisat"]):
         hedef_ders = "Osmanlı İktisat Tarihi"
-    elif "sömürgecilik" in dosya_adi or "somurgecilik" in dosya_adi:
+    elif any(k in dosya_adi for k in ["sömürgecilik", "somurgecilik"]):
         hedef_ders = "Sömürgecilik Tarihi"
-    elif "diplomasi" in dosya_adi:
+    elif any(k in dosya_adi for k in ["diplomasi"]):
         hedef_ders = "Osmanlı Diplomasi Tarihi"
-    elif "teşkilat" in dosya_adi or "teskilat" in dosya_adi:
+    elif any(k in dosya_adi for k in ["teşkilat", "teskilat", "kultur", "kültür"]):
         hedef_ders = "Osmanlı Teşkilatı ve Kültür Tarihi"
-    elif "tarihi" in dosya_adi:
+    elif any(k in dosya_adi for k in ["osmanli_tarihi", "osmanlı_tarihi", "1789"]):
         hedef_ders = "Osmanlı Tarihi (1789-1908)"
+    elif any(k in dosya_adi for k in ["gayrimüslim", "gayrimuslim", "20_yuzyil"]):
+        hedef_ders = "20. Yüzyıl Türkiye’sinde Gayrimüslimler ve Kurumları"
 
     try:
         if dosya_adi.endswith(".json"):
@@ -1328,19 +1330,18 @@ def yedek_yukle():
             for s in veri:
                 if "madde" in s or "on" in s:
                     madde_metni = s.get("madde") or f"Soru: {s.get('on')} | Cevap: {s.get('arka')}"
-                    ders = s.get("ders_adi", hedef_ders)
                     u_no = int(s.get("unite_no", 1))
                     cursor.execute("""
                         INSERT INTO unite_ozetleri (ders_adi, unite_no, madde)
                         VALUES (%s, %s, %s)
-                    """, (ders, u_no, madde_metni))
+                    """, (hedef_ders, u_no, madde_metni))
                     eklenen_kart += 1
                 else:
                     cursor.execute("""
                         INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, yildizli, kullanici_notu, unite_no)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """, (
-                        s.get("ders_adi", hedef_ders), s.get("soru_metni", "") or s.get("question", ""), 
+                        hedef_ders, s.get("soru_metni", "") or s.get("question", ""), 
                         s.get("secenek_a", "A"), s.get("secenek_b", "B"),
                         s.get("secenek_c", "C"), s.get("secenek_d", "D"), s.get("secenek_e", "E"), 
                         s.get("dogru_cevap", "A"), s.get("aciklama", "Çıkmış Soru Çözüm Havuzu"), 
@@ -1360,7 +1361,6 @@ def yedek_yukle():
                 if not satir_str:
                     continue
                 
-                # Q: ... ; A: ... formatını ayrıştır
                 soru_kismi = ""
                 cevap_kismi = "A"
 
@@ -1379,7 +1379,6 @@ def yedek_yukle():
                     continue
 
                 if is_kart_dosyasi:
-                    # Bilgi Kartı olarak kaydet
                     madde_metni = f"{soru_kismi} -> {cevap_kismi}"
                     cursor.execute("""
                         INSERT INTO unite_ozetleri (ders_adi, unite_no, madde)
@@ -1387,7 +1386,6 @@ def yedek_yukle():
                     """, (hedef_ders, madde_metni))
                     eklenen_kart += 1
                 else:
-                    # Test Sorusu olarak kaydet
                     cursor.execute("""
                         INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, yildizli, kullanici_notu, unite_no)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 0, '', 1)
