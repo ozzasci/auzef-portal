@@ -1306,23 +1306,23 @@ def yedek_yukle():
     dosya_adi = dosya.filename.lower()
     conn = veritabani_baglan()
     cursor = conn.cursor()
-    eklenen = 0
+    eklenen_soru = 0
+    eklenen_kart = 0
 
     try:
         if dosya_adi.endswith(".json"):
             veri = json.load(dosya)
             for s in veri:
-                # Eğer JSON bir bilgi kartı / özet formatındaysa
                 if "madde" in s or "on" in s:
-                    madde_metni = s.get("madde") or f"{s.get('on')} -> {s.get('arka')}"
+                    madde_metni = s.get("madde") or f"Soru: {s.get('on')} | Cevap: {s.get('arka')}"
                     ders = s.get("ders_adi", "Sömürgecilik Tarihi")
                     u_no = int(s.get("unite_no", 1))
                     cursor.execute("""
                         INSERT INTO unite_ozetleri (ders_adi, unite_no, madde)
                         VALUES (%s, %s, %s)
                     """, (ders, u_no, madde_metni))
+                    eklenen_kart += 1
                 else:
-                    # Normal soru formatı
                     cursor.execute("""
                         INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, yildizli, kullanici_notu, unite_no)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -1333,7 +1333,7 @@ def yedek_yukle():
                         s.get("dogru_cevap", "A"), s.get("aciklama", "Çıkmış Soru Çözüm Havuzu"), 
                         s.get("yildizli", 0), s.get("kullanici_notu", ""), s.get("unite_no", 1)
                     ))
-                eklenen += 1
+                    eklenen_soru += 1
 
         elif dosya_adi.endswith(".csv"):
             icerik_metni = dosya.read().decode("utf-8", errors="ignore")
@@ -1344,24 +1344,29 @@ def yedek_yukle():
                 if not satir_str:
                     continue
                 
-                # Bilgi kartı formatı (Q: ... ; A: ...) kontrolü
+                # BİLGİ KARTI / KART FORMATI KONTROLÜ (Q: ... ; A: ...)
                 if "Q:" in satir_str and "A:" in satir_str:
                     parcalar = satir_str.split("A:")
                     soru_kismi = parcalar[0].replace("Q:", "").strip()
                     cevap_kismi = parcalar[1].strip() if len(parcalar) > 1 else ""
                     
-                    # Bilgi kartını hap bilgi/özet olarak veritabanına ekle
-                    madde_metni = f"Soru: {soru_kismi} | Cevap: {cevap_kismi}"
+                    # Kartları doğrudan 'unite_ozetleri' tablosuna (Hap Bilgiler / Flashcards) atıyoruz
+                    madde_metni = f"{soru_kismi} -> {cevap_kismi}"
                     cursor.execute("""
                         INSERT INTO unite_ozetleri (ders_adi, unite_no, madde)
                         VALUES (%s, 1, %s)
                     """, ("Sömürgecilik Tarihi", madde_metni))
-                    eklenen += 1
+                    eklenen_kart += 1
                 else:
-                    # Normal soru formatı desteği
-                    parcalar = satir_str.split(";")
-                    soru_metni = parcalar[0].strip()
-                    cevap_metni = parcalar[1].strip() if len(parcalar) > 1 else "A"
+                    # NORMAL TEST SORUSU FORMATI
+                    soru_metni = ""
+                    cevap_metni = "A"
+                    if ";" in satir_str:
+                        parcalar = satir_str.split(";")
+                        soru_metni = parcalar[0].replace("Q:", "").strip()
+                        cevap_metni = parcalar[1].replace("A:", "").strip() if len(parcalar) > 1 else "A"
+                    else:
+                        soru_metni = satir_str
 
                     if not soru_metni:
                         continue
@@ -1378,9 +1383,9 @@ def yedek_yukle():
                         "Seçenek D", 
                         "Seçenek E", 
                         "A", 
-                        "NotebookLM Kart Aktarımı"
+                        "NotebookLM Soru Aktarımı"
                     ))
-                    eklenen += 1
+                    eklenen_soru += 1
         else:
             session["bildirim"] = {"tur": "warning", "metin": "Sadece .json ve .csv uzantılı dosyalar desteklenmektedir."}
             cursor.close()
@@ -1390,7 +1395,14 @@ def yedek_yukle():
         conn.commit()
         cursor.close()
         conn.close()
-        session["bildirim"] = {"tur": "success", "metin": f"Yedekten toplam {eklenen} öğe (kart/soru) başarıyla yüklendi!"}
+        
+        mesaj = []
+        if eklenen_soru > 0: mesaj.append(f"{eklenen_soru} soru soru havuzuna")
+        if eklenen_kart > 0: mesaj.append(f"{eklenen_kart} bilgi kartı hafıza kartlarına")
+        
+        bildirim_metni = " ve ".join(mesaj) + " başarıyla eklendi!" if mesaj else "Hiçbir veri eklenemedi."
+        session["bildirim"] = {"tur": "success", "metin": bildirim_metni}
+        
     except Exception as e:
         session["bildirim"] = {"tur": "danger", "metin": f"Hata: {str(e)}"}
 
