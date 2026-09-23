@@ -1367,10 +1367,13 @@ def yedek_yukle():
                 if not satir_str:
                     continue
                 
+                # Anki dışa aktarımındaki # ile başlayan ayar/yorum satırlarını pas geç
+                if satir_str.startswith("#"):
+                    continue
+                
                 on_yuz = ""
                 arka_yuz = ""
 
-                # Anki .txt formatı standart olarak tab (\t) veya diğer ayıraçlar kullanır
                 if "\t" in satir_str:
                     parcalar = satir_str.split("\t")
                     on_yuz = parcalar[0].strip()
@@ -1390,7 +1393,6 @@ def yedek_yukle():
                     continue
 
                 if is_kart_dosyasi:
-                    # Anki kart yapısını Ön Yüz -> Arka Yüz olarak hap bilgi tablosuna kaydet
                     madde_metni = f"Soru: {on_yuz} | Cevap: {arka_yuz}" if arka_yuz else on_yuz
                     cursor.execute("""
                         INSERT INTO unite_ozetleri (ders_adi, unite_no, madde)
@@ -1404,7 +1406,7 @@ def yedek_yukle():
                     """, (hedef_ders, on_yuz, arka_yuz if arka_yuz else "Doğru Yanıt", "Alternatif B", "Alternatif C", "Alternatif D", "Alternatif E", "A", "Anki Aktarımı"))
                     eklenen_soru += 1
         else:
-            session["bildirim"] = {"tur": "danger", "metin": "Desteklenmeyen dosya formatı. Lütfen .json, .csv veya .txt yükleyin."}
+            session["bildirim"] = {"tur": "danger", "metin": "Desteklenmeyen dosya formatı."}
             cursor.close()
             conn.close()
             return redirect(url_for("ana_sayfa"))
