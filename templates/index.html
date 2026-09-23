@@ -122,10 +122,10 @@
                         </a>
                     </li>
                     <li class="nav-item">
-    <a class="nav-link {% if durum == 'zayif_nokta' %}active fw-bold{% endif %}" href="/zayif-nokta-analizi">
-        <i class="bi bi-robot"></i> Yapay Zeka Koçu
-    </a>
-</li>
+                        <a class="nav-link {% if durum == 'zayif_nokta' %}active fw-bold{% endif %}" href="/zayif-nokta-analizi">
+                            <i class="bi bi-robot"></i> Yapay Zeka Koçu
+                        </a>
+                    </li>
                     <li class="nav-item">
                         <a class="nav-link {% if durum == 'yonetim' or durum == 'duzenle' %}active fw-bold{% endif %}" href="/yonetim">
                             <i class="bi bi-gear"></i> Soru Yönetimi
@@ -1078,8 +1078,8 @@
                 </table>
             </div>
         </div>
-        {% endif %}
-<!-- YAPAY ZEKA ZAYIF NOKTA ANALİZİ EKRANI -->
+
+        <!-- YAPAY ZEKA ZAYIF NOKTA ANALİZİ EKRANI -->
         {% elif durum == 'zayif_nokta' %}
         <div class="row justify-content-center">
             <div class="col-lg-10">
@@ -1123,6 +1123,7 @@
             </div>
         </div>
         {% endif %}
+
     </main>
 
     <!-- SIFIRLA MODAL -->
