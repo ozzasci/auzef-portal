@@ -658,42 +658,59 @@ def hafiza_kartlari():
     secilen_ders = request.args.get("ders", GUZ_DERSLERI[0]).strip()
     secilen_unite = int(request.args.get("unite", 1))
 
-    conn = veritabani_baglan()
-    cursor = conn.cursor()
-    
-    # Sadece dışarıdan (Anki/Dosya olarak) aktarılmış, soru-cevap formatındaki kartları filtreleyip çekiyoruz
-    cursor.execute("""
-        SELECT madde FROM unite_ozetleri 
-        WHERE TRIM(ders_adi) LIKE %s AND unite_no = %s 
-        AND (madde LIKE 'Soru:%' OR madde LIKE '%->%')
-    """, (f"%{secilen_ders}%", secilen_unite))
-    
-    satirlar = cursor.fetchall()
-    cursor.close()
-    conn.close()
-
     kartlar = []
-    for s in satirlar:
-        metin = s["madde"].strip()
-        if not metin:
-            continue
-            
-        # Ön yüz ve arka yüzü 'Soru:' ve 'Cevap:' veya '->' ayrımlarına göre akıllıca bölüyoruz
-        if "Soru:" in metin and "Cevap:" in metin:
-            parcalar = metin.split("Cevap:")
-            on_yuz = parcalar[0].replace("Soru:", "").strip()
-            arka_yuz = parcalar[1].strip()
-        elif "->" in metin:
-            parcalar = metin.split("->")
-            on_yuz = parcalar[0].strip()
-            arka_yuz = parcalar[1].strip()
-        else:
-            on_yuz = f"📌 {secilen_unite}. Ünite Kartı"
-            arka_yuz = metin
+    try:
+        conn = veritabani_baglan()
+        cursor = conn.cursor()
+        
+        # Tüm olası formatlardaki kartları güvenle çekiyoruz
+        cursor.execute("""
+            SELECT madde FROM unite_ozetleri 
+            WHERE TRIM(ders_adi) LIKE %s AND unite_no = %s
+        """, (f"%{secilen_ders}%", secilen_unite))
+        
+        satirlar = cursor.fetchall()
+        cursor.close()
+        conn.close()
 
-        kartlar.append({"on": on_yuz, "arka": arka_yuz})
+        for s in satirlar:
+            metin = s.get("madde", "").strip()
+            if not metin:
+                continue
+                
+            on_yuz = ""
+            arka_yuz = ""
 
-    random.shuffle(kartlar)
+            # Güvenli metin ayrıştırma
+            if "Soru:" in metin and "Cevap:" in metin:
+                try:
+                    parcalar = metin.split("Cevap:")
+                    on_yuz = parcalar[0].replace("Soru:", "").strip()
+                    arka_yuz = parcalar[1].strip()
+                except Exception:
+                    on_yuz = "Bilgi Kartı"
+                    arka_yuz = metin
+            elif "->" in metin:
+                try:
+                    parcalar = metin.split("->")
+                    on_yuz = parcalar[0].strip()
+                    arka_yuz = parcalar[1].strip()
+                except Exception:
+                    on_yuz = "Bilgi Kartı"
+                    arka_yuz = metin
+            else:
+                # Sadece dışarıdan yüklenen Anki/dosya formatlarını filtrelemek istiyorsan burayı atlayabilirsin
+                # Ancak uygulamanın çökmemesi için düz metinleri de karta dönüştürüyoruz:
+                on_yuz = f"📌 {secilen_unite}. Ünite Kartı"
+                arka_yuz = metin
+
+            if on_yuz and arka_yuz:
+                kartlar.append({"on": on_yuz, "arka": arka_yuz})
+
+        random.shuffle(kartlar)
+    except Exception as e:
+        print(f"Hafıza kartları yüklenirken hata oluştu: {str(e)}")
+
     return render_template("index.html", 
                            durum="flashcards", 
                            aktif_ders=secilen_ders, 
