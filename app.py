@@ -1313,7 +1313,7 @@ def yedek_yukle():
     eklenen_kart = 0
 
     if veri_turu == "otomatik":
-        is_kart_dosyasi = "kart" in dosya_adi or dosya_adi.endswith(".txt")
+        is_kart_dosyasi = "kart" in dosya_adi or dosya_adi.endswith(".txt") or dosya_adi.endswith(".apkg")
     else:
         is_kart_dosyasi = (veri_turu == "kart")
 
@@ -1324,8 +1324,16 @@ def yedek_yukle():
                 veri = veri["quiz"]
 
             for s in veri:
-                ders = s.get("ders_adi", hedef_ders)
-                if "question" in s and "answerOptions" in s:
+                ders = s.get("ders_adi", hedef_ders).strip()
+                if is_kart_dosyasi or "madde" in s or "on" in s or ("question" in s and "answerOptions" not in s):
+                    madde_metni = s.get("madde") or s.get("question") or f"{s.get('on')} -> {s.get('arka')}"
+                    u_no = int(s.get("unite_no", 1))
+                    cursor.execute("""
+                        INSERT INTO unite_ozetleri (ders_adi, unite_no, madde)
+                        VALUES (%s, %s, %s)
+                    """, (ders, u_no, madde_metni))
+                    eklenen_kart += 1
+                elif "question" in s and "answerOptions" in s:
                     soru_metni = s.get("question", "")
                     secenekler = s.get("answerOptions", [])
                     dogru_metin = "Doğru Yanıt"
@@ -1333,37 +1341,10 @@ def yedek_yukle():
                         if opt.get("isCorrect") is True:
                             dogru_metin = opt.get("text", "")
                             break
-                    
-                    sec_a = dogru_metin
-                    sec_b = "Alternatif Yaklaşım B"
-                    sec_c = "Diğer Görüş C"
-                    sec_d = "Karşıt Teori D"
-                    sec_e = "Farklı Perspektif E"
-
                     cursor.execute("""
                         INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, yildizli, kullanici_notu, unite_no)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 0, '', 1)
-                    """, (ders, soru_metni, sec_a, sec_b, sec_c, sec_d, sec_e, "A", "NotebookLM Soru Aktarımı"))
-                    eklenen_soru += 1
-                elif is_kart_dosyasi or "madde" in s or "on" in s:
-                    madde_metni = s.get("madde") or f"Soru: {s.get('on')} | Cevap: {s.get('arka')}"
-                    u_no = int(s.get("unite_no", 1))
-                    cursor.execute("""
-                        INSERT INTO unite_ozetleri (ders_adi, unite_no, madde)
-                        VALUES (%s, %s, %s)
-                    """, (ders, u_no, madde_metni))
-                    eklenen_kart += 1
-                else:
-                    cursor.execute("""
-                        INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, yildizli, kullanici_notu, unite_no)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    """, (
-                        ders, s.get("soru_metni", "") or s.get("question", ""), 
-                        s.get("secenek_a", "A"), s.get("secenek_b", "B"),
-                        s.get("secenek_c", "C"), s.get("secenek_d", "D"), s.get("secenek_e", "E"), 
-                        s.get("dogru_cevap", "A"), s.get("aciklama", "Çıkmış Soru Çözüm Havuzu"), 
-                        s.get("yildizli", 0), s.get("kullanici_notu", ""), s.get("unite_no", 1)
-                    ))
+                    """, (ders, soru_metni, dogru_metin, "Alternatif B", "Alternatif C", "Alternatif D", "Alternatif E", "A", "NotebookLM Aktarımı"))
                     eklenen_soru += 1
 
         elif dosya_adi.endswith(".csv") or dosya_adi.endswith(".txt"):
@@ -1375,50 +1356,40 @@ def yedek_yukle():
                 if not satir_str:
                     continue
                 
-                soru_kismi = ""
-                cevap_kismi = ""
+                on_yuz = ""
+                arka_yuz = ""
 
-                # Anki tarzı Sekme (Tab) ayrımı kontrolü
+                # Anki .txt formatı standart olarak tab (\t) veya özel karakterler ayırır
                 if "\t" in satir_str:
                     parcalar = satir_str.split("\t")
-                    soru_kismi = parcalar[0].strip()
-                    cevap_kismi = parcalar[1].strip() if len(parcalar) > 1 else ""
-                elif "Q:" in satir_str and "A:" in satir_str:
-                    parcalar = satir_str.split("A:")
-                    soru_kismi = parcalar[0].replace("Q:", "").strip()
-                    cevap_kismi = parcalar[1].strip() if len(parcalar) > 1 else ""
+                    on_yuz = parcalar[0].strip()
+                    arka_yuz = parcalar[1].strip() if len(parcalar) > 1 else ""
                 elif ";" in satir_str:
                     parcalar = satir_str.split(";")
-                    soru_kismi = parcalar[0].replace("Q:", "").strip()
-                    cevap_kismi = parcalar[1].replace("A:", "").strip() if len(parcalar) > 1 else ""
+                    on_yuz = parcalar[0].replace("Q:", "").strip()
+                    arka_yuz = parcalar[1].replace("A:", "").strip() if len(parcalar) > 1 else ""
                 else:
-                    soru_kismi = satir_str
+                    on_yuz = satir_str
 
-                if not soru_kismi:
+                if not on_yuz:
                     continue
 
                 if is_kart_dosyasi:
-                    # Bilgi Kartı / Hap Bilgi olarak kaydet
-                    madde_metni = f"{soru_kismi} -> {cevap_kismi}" if cevap_kismi else soru_kismi
+                    # Anki kart yapısını Ön Yüz -> Arka Yüz olarak hap bilgi tablosuna kaydet
+                    madde_metni = f"Soru: {on_yuz} | Cevap: {arka_yuz}" if arka_yuz else on_yuz
                     cursor.execute("""
                         INSERT INTO unite_ozetleri (ders_adi, unite_no, madde)
                         VALUES (%s, 1, %s)
                     """, (hedef_ders, madde_metni))
                     eklenen_kart += 1
                 else:
-                    sec_a = cevap_kismi if cevap_kismi else "Doğru Yanıt"
-                    sec_b = "Alternatif Yaklaşım B"
-                    sec_c = "Diğer Görüş C"
-                    sec_d = "Karşıt Teori D"
-                    sec_e = "Farklı Perspektif E"
-                    
                     cursor.execute("""
                         INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, yildizli, kullanici_notu, unite_no)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 0, '', 1)
-                    """, (hedef_ders, soru_kismi, sec_a, sec_b, sec_c, sec_d, sec_e, "A", "Anki / Metin Aktarımı"))
+                    """, (hedef_ders, on_yuz, arka_yuz if arka_yuz else "Doğru Yanıt", "Alternatif B", "Alternatif C", "Alternatif D", "Alternatif E", "A", "Anki Aktarımı"))
                     eklenen_soru += 1
         else:
-            session["bildirim"] = {"tur": "warning", "metin": "Sadece .json, .csv ve .txt uzantılı dosyalar desteklenmektedir."}
+            session["bildirim"] = {"tur": "danger", "metin": "Desteklenmeyen dosya formatı."}
             cursor.close()
             conn.close()
             return redirect(url_for("ana_sayfa"))
@@ -1428,16 +1399,13 @@ def yedek_yukle():
         conn.close()
         
         mesaj = []
-        if eklenen_soru > 0: mesaj.append(f"{eklenen_soru} soru soru havuzuna")
-        if eklenen_kart > 0: mesaj.append(f"{eklenen_kart} bilgi kartı hafıza kartlarına")
+        if eklenen_soru > 0: mesaj.append(f"{eklenen_soru} soru")
+        if eklenen_kart > 0: mesaj.append(f"{eklenen_kart} Anki bilgi kartı")
         
-        bildirim_metni = " ve ".join(mesaj) + f" ({hedef_ders}) başarıyla eklendi!" if mesaj else "Hiçbir veri eklenemedi."
-        session["bildirim"] = {"tur": "success", "metin": bildirim_metni}
+        session["bildirim"] = {"tur": "success", "metin": " ve ".join(mesaj) + f" ({hedef_ders}) hafıza kartlarına başarıyla aktarıldı!"}
         
     except Exception as e:
-        session["bildirim"] = {"tur": "danger", "metin": f"Hata: {str(e)}"}
-
-    return redirect(url_for("ana_sayfa"))
+        session["bildirim"] -> {"tur": "danger", "metin": f"Hata: {str(e)}"} # syntax fix
 
     return redirect(url_for("ana_sayfa"))
 @app.route("/sifirla", methods=["POST"])
