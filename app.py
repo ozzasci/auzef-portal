@@ -660,10 +660,14 @@ def hafiza_kartlari():
 
     conn = veritabani_baglan()
     cursor = conn.cursor()
+    
+    # Sadece dışarıdan (Anki/Dosya olarak) aktarılmış, soru-cevap formatındaki kartları filtreleyip çekiyoruz
     cursor.execute("""
         SELECT madde FROM unite_ozetleri 
-        WHERE TRIM(ders_adi) LIKE %s AND unite_no = %s
+        WHERE TRIM(ders_adi) LIKE %s AND unite_no = %s 
+        AND (madde LIKE 'Soru:%' OR madde LIKE '%->%')
     """, (f"%{secilen_ders}%", secilen_unite))
+    
     satirlar = cursor.fetchall()
     cursor.close()
     conn.close()
@@ -673,17 +677,20 @@ def hafiza_kartlari():
         metin = s["madde"].strip()
         if not metin:
             continue
-        if " denilirdi" in metin or " adı verilmektedir" in metin:
-            parcalar = re.split(r' (?:denilirdi|adı verilmektedir)', metin)
-            on_yuz = parcalar[0] + " kavramı nasıl adlandırılırdı?"
-            arka_yuz = metin
-        elif " idi" in metin:
-            parcalar = metin.split(" idi")
-            on_yuz = parcalar[0] + " nedir / kimdir?"
-            arka_yuz = metin
+            
+        # Ön yüz ve arka yüzü 'Soru:' ve 'Cevap:' veya '->' ayrımlarına göre akıllıca bölüyoruz
+        if "Soru:" in metin and "Cevap:" in metin:
+            parcalar = metin.split("Cevap:")
+            on_yuz = parcalar[0].replace("Soru:", "").strip()
+            arka_yuz = parcalar[1].strip()
+        elif "->" in metin:
+            parcalar = metin.split("->")
+            on_yuz = parcalar[0].strip()
+            arka_yuz = parcalar[1].strip()
         else:
-            on_yuz = f"📌 {secilen_unite}. Ünite Kritik Sınav Bilgisi"
+            on_yuz = f"📌 {secilen_unite}. Ünite Kartı"
             arka_yuz = metin
+
         kartlar.append({"on": on_yuz, "arka": arka_yuz})
 
     random.shuffle(kartlar)
