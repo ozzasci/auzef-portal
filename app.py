@@ -1456,7 +1456,44 @@ def veritabani_sifirla():
     session.clear()
     session["bildirim"] = {"tur": "info", "metin": "Oturum güvenle kapatıldı. Bulut veritabanındaki tüm verileriniz eksiksiz korunmaktadır."}
     return redirect(url_for("giris_yap"))
+@app.route("/arama")
+@giris_zorunlu
+def global_arama():
+    sorgu = request.args.get("q", "").strip()
+    bulunan_sorular = []
+    bulunan_kartlar = []
 
+    if sorgu:
+        conn = veritabani_baglan()
+        cursor = conn.cursor()
+        
+        # 1. Soru havuzunda arama yap
+        cursor.execute("""
+            SELECT id, ders_adi, soru_metni, secenek_a, dogru_cevap, aciklama 
+            FROM sorular 
+            WHERE soru_metni ILIKE %s OR ders_adi ILIKE %s OR aciklama ILIKE %s
+            LIMIT 20
+        """, (f"%{sorgu}%", f"%{sorgu}%", f"%{sorgu}%"))
+        bulunan_sorular = cursor.fetchall()
+
+        # 2. Hafıza kartları / hap bilgiler tablosunda arama yap
+        cursor.execute("""
+            SELECT id, ders_adi, unite_no, madde 
+            FROM unite_ozetleri 
+            WHERE madde ILIKE %s OR ders_adi ILIKE %s
+            LIMIT 20
+        """, (f"%{sorgu}%", f"%{sorgu}%"))
+        bulunan_kartlar = cursor.fetchall()
+
+        cursor.close()
+        conn.close()
+
+    return render_template("index.html", 
+                           durum="arama_sonuclari", 
+                           sorgu=sorgu, 
+                           bulunan_sorular=bulunan_sorular, 
+                           bulunan_kartlar=bulunan_kartlar, 
+                           dersler=GUZ_DERSLERI)
 @app.route("/sw.js")
 def service_worker():
     return send_from_directory(os.path.join(app.root_path, "static"), "sw.js", mimetype="application/javascript")
