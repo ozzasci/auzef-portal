@@ -1497,7 +1497,6 @@ def global_arama():
 @app.route("/zayif-nokta-analizi")
 @giris_zorunlu
 def zayif_nokta_analizi():
-    kullanici_id = session.get("kullanici_id")
     tavsiyeler = []
     ders_ozetleri = []
 
@@ -1505,44 +1504,43 @@ def zayif_nokta_analizi():
         conn = veritabani_baglan()
         cursor = conn.cursor()
 
-        # Önce soru_gecmisi tablosunun veritabanında var olup olmadığını kontrol edelim
+        # Doğru performans tablosu ve sorular tablosunu birleştirerek en çok yanlış yapılan üniteleri buluyoruz
         cursor.execute("""
-            SELECT COUNT(*) FROM information_schema.tables 
-            WHERE table_name = 'soru_gecmisi'
+            SELECT 
+                s.ders_adi, 
+                s.unite_no, 
+                SUM(p.yanlis_sayisi) as toplam_yanlis
+            FROM sorular s
+            INNER JOIN performans p ON s.id = p.soru_id
+            GROUP BY s.ders_adi, s.unite_no
+            HAVING SUM(p.yanlis_sayisi) > 0
+            ORDER BY toplam_yanlis DESC
+            LIMIT 5
         """)
-        tablo_varmi = cursor.fetchone()
-        
-        # Eğer tablo varsa analiz yapalım, yoksa boş liste döndürüp çökmeyi önleyelim
-        if tablo_varmi and list(tablo_varmi.values())[0] > 0:
-            cursor.execute("""
-                SELECT s.ders_adi, s.unite_no, COUNT(*) as yanlis_sayisi
-                FROM soru_gecmisi g
-                JOIN sorular s ON g.soru_id = s.id
-                WHERE g.kullanici_id = %s AND g.durum = 'YANLIS'
-                GROUP BY s.ders_adi, s.unite_no
-                ORDER BY yanlis_sayisi DESC
-                LIMIT 5
-            """, (kullanici_id,))
-            zayif_uniteler = cursor.fetchall()
+        zayif_uniteler = cursor.fetchall()
 
-            for zu in zayif_uniteler:
-                tavsiyeler.append({
-                    "baslik": f"{zu['ders_adi']} - {zu['unite_no']}. Ünite",
-                    "mesaj": f"Bu ünitede sıkça hata yapıyorsun ({zu['yanlis_sayisi']} yanlış). Flashcards ekranından bu üniteyi tekrar gözden geçirmelisin.",
-                    "ders": zu['ders_adi'],
-                    "unite": zu['unite_no']
-                })
+        for zu in zayif_uniteler:
+            d_adi = zu["ders_adi"]
+            u_no = zu["unite_no"]
+            y_sayisi = zu["toplam_yanlis"]
+            
+            tavsiyeler.append({
+                "baslik": f"{d_adi} - {u_no}. Ünite",
+                "mesaj": f"Bu ünitede toplam {y_sayisi} yanlış veya hata tespit edildi. Flashcards ve ünite tekrarları ile bu konuyu pekiştirmelisin.",
+                "ders": d_adi,
+                "unite": u_no
+            })
 
         cursor.close()
         conn.close()
     except Exception as e:
         print(f"Zayıf nokta analiz hatası: {str(e)}")
 
-    # Eğer hiç veri veya yanlış kaydı yoksa bilgilendirme ekleyelim
+    # Eğer hiç yanlış verisi yoksa veya tablo boşsa
     if not tavsiyeler:
         tavsiyeler.append({
             "baslik": "Harika Gidiyorsun!",
-            "mesaj": "Henüz yeterli yanlış soru verisi oluşmadı veya test geçmişi kaydedilmedi. Test çözmeye devam ettikçe yapay zeka zayıf noktalarını burada listeyecektir.",
+            "mesaj": "Performans tablosunda henüz yeterli yanlış veri görünmüyor. Test çözmeye devam ettikçe yapay zeka zayıf noktalarını burada listeyecektir.",
             "ders": "",
             "unite": 1
         })
