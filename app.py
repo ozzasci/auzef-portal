@@ -1313,41 +1313,27 @@ def yedek_yukle():
     eklenen_kart = 0
 
     if veri_turu == "otomatik":
-        is_kart_dosyasi = "kart" in dosya_adi
+        is_kart_dosyasi = "kart" in dosya_adi or dosya_adi.endswith(".txt")
     else:
         is_kart_dosyasi = (veri_turu == "kart")
 
     try:
         if dosya_adi.endswith(".json"):
             veri = json.load(dosya)
-            
-            # Eğer NotebookLM'den gelen standart {"quiz": [...]} yapısındaysa düzelt
             if isinstance(veri, dict) and "quiz" in veri:
                 veri = veri["quiz"]
 
             for s in veri:
                 ders = s.get("ders_adi", hedef_ders)
-                
-                # NotebookLM test formatı kontrolü (question ve answerOptions içeriyorsa)
                 if "question" in s and "answerOptions" in s:
                     soru_metni = s.get("question", "")
                     secenekler = s.get("answerOptions", [])
-                    
-                    # Doğru cevabı bul
                     dogru_metin = "Doğru Yanıt"
                     for opt in secenekler:
                         if opt.get("isCorrect") is True:
                             dogru_metin = opt.get("text", "")
                             break
-                    if not dogru_metin and len(secenekler) > 0:
-                        dogru_metin = secenekler[0].get("text", "")
-
-                    # Açıklama / Rationale al
-                    aciklama = "NotebookLM Soru Çözümü"
-                    if len(secenekler) > 0 and "rationale" in secenekler[0]:
-                        aciklama = secenekler[0].get("rationale", "")
-
-                    # Şıkları oluştur (Doğru şıkkı A yapıp diğerlerini alternatiflerle dolduruyoruz)
+                    
                     sec_a = dogru_metin
                     sec_b = "Alternatif Yaklaşım B"
                     sec_c = "Diğer Görüş C"
@@ -1357,9 +1343,8 @@ def yedek_yukle():
                     cursor.execute("""
                         INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, yildizli, kullanici_notu, unite_no)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 0, '', 1)
-                    """, (ders, soru_metni, sec_a, sec_b, sec_c, sec_d, sec_e, "A", aciklama))
+                    """, (ders, soru_metni, sec_a, sec_b, sec_c, sec_d, sec_e, "A", "NotebookLM Soru Aktarımı"))
                     eklenen_soru += 1
-
                 elif is_kart_dosyasi or "madde" in s or "on" in s:
                     madde_metni = s.get("madde") or f"Soru: {s.get('on')} | Cevap: {s.get('arka')}"
                     u_no = int(s.get("unite_no", 1))
@@ -1381,7 +1366,7 @@ def yedek_yukle():
                     ))
                     eklenen_soru += 1
 
-        elif dosya_adi.endswith(".csv"):
+        elif dosya_adi.endswith(".csv") or dosya_adi.endswith(".txt"):
             icerik_metni = dosya.read().decode("utf-8", errors="ignore")
             satirlar = icerik_metni.splitlines()
 
@@ -1391,16 +1376,21 @@ def yedek_yukle():
                     continue
                 
                 soru_kismi = ""
-                cevap_kismi = "Doğru Yanıt"
+                cevap_kismi = ""
 
-                if "Q:" in satir_str and "A:" in satir_str:
+                # Anki tarzı Sekme (Tab) ayrımı kontrolü
+                if "\t" in satir_str:
+                    parcalar = satir_str.split("\t")
+                    soru_kismi = parcalar[0].strip()
+                    cevap_kismi = parcalar[1].strip() if len(parcalar) > 1 else ""
+                elif "Q:" in satir_str and "A:" in satir_str:
                     parcalar = satir_str.split("A:")
                     soru_kismi = parcalar[0].replace("Q:", "").strip()
-                    cevap_kismi = parcalar[1].strip() if len(parcalar) > 1 else "Doğru Yanıt"
+                    cevap_kismi = parcalar[1].strip() if len(parcalar) > 1 else ""
                 elif ";" in satir_str:
                     parcalar = satir_str.split(";")
                     soru_kismi = parcalar[0].replace("Q:", "").strip()
-                    cevap_kismi = parcalar[1].replace("A:", "").strip() if len(parcalar) > 1 else "Doğru Yanıt"
+                    cevap_kismi = parcalar[1].replace("A:", "").strip() if len(parcalar) > 1 else ""
                 else:
                     soru_kismi = satir_str
 
@@ -1408,14 +1398,15 @@ def yedek_yukle():
                     continue
 
                 if is_kart_dosyasi:
-                    madde_metni = f"{soru_kismi} -> {cevap_kismi}"
+                    # Bilgi Kartı / Hap Bilgi olarak kaydet
+                    madde_metni = f"{soru_kismi} -> {cevap_kismi}" if cevap_kismi else soru_kismi
                     cursor.execute("""
                         INSERT INTO unite_ozetleri (ders_adi, unite_no, madde)
                         VALUES (%s, 1, %s)
                     """, (hedef_ders, madde_metni))
                     eklenen_kart += 1
                 else:
-                    sec_a = cevap_kismi
+                    sec_a = cevap_kismi if cevap_kismi else "Doğru Yanıt"
                     sec_b = "Alternatif Yaklaşım B"
                     sec_c = "Diğer Görüş C"
                     sec_d = "Karşıt Teori D"
@@ -1424,20 +1415,10 @@ def yedek_yukle():
                     cursor.execute("""
                         INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, yildizli, kullanici_notu, unite_no)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 0, '', 1)
-                    """, (
-                        hedef_ders, 
-                        soru_kismi, 
-                        sec_a, 
-                        sec_b, 
-                        sec_c, 
-                        sec_d, 
-                        sec_e, 
-                        "A", 
-                        "NotebookLM Test Aktarımı"
-                    ))
+                    """, (hedef_ders, soru_kismi, sec_a, sec_b, sec_c, sec_d, sec_e, "A", "Anki / Metin Aktarımı"))
                     eklenen_soru += 1
         else:
-            session["bildirim"] = {"tur": "warning", "metin": "Sadece .json ve .csv uzantılı dosyalar desteklenmektedir."}
+            session["bildirim"] = {"tur": "warning", "metin": "Sadece .json, .csv ve .txt uzantılı dosyalar desteklenmektedir."}
             cursor.close()
             conn.close()
             return redirect(url_for("ana_sayfa"))
@@ -1455,6 +1436,8 @@ def yedek_yukle():
         
     except Exception as e:
         session["bildirim"] = {"tur": "danger", "metin": f"Hata: {str(e)}"}
+
+    return redirect(url_for("ana_sayfa"))
 
     return redirect(url_for("ana_sayfa"))
 @app.route("/sifirla", methods=["POST"])
