@@ -1326,7 +1326,7 @@ def yedek_yukle():
             for s in veri:
                 ders = s.get("ders_adi", hedef_ders).strip()
                 if is_kart_dosyasi or "madde" in s or "on" in s or ("question" in s and "answerOptions" not in s):
-                    madde_metni = s.get("madde") or s.get("question") or f"{s.get('on')} -> {s.get('arka')}"
+                    madde_metni = s.get("madde") or s.get("question") or f"Soru: {s.get('on')} | Cevap: {s.get('arka')}"
                     u_no = int(s.get("unite_no", 1))
                     cursor.execute("""
                         INSERT INTO unite_ozetleri (ders_adi, unite_no, madde)
@@ -1346,6 +1346,17 @@ def yedek_yukle():
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 0, '', 1)
                     """, (ders, soru_metni, dogru_metin, "Alternatif B", "Alternatif C", "Alternatif D", "Alternatif E", "A", "NotebookLM Aktarımı"))
                     eklenen_soru += 1
+                else:
+                    cursor.execute("""
+                        INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, yildizli, kullanici_notu, unite_no)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (
+                        ders, s.get("soru_metni", ""), s.get("secenek_a", "A"), s.get("secenek_b", "B"),
+                        s.get("secenek_c", "C"), s.get("secenek_d", "D"), s.get("secenek_e", "E"), 
+                        s.get("dogru_cevap", "A"), s.get("aciklama", ""), 
+                        s.get("yildizli", 0), s.get("kullanici_notu", ""), s.get("unite_no", 1)
+                    ))
+                    eklenen_soru += 1
 
         elif dosya_adi.endswith(".csv") or dosya_adi.endswith(".txt"):
             icerik_metni = dosya.read().decode("utf-8", errors="ignore")
@@ -1359,10 +1370,14 @@ def yedek_yukle():
                 on_yuz = ""
                 arka_yuz = ""
 
-                # Anki .txt formatı standart olarak tab (\t) veya özel karakterler ayırır
+                # Anki .txt formatı standart olarak tab (\t) veya diğer ayıraçlar kullanır
                 if "\t" in satir_str:
                     parcalar = satir_str.split("\t")
                     on_yuz = parcalar[0].strip()
+                    arka_yuz = parcalar[1].strip() if len(parcalar) > 1 else ""
+                elif "Q:" in satir_str and "A:" in satir_str:
+                    parcalar = satir_str.split("A:")
+                    on_yuz = parcalar[0].replace("Q:", "").strip()
                     arka_yuz = parcalar[1].strip() if len(parcalar) > 1 else ""
                 elif ";" in satir_str:
                     parcalar = satir_str.split(";")
@@ -1389,7 +1404,7 @@ def yedek_yukle():
                     """, (hedef_ders, on_yuz, arka_yuz if arka_yuz else "Doğru Yanıt", "Alternatif B", "Alternatif C", "Alternatif D", "Alternatif E", "A", "Anki Aktarımı"))
                     eklenen_soru += 1
         else:
-            session["bildirim"] = {"tur": "danger", "metin": "Desteklenmeyen dosya formatı."}
+            session["bildirim"] = {"tur": "danger", "metin": "Desteklenmeyen dosya formatı. Lütfen .json, .csv veya .txt yükleyin."}
             cursor.close()
             conn.close()
             return redirect(url_for("ana_sayfa"))
@@ -1402,10 +1417,11 @@ def yedek_yukle():
         if eklenen_soru > 0: mesaj.append(f"{eklenen_soru} soru")
         if eklenen_kart > 0: mesaj.append(f"{eklenen_kart} Anki bilgi kartı")
         
-        session["bildirim"] = {"tur": "success", "metin": " ve ".join(mesaj) + f" ({hedef_ders}) hafıza kartlarına başarıyla aktarıldı!"}
+        bildirim_metni = " ve ".join(mesaj) + f" ({hedef_ders}) hafıza kartlarına başarıyla aktarıldı!" if mesaj else "Hiçbir veri eklenemedi."
+        session["bildirim"] = {"tur": "success", "metin": bildirim_metni}
         
     except Exception as e:
-        session["bildirim"] -> {"tur": "danger", "metin": f"Hata: {str(e)}"} # syntax fix
+        session["bildirim"] = {"tur": "danger", "metin": f"Hata: {str(e)}"}
 
     return redirect(url_for("ana_sayfa"))
 @app.route("/sifirla", methods=["POST"])
