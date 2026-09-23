@@ -1494,7 +1494,7 @@ def global_arama():
                            bulunan_sorular=bulunan_sorular, 
                            bulunan_kartlar=bulunan_kartlar, 
                            dersler=GUZ_DERSLERI)
-    @app.route("/zayif-nokta-analizi")
+@app.route("/zayif-nokta-analizi")
 @giris_zorunlu
 def zayif_nokta_analizi():
     kullanici_id = session.get("kullanici_id")
