@@ -1494,6 +1494,65 @@ def global_arama():
                            bulunan_sorular=bulunan_sorular, 
                            bulunan_kartlar=bulunan_kartlar, 
                            dersler=GUZ_DERSLERI)
+    @app.route("/zayif-nokta-analizi")
+@giris_zorunlu
+def zayif_nokta_analizi():
+    kullanici_id = session.get("kullanici_id")
+    conn = veritabani_baglan()
+    cursor = conn.cursor()
+
+    # Kullanıcının çözdüğü test geçmişinden yanlış yaptığı soruların ünitelerini ve derslerini çekelim
+    # (Not: Sınav sonuç geçmişi tablonuzun yapısına göre esnetilebilir, burada genel bir analiz mantığı kuruyoruz)
+    cursor.execute("""
+        SELECT s.ders_adi, s.unite_no, COUNT(*) as yanlis_sayisi
+        FROM soru_gecmisi g
+        JOIN sorular s ON g.soru_id = s.id
+        WHERE g.kullanici_id = %s AND g.durum = 'YANLIS'
+        GROUP BY s.ders_adi, s.unite_no
+        ORDER BY yanlis_sayisi DESC
+        LIMIT 5
+    """, (kullanici_id,))
+    
+    zayif_uniteler = cursor.fetchall()
+
+    # Genel ders başarı oranlarını çekelim
+    cursor.execute("""
+        SELECT s.ders_adi, 
+               SUM(CASE WHEN g.durum = 'DOGRU' THEN 1 ELSE 0 END) as dogru,
+               COUNT(*) as toplam
+        FROM soru_gecmisi g
+        JOIN sorular s ON g.soru_id = s.id
+        WHERE g.kullanici_id = %s
+        GROUP BY s.ders_adi
+    """, (kullanici_id,))
+    ders_ozetleri = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    # Akıllı Tavsiye Metinleri Üretelim
+    tavsiyeler = []
+    for zu in zayif_uniteler:
+        tavsiyeler.append({
+            "baslik": f"{zu['ders_adi']} - {zu['unite_no']}. Ünite",
+            "mesaj": f"Bu ünitede sıkça hata yapıyorsun ({zu['yanlis_sayisi']} yanlış). Flashcards ekranından bu üniteyi tekrar gözden geçirmelisin.",
+            "ders": zu['ders_adi'],
+            "unite": zu['unite_no']
+        })
+
+    if not tavsiyeler:
+        tavsiyeler.append({
+            "baslik": "Harika Gidiyorsun!",
+            "mesaj": "Henüz yeterli yanlış veri oluşmadı. Test çözmeye devam ettikçe yapay zeka zayıf noktalarını burada listeyecektir.",
+            "ders": "",
+            "unite": 1
+        })
+
+    return render_template("index.html", 
+                           durum="zayif_nokta", 
+                           tavsiyeler=tavsiyeler, 
+                           ders_ozetleri=ders_ozetleri, 
+                           dersler=GUZ_DERSLERI)
 @app.route("/sw.js")
 def service_worker():
     return send_from_directory(os.path.join(app.root_path, "static"), "sw.js", mimetype="application/javascript")
