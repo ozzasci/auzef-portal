@@ -122,6 +122,11 @@
                         </a>
                     </li>
                     <li class="nav-item">
+    <a class="nav-link {% if durum == 'zayif_nokta' %}active fw-bold{% endif %}" href="/zayif-nokta-analizi">
+        <i class="bi bi-robot"></i> Yapay Zeka Koçu
+    </a>
+</li>
+                    <li class="nav-item">
                         <a class="nav-link {% if durum == 'yonetim' or durum == 'duzenle' %}active fw-bold{% endif %}" href="/yonetim">
                             <i class="bi bi-gear"></i> Soru Yönetimi
                         </a>
@@ -1074,7 +1079,50 @@
             </div>
         </div>
         {% endif %}
+<!-- YAPAY ZEKA ZAYIF NOKTA ANALİZİ EKRANI -->
+        {% elif durum == 'zayif_nokta' %}
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
+                    <div class="d-flex align-items-center gap-3 mb-3">
+                        <div class="p-3 bg-primary bg-opacity-10 text-primary rounded-3 fs-3"><i class="bi bi-robot"></i></div>
+                        <div>
+                            <h4 class="fw-bold m-0">Yapay Zeka Çalışma Koçu & Zayıf Nokta Analizi</h4>
+                            <p class="text-muted small m-0">Soru çözücü geçmişiniz taranarak en çok zorlandığınız alanlar tespit edilmiştir.</p>
+                        </div>
+                    </div>
+                </div>
 
+                <h5 class="fw-bold mb-3"><i class="bi bi-exclamation-triangle-fill text-warning me-2"></i> Odaklanmanız Gereken Kritik Üniteler</h5>
+                <div class="row g-3 mb-4">
+                    {% for tavsiye in tavsiyeler %}
+                    <div class="col-md-6">
+                        <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100 border-start border-primary border-4">
+                            <h5 class="fw-bold text-dark">{{ tavsiye.baslik }}</h5>
+                            <p class="text-muted small my-2">{{ tavsiye.mesaj }}</p>
+                            {% if tavsiye.ders %}
+                            <div class="mt-auto pt-2">
+                                <a href="/ders-calis?ders={{ tavsiye.ders }}&unite={{ tavsiye.unite }}" class="btn btn-sm btn-outline-primary rounded-pill fw-bold">
+                                    <i class="bi bi-book me-1"></i> Bu Üniteye Çalış
+                                </a>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
+                    <h5 class="fw-bold mb-3"><i class="bi bi-lightbulb-fill text-success me-2"></i> Koçun Çalışma Tavsiyeleri</h5>
+                    <ul class="list-unstyled small text-muted mb-0">
+                        <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i> Yanlış yaptığınız soruları düzenli olarak <strong>Özel Odak Havuzundan</strong> tekrar çözün.</li>
+                        <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i> Kavram karmaşası yaşadığınız terimler için <strong>Flashcards</strong> modülünde kart çevirme turları atın.</li>
+                        <li><i class="bi bi-check-circle-fill text-success me-2"></i> Deneme sınavlarından önce mutlaka ilgili ünitenin <strong>Hap Bilgilerini</strong> gözden geçirin.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        {% endif %}
     </main>
 
     <!-- SIFIRLA MODAL -->
