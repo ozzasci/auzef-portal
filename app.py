@@ -1498,24 +1498,40 @@ def global_arama():
 @giris_zorunlu
 def zayif_nokta_analizi():
     tavsiyeler = []
-    ders_ozetleri = []
+    toplam_cozulen_genel = 0
+    toplam_dogru_genel = 0
+    toplam_yanlis_genel = 0
 
     try:
         conn = veritabani_baglan()
         cursor = conn.cursor()
 
-        # Doğru performans tablosu ve sorular tablosunu birleştirerek en çok yanlış yapılan üniteleri buluyoruz
+        # 1. Genel başarı istatistiklerini hesaplayalım
+        cursor.execute("""
+            SELECT 
+                SUM(p.dogru_sayisi) as d_sayi,
+                SUM(p.yanlis_sayisi) as y_sayi
+            FROM performans p
+        """)
+        genel_istatistik = cursor.fetchone()
+        if genel_istatistik:
+            toplam_dogru_genel = genel_istatistik["d_sayi"] or 0
+            toplam_yanlis_genel = genel_istatistik["y_sayi"] or 0
+            toplam_cozulen_genel = toplam_dogru_genel + toplam_yanlis_genel
+
+        # 2. Ünite bazlı hata analizleri ve kritiklik derecelendirmesi
         cursor.execute("""
             SELECT 
                 s.ders_adi, 
                 s.unite_no, 
-                SUM(p.yanlis_sayisi) as toplam_yanlis
+                SUM(p.yanlis_sayisi) as toplam_yanlis,
+                SUM(p.dogru_sayisi) as toplam_dogru
             FROM sorular s
             INNER JOIN performans p ON s.id = p.soru_id
             GROUP BY s.ders_adi, s.unite_no
             HAVING SUM(p.yanlis_sayisi) > 0
             ORDER BY toplam_yanlis DESC
-            LIMIT 5
+            LIMIT 6
         """)
         zayif_uniteler = cursor.fetchall()
 
@@ -1523,32 +1539,60 @@ def zayif_nokta_analizi():
             d_adi = zu["ders_adi"]
             u_no = zu["unite_no"]
             y_sayisi = zu["toplam_yanlis"]
+            d_sayisi = zu["toplam_dogru"] or 0
+            toplam_unite_soru = y_sayisi + d_sayisi
             
+            # Hata oranına göre kritiklik derecesi belirleme
+            hata_orani = (y_sayisi / toplam_unite_soru) * 100 if toplam_unite_soru > 0 else 0
+            
+            if hata_orani >= 40:
+                kritiklik = "Kritik"
+                badge_renk = "danger"
+                ikon = "bi-exclamation-octagon-fill"
+                mesaj = f"Bu ünitede hata oranın yüksek (%{int(hata_orani)} - {y_sayisi} yanlış). Acil tekrar edilmesi gerekiyor!"
+            else:
+                kritiklik = "Gözden Geçirilmeli"
+                badge_renk = "warning text-dark"
+                ikon = "bi-exclamation-triangle-fill"
+                mesaj = f"Bu ünitede {y_sayisi} yanlışın tespit edildi. Flashcard turlarıyla kapatabilirsin."
+
             tavsiyeler.append({
                 "baslik": f"{d_adi} - {u_no}. Ünite",
-                "mesaj": f"Bu ünitede toplam {y_sayisi} yanlış veya hata tespit edildi. Flashcards ve ünite tekrarları ile bu konuyu pekiştirmelisin.",
+                "mesaj": mesaj,
                 "ders": d_adi,
-                "unite": u_no
+                "unite": u_no,
+                "kritiklik": kritiklik,
+                "badge_renk": badge_renk,
+                "ikon": ikon
             })
 
         cursor.close()
         conn.close()
     except Exception as e:
-        print(f"Zayıf nokta analiz hatası: {str(e)}")
+        print(f"Gelişmiş zayıf nokta analiz hatası: {str(e)}")
 
-    # Eğer hiç yanlış verisi yoksa veya tablo boşsa
-    if not tavsiyeler:
-        tavsiyeler.append({
-            "baslik": "Harika Gidiyorsun!",
-            "mesaj": "Performans tablosunda henüz yeterli yanlış veri görünmüyor. Test çözmeye devam ettikçe yapay zeka zayıf noktalarını burada listeyecektir.",
-            "ders": "",
-            "unite": 1
-        })
+    # 3. Genel Başarıya Göre Koçun Akıllı Sentez / Motivasyon Mesajı
+    genel_basari = round((toplam_dogru_genel / toplam_cozulen_genel) * 100, 1) if toplam_cozulen_genel > 0 else 0
+    
+    if toplam_cozulen_genel < 10:
+        koc_mesaji = "Harika bir başlangıç! Sistemi aktif kullanmaya ve soru çözmeye devam ettikçe buradaki analizler şekillenecek."
+    elif genel_basari >= 75:
+        koc_mesaji = f"Mükemmel bir ivmedesin! Genel başarı oranın %{genel_basari}. Bu istikrarla sınavda harika bir derece yapabilirsin."
+    elif genel_basari >= 50:
+        koc_mesaji = f"İyi gidiyorsun (%{genel_basari} başarı), ancak aşağıda listelenen kritik üniteler üzerindeki yanlışları kapatman netlerini doğrudan yukarı taşıyacak."
+    else:
+        koc_mesaji = f"Şu an genel başarı oranın %{genel_basari seviyesinde}. Biraz daha yoğunlaşarak ve zayıf ünite testlerine ağırlık vererek bunu hızla artırabiliriz."
+
+    # Tahmini Sınav Başarı Skoru (100 üzerinden simülasyon puanı)
+    tahmini_puan = int(genel_basari) if toplam_cozulen_genel > 0 else "Henüz Veri Yok"
 
     return render_template("index.html", 
                            durum="zayif_nokta", 
                            tavsiyeler=tavsiyeler, 
-                           ders_ozetleri=ders_ozetleri, 
+                           koc_mesaji=koc_mesaji,
+                           tahmini_puan=tahmini_puan,
+                           genel_basari=genel_basari,
+                           toplam_cozulen_genel=toplam_cozulen_genel,
                            dersler=GUZ_DERSLERI)
 @app.route("/sw.js")
 def service_worker():
