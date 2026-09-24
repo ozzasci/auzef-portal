@@ -1594,6 +1594,70 @@ def zayif_nokta_analizi():
                            genel_basari=genel_basari,
                            toplam_cozulen_genel=toplam_cozulen_genel,
                            dersler=GUZ_DERSLERI)
+    # Kronoloji JSON dosyalarının saklanacağı klasör
+KRONOLOJI_KLASORU = os.path.join(BASE_DIR, "static", "kronoloji_dosyalari")
+os.makedirs(KRONOLOJI_KLASORU, exist_ok=True)
+
+@app.route("/kronoloji-yukle", methods=["POST"])
+@giris_zorunlu
+def kronoloji_yukle():
+    ders = request.form.get("ders_adi", "").strip()
+    dosya = request.files.get("kronoloji_dosyasi")
+
+    if not dosya or not dosya.filename.lower().endswith(".json"):
+        session["bildirim"] = {"tur": "danger", "metin": "Lütfen geçerli bir .json formatında kronoloji dosyası seçin."}
+        return redirect(url_for("icerik_merkezi", ders=ders))
+
+    try:
+        guvenli_ders_adi = re.sub(r'[^a-zA-Z0-9]', '_', ders).lower()
+        dosya_adi = f"kronoloji_{guvenli_ders_adi}.json"
+        hedef_yol = os.path.join(KRONOLOJI_KLASORU, dosya_adi)
+        
+        dosya.save(hedef_yol)
+        session["bildirim"] = {"tur": "success", "metin": f"'{ders}' dersine ait resmi kronoloji verileri başarıyla yüklendi!"}
+    except Exception as e:
+        session["bildirim"] = {"tur": "danger", "metin": f"Kronoloji yüklenirken hata oluştu: {str(e)}"}
+
+    return redirect(url_for("icerik_merkezi", ders=ders))
+
+@app.route("/kronoloji")
+@giris_zorunlu
+def kronoloji_egzersizi():
+    secilen_ders = request.args.get("ders", GUZ_DERSLERI[0]).strip()
+    
+    guvenli_ders_adi = re.sub(r'[^a-zA-Z0-9]', '_', secilen_ders).lower()
+    dosya_adi = f"kronoloji_{guvenli_ders_adi}.json"
+    dosya_yolu = os.path.join(KRONOLOJI_KLASORU, dosya_adi)
+    
+    karisik_olaylar = []
+    
+    # Sadece ilgili derse ait yüklenen JSON dosyasından veri okunur
+    if os.path.exists(dosya_yolu):
+        try:
+            with open(dosya_yolu, "r", encoding="utf-8") as f:
+                ham_liste = json.load(f)
+                for idx, item in enumerate(ham_liste):
+                    karisik_olaylar.append({
+                        "id": idx + 1,
+                        "yil": item.get("yil", 0),
+                        "olay": item.get("olay", ""),
+                        "detay": item.get("detay", "")
+                    })
+        except Exception as e:
+            print(f"Kronoloji JSON okuma hatası: {str(e)}")
+
+    if not karisik_olaylar:
+        karisik_olaylar = [
+            {"id": 1, "yil": 2026, "olay": "Bu ders için henüz resmi kronoloji JSON yüklenmedi", "detay": "İçerik merkezinden bu dersin kronoloji JSON dosyasını yükleyebilirsiniz."}
+        ]
+    else:
+        random.shuffle(karisik_olaylar)
+
+    return render_template("index.html", 
+                           durum="kronoloji", 
+                           aktif_ders=secilen_ders, 
+                           karisik_olaylar=karisik_olaylar, 
+                           dersler=GUZ_DERSLERI)
 @app.route("/sw.js")
 def service_worker():
     return send_from_directory(os.path.join(app.root_path, "static"), "sw.js", mimetype="application/javascript")
