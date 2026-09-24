@@ -1581,7 +1581,7 @@ def zayif_nokta_analizi():
     elif genel_basari >= 50:
         koc_mesaji = f"İyi gidiyorsun (%{genel_basari} başarı), ancak aşağıda listelenen kritik üniteler üzerindeki yanlışları kapatman netlerini doğrudan yukarı taşıyacak."
     else:
-        koc_mesaji = f"Şu an genel başarı oranın %{genel_basari seviyesinde}. Biraz daha yoğunlaşarak ve zayıf ünite testlerine ağırlık vererek bunu hızla artırabiliriz."
+        koc_mesaji = f"Şu an genel başarı oranın %{genel_basari} seviyesinde. Biraz daha yoğunlaşarak ve zayıf ünite testlerine ağırlık vererek bunu hızla artırabiliriz."
 
     # Tahmini Sınav Başarı Skoru (100 üzerinden simülasyon puanı)
     tahmini_puan = int(genel_basari) if toplam_cozulen_genel > 0 else "Henüz Veri Yok"
