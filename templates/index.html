@@ -593,7 +593,7 @@
                     {% endfor %}
                 </select>
             </div>
-            <small class="text-muted">Seçili ders için soru havuzlarını, ünite kitaplarını, kılavuzları ve ders videolarını aşağıdan yönetebilirsiniz.</small>
+            <small class="text-muted">Seçili ders için soru havuzlarını, ünite kitaplarını, kılavuzları, ders videolarını ve kronoloji verilerini aşağıdan yönetebilirsiniz.</small>
         </div>
 
         <div class="row g-4">
@@ -706,6 +706,21 @@
                             <input type="url" name="video_url" class="form-control form-control-sm" placeholder="Webcast, YouTube veya .mp4 linki..." required>
                         </div>
                         <button type="submit" class="btn btn-danger btn-sm w-100 rounded-pill fw-bold">Ders Videosunu Kaydet</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- 5. Kronoloji JSON Yükleme Kartı -->
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
+                    <h6 class="fw-bold text-warning mb-2"><i class="bi bi-clock-history"></i> ⏳ Ders Kronolojisi Yükle (JSON)</h6>
+                    <form action="/kronoloji-yukle" method="POST" enctype="multipart/form-data">
+                        <input type="hidden" name="ders_adi" value="{{ aktif_ders }}">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Kronoloji JSON Dosyası</label>
+                            <input type="file" name="kronoloji_dosyasi" class="form-control form-control-sm" accept=".json" required>
+                        </div>
+                        <button type="submit" class="btn btn-warning btn-sm w-100 rounded-pill fw-bold text-dark">Kronolojiyi Kaydet ve Aktifleştir</button>
                     </form>
                 </div>
             </div>
