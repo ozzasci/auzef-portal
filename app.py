@@ -21,7 +21,9 @@ DATABASE_URL = os.environ.get("DATABASE_URL", "postgres://postgres.luvrwqfypquit
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "kitaplar")
+KRONOLOJI_KLASORU = os.path.join(BASE_DIR, "static", "kronoloji_dosyalari")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(KRONOLOJI_KLASORU, exist_ok=True)
 
 GUZ_DERSLERI = [
     "20. Yüzyıl Türkiye’sinde Gayrimüslimler ve Kurumları",
@@ -278,150 +280,33 @@ def ana_sayfa():
                            hatali_sayisi=hatali_soru_sayisi,
                            bildirim=mesaj)
 
-<!-- İÇERİK MERKEZİ -->
-        {% elif durum == 'icerik_merkezi' %}
-        <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
-            <h5 class="fw-bold mb-3"><i class="bi bi-cloud-arrow-up-fill text-primary"></i> İçerik ve Kaynak Merkezi</h5>
-            <div class="mb-2">
-                <label class="form-label small fw-bold">Aktif Ders</label>
-                <select class="form-select rounded-3 fw-bold border-primary-subtle" onchange="location.href='/icerik-merkezi?ders=' + encodeURIComponent(this.value)">
-                    {% for d in dersler %}
-                    <option value="{{ d }}" {% if d == aktif_ders %}selected{% endif %}>{{ d }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <small class="text-muted">Seçili ders için soru havuzlarını, ünite kitaplarını, kılavuzları, ders videolarını ve kronoloji verilerini aşağıdan yönetebilirsiniz.</small>
-        </div>
+@app.route("/icerik-merkezi")
+@giris_zorunlu
+def icerik_merkezi():
+    secilen_ders = request.args.get("ders", GUZ_DERSLERI[0]).strip()
+    return render_template("index.html", durum="icerik_merkezi", aktif_ders=secilen_ders, dersler=GUZ_DERSLERI)
 
-        <div class="row g-4">
-            <!-- 1. Soru Havuzu Yükleme -->
-            <div class="col-md-6">
-                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
-                    <h6 class="fw-bold text-success mb-2"><i class="bi bi-file-earmark-check"></i> 🎯 Ünite Soru Havuzu Yükle</h6>
-                    <form action="/yukle-unite-sorulari" method="POST" enctype="multipart/form-data">
-                        <input type="hidden" name="ders_adi" value="{{ aktif_ders }}">
-                        <div class="mb-3">
-                            <label class="form-label small fw-bold">Ünite Numarası</label>
-                            <select name="unite_no" class="form-select form-select-sm rounded-3">
-                                {% for i in range(1, 15) %}
-                                <option value="{{ i }}">{{ i }}. Ünite</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="mb-2">
-                            <label class="form-label small fw-bold">Cihazdan PDF Yükle</label>
-                            <input type="file" name="soru_dosyasi" class="form-control form-control-sm" accept=".pdf">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label small fw-bold"><i class="bi bi-google-drive text-warning"></i> Veya Google Drive Linki</label>
-                            <input type="url" name="drive_url" class="form-control form-control-sm" placeholder="https://drive.google.com/file/d/...">
-                        </div>
-                        <button type="submit" class="btn btn-success btn-sm w-100 rounded-pill fw-bold">Soruları Veritabanına Yaz</button>
-                    </form>
-                </div>
-            </div>
+@app.route("/kronoloji-yukle", methods=["POST"])
+@giris_zorunlu
+def kronoloji_yukle():
+    ders = request.form.get("ders_adi", "").strip()
+    dosya = request.files.get("kronoloji_dosyasi")
 
-            <!-- 2. Ders Kılavuzu & Hap Bilgi -->
-            <div class="col-md-6">
-                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
-                    <h6 class="fw-bold text-danger mb-2"><i class="bi bi-file-earmark-text"></i> 📄 Ders Kılavuzu & Hap Bilgi</h6>
-                    <form action="/otomatik-klavuz-isle" method="POST" enctype="multipart/form-data">
-                        <input type="hidden" name="ders_adi" value="{{ aktif_ders }}">
-                        <div class="mb-3">
-                            <label class="form-label small fw-bold">Kılavuz PDF Dosyası</label>
-                            <input type="file" name="klavuz_dosya" class="form-control form-control-sm" accept=".pdf">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label small fw-bold">Veya Google Drive Linki</label>
-                            <input type="url" name="drive_url" class="form-control form-control-sm" placeholder="https://drive.google.com/file/d/...">
-                        </div>
-                        <button type="submit" class="btn btn-danger btn-sm w-100 rounded-pill fw-bold">Kılavuzu Çözümle ve Bağla</button>
-                    </form>
-                </div>
-            </div>
+    if not dosya or not dosya.filename.lower().endswith(".json"):
+        session["bildirim"] = {"tur": "danger", "metin": "Lütfen geçerli bir .json formatında kronoloji dosyası seçin."}
+        return redirect(url_for("icerik_merkezi", ders=ders))
 
-            <!-- 3. Ünite Ders Kitabı (PDF / Drive) -->
-            <div class="col-md-6">
-                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
-                    <h6 class="fw-bold text-primary mb-2"><i class="bi bi-book-half"></i> 📚 Ünite Ders Kitabı (PDF / Drive)</h6>
-                    <form action="/kaydet-drive-link" method="POST" class="mb-3 border-bottom pb-3">
-                        <input type="hidden" name="ders_adi" value="{{ aktif_ders }}">
-                        <div class="mb-2">
-                            <label class="form-label small fw-bold">Ünite Numarası</label>
-                            <select name="unite_no" class="form-select form-select-sm rounded-3">
-                                {% for i in range(1, 15) %}
-                                <option value="{{ i }}">{{ i }}. Ünite</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="mb-2">
-                            <label class="form-label small fw-bold"><i class="bi bi-google-drive text-warning"></i> Google Drive Linki</label>
-                            <input type="url" name="drive_url" class="form-control form-control-sm" placeholder="https://drive.google.com/file/d/..." required>
-                        </div>
-                        <button type="submit" class="btn btn-outline-primary btn-sm w-100 rounded-pill fw-bold">Drive Kitabını Bağla</button>
-                    </form>
+    try:
+        guvenli_ders_adi = re.sub(r'[^a-zA-Z0-9]', '_', ders).lower()
+        dosya_adi = f"kronoloji_{guvenli_ders_adi}.json"
+        hedef_yol = os.path.join(KRONOLOJI_KLASORU, dosya_adi)
+        
+        dosya.save(hedef_yol)
+        session["bildirim"] = {"tur": "success", "metin": f"'{ders}' dersine ait resmi kronoloji verileri başarıyla yüklendi!"}
+    except Exception as e:
+        session["bildirim"] = {"tur": "danger", "metin": f"Kronoloji yüklenirken hata oluştu: {str(e)}"}
 
-                    <form action="/yukle-pdf-dosya" method="POST" enctype="multipart/form-data">
-                        <input type="hidden" name="ders_adi" value="{{ aktif_ders }}">
-                        <div class="mb-2">
-                            <label class="form-label small fw-bold">Veya Cihazdan PDF Yükle</label>
-                            <div class="row g-2">
-                                <div class="col-5">
-                                    <select name="unite_no" class="form-select form-select-sm rounded-3">
-                                        {% for i in range(1, 15) %}
-                                        <option value="{{ i }}">{{ i }}. Ünite</option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
-                                <div class="col-7">
-                                    <input type="file" name="pdf_dosya" class="form-control form-control-sm" accept=".pdf" required>
-                                </div>
-                            </div>
-                        </div>
-                        <button type="submit" class="btn btn-outline-secondary btn-sm w-100 rounded-pill fw-bold">Cihazdan PDF Yükle</button>
-                    </form>
-                </div>
-            </div>
-
-            <!-- 4. Ders Videosu Ekleme -->
-            <div class="col-md-6">
-                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
-                    <h6 class="fw-bold text-danger mb-2"><i class="bi bi-film"></i> 🎥 Ünite Dersi Videosu Ekle</h6>
-                    <form action="/video-kaydet" method="POST">
-                        <input type="hidden" name="ders_adi" value="{{ aktif_ders }}">
-                        <input type="hidden" name="kaynak_sayfa" value="icerik_merkezi">
-                        <div class="mb-3">
-                            <label class="form-label small fw-bold">Ünite Numarası</label>
-                            <select name="unite_no" class="form-select form-select-sm rounded-3">
-                                {% for i in range(1, 15) %}
-                                <option value="{{ i }}">{{ i }}. Ünite</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label small fw-bold">Video URL / Web Linki</label>
-                            <input type="url" name="video_url" class="form-control form-control-sm" placeholder="Webcast, YouTube veya .mp4 linki..." required>
-                        </div>
-                        <button type="submit" class="btn btn-danger btn-sm w-100 rounded-pill fw-bold">Ders Videosunu Kaydet</button>
-                    </form>
-                </div>
-            </div>
-
-            <!-- 5. Kronoloji JSON Yükleme Kartı -->
-            <div class="col-md-6">
-                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
-                    <h6 class="fw-bold text-warning mb-2"><i class="bi bi-clock-history"></i> ⏳ Ders Kronolojisi Yükle (JSON)</h6>
-                    <form action="/kronoloji-yukle" method="POST" enctype="multipart/form-data">
-                        <input type="hidden" name="ders_adi" value="{{ aktif_ders }}">
-                        <div class="mb-3">
-                            <label class="form-label small fw-bold">Kronoloji JSON Dosyası</label>
-                            <input type="file" name="kronoloji_dosyasi" class="form-control form-control-sm" accept=".json" required>
-                        </div>
-                        <button type="submit" class="btn btn-warning btn-sm w-100 rounded-pill fw-bold text-dark">Kronolojiyi Kaydet ve Aktifleştir</button>
-                    </form>
-                </div>
-            </div>
-        </div>
+    return redirect(url_for("icerik_merkezi", ders=ders))
 
 @app.route("/kaydet-drive-link", methods=["POST"])
 @giris_zorunlu
@@ -465,7 +350,7 @@ def yukle_pdf_dosya():
     conn = veritabani_baglan()
     cursor = conn.cursor()
     cursor.execute("INSERT INTO unite_kaynaklari (ders_adi, unite_no, kaynak_turu, dosya_yolu) VALUES (%s, %s, 'yerel', %s)", 
-                   (ders, unite_no, f"/static/kitaplar/{dosya_adi}"))
+                   (unite_no, f"/static/kitaplar/{dosya_adi}"))
     conn.commit()
     cursor.close()
     conn.close()
@@ -802,7 +687,6 @@ def hafiza_kartlari():
         conn = veritabani_baglan()
         cursor = conn.cursor()
         
-        # Tüm olası formatlardaki kartları güvenle çekiyoruz
         cursor.execute("""
             SELECT madde FROM unite_ozetleri 
             WHERE TRIM(ders_adi) LIKE %s AND unite_no = %s
@@ -820,7 +704,6 @@ def hafiza_kartlari():
             on_yuz = ""
             arka_yuz = ""
 
-            # Güvenli metin ayrıştırma
             if "Soru:" in metin and "Cevap:" in metin:
                 try:
                     parcalar = metin.split("Cevap:")
@@ -838,8 +721,6 @@ def hafiza_kartlari():
                     on_yuz = "Bilgi Kartı"
                     arka_yuz = metin
             else:
-                # Sadece dışarıdan yüklenen Anki/dosya formatlarını filtrelemek istiyorsan burayı atlayabilirsin
-                # Ancak uygulamanın çökmemesi için düz metinleri de karta dönüştürüyoruz:
                 on_yuz = f"📌 {secilen_unite}. Ünite Kartı"
                 arka_yuz = metin
 
@@ -981,54 +862,33 @@ def unite_test_baslat(unite_no):
 def kronoloji_egzersizi():
     secilen_ders = request.args.get("ders", GUZ_DERSLERI[0]).strip()
     
-    conn = veritabani_baglan()
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT id, soru_metni, aciklama, dogru_cevap, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e 
-        FROM sorular 
-        WHERE TRIM(ders_adi) LIKE %s
-    """, (f"%{secilen_ders}%",))
-    satirlar = cursor.fetchall()
-    cursor.close()
-    conn.close()
+    guvenli_ders_adi = re.sub(r'[^a-zA-Z0-9]', '_', secilen_ders).lower()
+    dosya_adi = f"kronoloji_{guvenli_ders_adi}.json"
+    dosya_yolu = os.path.join(KRONOLOJI_KLASORU, dosya_adi)
+    
+    karisik_olaylar = []
+    
+    # Sadece ilgili derse ait yüklenen JSON dosyasından veri okunur
+    if os.path.exists(dosya_yolu):
+        try:
+            with open(dosya_yolu, "r", encoding="utf-8") as f:
+                ham_liste = json.load(f)
+                for idx, item in enumerate(ham_liste):
+                    karisik_olaylar.append({
+                        "id": idx + 1,
+                        "yil": item.get("yil", 0),
+                        "olay": item.get("olay", ""),
+                        "detay": item.get("detay", "")
+                    })
+        except Exception as e:
+            print(f"Kronoloji JSON okuma hatası: {str(e)}")
 
-    otomatik_olaylar = []
-    gorulen_yillar = set()
-
-    for s in satirlar:
-        metin_havuzu = f"{s['soru_metni']} {s['aciklama']}"
-        yillar = re.findall(r'\b(1[3-9]\d{2})\b', metin_havuzu)
-        
-        if yillar:
-            yil = int(yillar[0])
-            if yil not in gorulen_yillar:
-                gorulen_yillar.add(yil)
-                olay_metni = s['soru_metni']
-                if len(olay_metni) > 130:
-                    olay_metni = olay_metni[:127] + "..."
-                
-                otomatik_olaylar.append({
-                    "id": s["id"],
-                    "yil": yil,
-                    "olay": olay_metni,
-                    "detay": f"Doğru Cevap: {s['dogru_cevap']} | {s['aciklama'][:90]}..." if s['aciklama'] else f"Doğru Seçenek: {s['dogru_cevap']}"
-                })
-        if len(otomatik_olaylar) >= 6:
-            break
-
-    if len(otomatik_olaylar) < 3:
+    if not karisik_olaylar:
         karisik_olaylar = [
-            {"id": 1, "yil": 1453, "olay": "İstanbul'un fethi sonrası Gennadios'un Rum Patriği seçilmesi", "detay": "Fatih Sultan Mehmet dönemi."},
-            {"id": 2, "yil": 1461, "olay": "Episkopos Hovagim'in İstanbul Ermeni Patriği tayin edilmesi", "detay": "Fatih Sultan Mehmet dönemi."},
-            {"id": 3, "yil": 1492, "olay": "Sefarad Yahudilerinin Osmanlı topraklarına gelişi", "detay": "II. Bayezid dönemi."},
-            {"id": 4, "yil": 1602, "olay": "Fener Rum Patrikhanesi'nin Aya Yorgi'ye taşınması", "detay": "Patrikhane merkezi."},
-            {"id": 5, "yil": 1835, "olay": "Hahambaşılık makamına yeniden resmi berat verilmesi", "detay": "II. Mahmud dönemi."},
-            {"id": 6, "yil": 1856, "olay": "Islahat Fermanı ile millet nizamnamelerinin başlaması", "detay": "Tanzimat dönemi."}
+            {"id": 1, "yil": 2026, "olay": "Bu ders için henüz resmi kronoloji JSON yüklenmedi", "detay": "İçerik merkezinden bu dersin kronoloji JSON dosyasını yükleyebilirsiniz."}
         ]
     else:
-        karisik_olaylar = list(otomatik_olaylar)
-
-    random.shuffle(karisik_olaylar)
+        random.shuffle(karisik_olaylar)
 
     return render_template("index.html", 
                            durum="kronoloji", 
@@ -1530,7 +1390,6 @@ def yedek_yukle():
                 if not satir_str:
                     continue
                 
-                # Anki dışa aktarımındaki # ile başlayan ayar/yorum satırlarını pas geç
                 if satir_str.startswith("#"):
                     continue
                 
@@ -1589,12 +1448,14 @@ def yedek_yukle():
         session["bildirim"] = {"tur": "danger", "metin": f"Hata: {str(e)}"}
 
     return redirect(url_for("ana_sayfa"))
+
 @app.route("/sifirla", methods=["POST"])
 @giris_zorunlu
 def veritabani_sifirla():
     session.clear()
     session["bildirim"] = {"tur": "info", "metin": "Oturum güvenle kapatıldı. Bulut veritabanındaki tüm verileriniz eksiksiz korunmaktadır."}
     return redirect(url_for("giris_yap"))
+
 @app.route("/arama")
 @giris_zorunlu
 def global_arama():
@@ -1606,7 +1467,6 @@ def global_arama():
         conn = veritabani_baglan()
         cursor = conn.cursor()
         
-        # 1. Soru havuzunda arama yap
         cursor.execute("""
             SELECT id, ders_adi, soru_metni, secenek_a, dogru_cevap, aciklama 
             FROM sorular 
@@ -1615,7 +1475,6 @@ def global_arama():
         """, (f"%{sorgu}%", f"%{sorgu}%", f"%{sorgu}%"))
         bulunan_sorular = cursor.fetchall()
 
-        # 2. Hafıza kartları / hap bilgiler tablosunda arama yap
         cursor.execute("""
             SELECT id, ders_adi, unite_no, madde 
             FROM unite_ozetleri 
@@ -1633,6 +1492,7 @@ def global_arama():
                            bulunan_sorular=bulunan_sorular, 
                            bulunan_kartlar=bulunan_kartlar, 
                            dersler=GUZ_DERSLERI)
+
 @app.route("/zayif-nokta-analizi")
 @giris_zorunlu
 def zayif_nokta_analizi():
@@ -1645,7 +1505,6 @@ def zayif_nokta_analizi():
         conn = veritabani_baglan()
         cursor = conn.cursor()
 
-        # 1. Genel başarı istatistiklerini hesaplayalım
         cursor.execute("""
             SELECT 
                 SUM(p.dogru_sayisi) as d_sayi,
@@ -1658,7 +1517,6 @@ def zayif_nokta_analizi():
             toplam_yanlis_genel = genel_istatistik["y_sayi"] or 0
             toplam_cozulen_genel = toplam_dogru_genel + toplam_yanlis_genel
 
-        # 2. Ünite bazlı hata analizleri ve kritiklik derecelendirmesi
         cursor.execute("""
             SELECT 
                 s.ders_adi, 
@@ -1681,7 +1539,6 @@ def zayif_nokta_analizi():
             d_sayisi = zu["toplam_dogru"] or 0
             toplam_unite_soru = y_sayisi + d_sayisi
             
-            # Hata oranına göre kritiklik derecesi belirleme
             hata_orani = (y_sayisi / toplam_unite_soru) * 100 if toplam_unite_soru > 0 else 0
             
             if hata_orani >= 40:
@@ -1710,7 +1567,6 @@ def zayif_nokta_analizi():
     except Exception as e:
         print(f"Gelişmiş zayıf nokta analiz hatası: {str(e)}")
 
-    # 3. Genel Başarıya Göre Koçun Akıllı Sentez / Motivasyon Mesajı
     genel_basari = round((toplam_dogru_genel / toplam_cozulen_genel) * 100, 1) if toplam_cozulen_genel > 0 else 0
     
     if toplam_cozulen_genel < 10:
@@ -1722,7 +1578,6 @@ def zayif_nokta_analizi():
     else:
         koc_mesaji = f"Şu an genel başarı oranın %{genel_basari} seviyesinde. Biraz daha yoğunlaşarak ve zayıf ünite testlerine ağırlık vererek bunu hızla artırabiliriz."
 
-    # Tahmini Sınav Başarı Skoru (100 üzerinden simülasyon puanı)
     tahmini_puan = int(genel_basari) if toplam_cozulen_genel > 0 else "Henüz Veri Yok"
 
     return render_template("index.html", 
@@ -1733,70 +1588,7 @@ def zayif_nokta_analizi():
                            genel_basari=genel_basari,
                            toplam_cozulen_genel=toplam_cozulen_genel,
                            dersler=GUZ_DERSLERI)
-    # Kronoloji JSON dosyalarının saklanacağı klasör
-KRONOLOJI_KLASORU = os.path.join(BASE_DIR, "static", "kronoloji_dosyalari")
-os.makedirs(KRONOLOJI_KLASORU, exist_ok=True)
 
-@app.route("/kronoloji-yukle", methods=["POST"])
-@giris_zorunlu
-def kronoloji_yukle():
-    ders = request.form.get("ders_adi", "").strip()
-    dosya = request.files.get("kronoloji_dosyasi")
-
-    if not dosya or not dosya.filename.lower().endswith(".json"):
-        session["bildirim"] = {"tur": "danger", "metin": "Lütfen geçerli bir .json formatında kronoloji dosyası seçin."}
-        return redirect(url_for("icerik_merkezi", ders=ders))
-
-    try:
-        guvenli_ders_adi = re.sub(r'[^a-zA-Z0-9]', '_', ders).lower()
-        dosya_adi = f"kronoloji_{guvenli_ders_adi}.json"
-        hedef_yol = os.path.join(KRONOLOJI_KLASORU, dosya_adi)
-        
-        dosya.save(hedef_yol)
-        session["bildirim"] = {"tur": "success", "metin": f"'{ders}' dersine ait resmi kronoloji verileri başarıyla yüklendi!"}
-    except Exception as e:
-        session["bildirim"] = {"tur": "danger", "metin": f"Kronoloji yüklenirken hata oluştu: {str(e)}"}
-
-    return redirect(url_for("icerik_merkezi", ders=ders))
-
-@app.route("/kronoloji")
-@giris_zorunlu
-def kronoloji_egzersizi():
-    secilen_ders = request.args.get("ders", GUZ_DERSLERI[0]).strip()
-    
-    guvenli_ders_adi = re.sub(r'[^a-zA-Z0-9]', '_', secilen_ders).lower()
-    dosya_adi = f"kronoloji_{guvenli_ders_adi}.json"
-    dosya_yolu = os.path.join(KRONOLOJI_KLASORU, dosya_adi)
-    
-    karisik_olaylar = []
-    
-    # Sadece ilgili derse ait yüklenen JSON dosyasından veri okunur
-    if os.path.exists(dosya_yolu):
-        try:
-            with open(dosya_yolu, "r", encoding="utf-8") as f:
-                ham_liste = json.load(f)
-                for idx, item in enumerate(ham_liste):
-                    karisik_olaylar.append({
-                        "id": idx + 1,
-                        "yil": item.get("yil", 0),
-                        "olay": item.get("olay", ""),
-                        "detay": item.get("detay", "")
-                    })
-        except Exception as e:
-            print(f"Kronoloji JSON okuma hatası: {str(e)}")
-
-    if not karisik_olaylar:
-        karisik_olaylar = [
-            {"id": 1, "yil": 2026, "olay": "Bu ders için henüz resmi kronoloji JSON yüklenmedi", "detay": "İçerik merkezinden bu dersin kronoloji JSON dosyasını yükleyebilirsiniz."}
-        ]
-    else:
-        random.shuffle(karisik_olaylar)
-
-    return render_template("index.html", 
-                           durum="kronoloji", 
-                           aktif_ders=secilen_ders, 
-                           karisik_olaylar=karisik_olaylar, 
-                           dersler=GUZ_DERSLERI)
 @app.route("/sw.js")
 def service_worker():
     return send_from_directory(os.path.join(app.root_path, "static"), "sw.js", mimetype="application/javascript")
