@@ -1079,47 +1079,86 @@
             </div>
         </div>
 
-        <!-- YAPAY ZEKA ZAYIF NOKTA ANALİZİ EKRANI -->
+       <!-- YAPAY ZEKA ZAYIF NOKTA ANALİZİ & KOÇ EKRANI -->
         {% elif durum == 'zayif_nokta' %}
         <div class="row justify-content-center">
             <div class="col-lg-10">
+                
+                <!-- ÜST ÖZET VE KOÇ MESAJI KARTI -->
                 <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
-                    <div class="d-flex align-items-center gap-3 mb-3">
-                        <div class="p-3 bg-primary bg-opacity-10 text-primary rounded-3 fs-3"><i class="bi bi-robot"></i></div>
-                        <div>
-                            <h4 class="fw-bold m-0">Yapay Zeka Çalışma Koçu & Zayıf Nokta Analizi</h4>
-                            <p class="text-muted small m-0">Soru çözücü geçmişiniz taranarak en çok zorlandığınız alanlar tespit edilmiştir.</p>
+                    <div class="row align-items-center g-4">
+                        <div class="col-md-8">
+                            <div class="d-flex align-items-center gap-3 mb-2">
+                                <div class="p-3 bg-primary bg-opacity-10 text-primary rounded-3 fs-3"><i class="bi bi-robot"></i></div>
+                                <div>
+                                    <h4 class="fw-bold m-0">Yapay Zeka Çalışma Koçu & Strateji Merkezi</h4>
+                                    <p class="text-muted small m-0">Performans ve hata geçmişiniz analiz edilerek size özel strateji üretilmiştir.</p>
+                                </div>
+                            </div>
+                            <div class="alert alert-light border border-primary-subtle text-dark small mt-3 mb-0 rounded-3">
+                                <i class="bi bi-chat-quote-fill text-primary me-2 fs-5"></i> <strong>Koçun Notu:</strong> {{ koc_mesaji }}
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-center border-start-md">
+                            <div class="p-3 bg-light rounded-4">
+                                <span class="text-muted small fw-bold">SİMÜLASYON BAŞARI PUANI</span>
+                                <h1 class="fw-bold text-primary display-5 my-1">
+                                    {% if tahmini_puan != "Henüz Veri Yok" %}{{ tahmini_puan }}<span class="fs-6 text-muted">/100</span>{% else %}--{% endif %}
+                                </h1>
+                                <span class="badge bg-secondary bg-opacity-10 text-dark small">Genel Doğruluk: %{{ genel_basari }}</span>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <h5 class="fw-bold mb-3"><i class="bi bi-exclamation-triangle-fill text-warning me-2"></i> Odaklanmanız Gereken Kritik Üniteler</h5>
+                <!-- KRİTİK ÜNİTELER LİSTESİ -->
+                <h5 class="fw-bold mb-3"><i class="bi bi-exclamation-triangle-fill text-warning me-2"></i> Öncelikli Odaklanmanız Gereken Üniteler</h5>
+                
+                {% if tavsiyeler and tavsiyeler[0].ders != "" %}
                 <div class="row g-3 mb-4">
                     {% for tavsiye in tavsiyeler %}
                     <div class="col-md-6">
-                        <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100 border-start border-primary border-4">
-                            <h5 class="fw-bold text-dark">{{ tavsiye.baslik }}</h5>
-                            <p class="text-muted small my-2">{{ tavsiye.mesaj }}</p>
-                            {% if tavsiye.ders %}
-                            <div class="mt-auto pt-2">
-                                <a href="/ders-calis?ders={{ tavsiye.ders }}&unite={{ tavsiye.unite }}" class="btn btn-sm btn-outline-primary rounded-pill fw-bold">
-                                    <i class="bi bi-book me-1"></i> Bu Üniteye Çalış
+                        <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100 border-start border-{{ 'danger' if tavsiye.kritiklik == 'Kritik' else 'warning' }} border-4 d-flex flex-column justify-content-between">
+                            <div>
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <h5 class="fw-bold text-dark m-0">{{ tavsiye.baslik }}</h5>
+                                    <span class="badge bg-{{ tavsiye.badge_renk }} rounded-pill px-3">
+                                        <i class="bi {{ tavsiye.ikon }} me-1"></i> {{ tavsiye.kritiklik }}
+                                    </span>
+                                </div>
+                                <p class="text-muted small my-2">{{ tavsiye.mesaj }}</p>
+                            </div>
+                            
+                            <div class="mt-3 pt-2 border-top d-flex gap-2">
+                                <a href="/ders-calis?ders={{ tavsiye.ders }}&unite={{ tavsiye.unite }}" class="btn btn-sm btn-outline-primary rounded-pill fw-bold w-50">
+                                    <i class="bi bi-book me-1"></i> Üniteye Çalış
+                                </a>
+                                <a href="/unite-test-baslat/{{ tavsiye.unite }}?ders={{ tavsiye.ders }}" class="btn btn-sm btn-primary rounded-pill fw-bold w-50">
+                                    <i class="bi bi-play-fill me-1"></i> Test Başlat
                                 </a>
                             </div>
-                            {% endif %}
                         </div>
                     </div>
                     {% endfor %}
                 </div>
+                {% else %}
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white text-center mb-4 py-5">
+                    <i class="bi bi-check-circle-fill text-success display-4 mb-3"></i>
+                    <h5 class="fw-bold">Henüz Kritik Hata Verisi Bulunmuyor!</h5>
+                    <p class="text-muted small mb-0">Test çözmeye devam ettikçe koçumuz zayıf noktalarınızı burada öncelik sırasına koyacaktır.</p>
+                </div>
+                {% endif %}
 
+                <!-- KOÇUN STRATEJİK TAVSİYELERİ -->
                 <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
-                    <h5 class="fw-bold mb-3"><i class="bi bi-lightbulb-fill text-success me-2"></i> Koçun Çalışma Tavsiyeleri</h5>
+                    <h5 class="fw-bold mb-3"><i class="bi bi-lightbulb-fill text-success me-2"></i> Sınav Stratejisi ve Öneriler</h5>
                     <ul class="list-unstyled small text-muted mb-0">
-                        <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i> Yanlış yaptığınız soruları düzenli olarak <strong>Özel Odak Havuzundan</strong> tekrar çözün.</li>
-                        <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i> Kavram karmaşası yaşadığınız terimler için <strong>Flashcards</strong> modülünde kart çevirme turları atın.</li>
-                        <li><i class="bi bi-check-circle-fill text-success me-2"></i> Deneme sınavlarından önce mutlaka ilgili ünitenin <strong>Hap Bilgilerini</strong> gözden geçirin.</li>
+                        <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i> <strong>Kırmızı (Kritik)</strong> etiketli ünitelerde hata oranınız yüksek olduğundan, önceliği bu konuların özetlerine ve flashcard kartlarına verin.</li>
+                        <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i> Doğrudan kartın altındaki <strong>"Test Başlat"</strong> butonunu kullanarak vakit kaybetmeden nokta atışı pratik yapabilirsiniz.</li>
+                        <li><i class="bi bi-check-circle-fill text-success me-2"></i> AUZEF sınavlarında başarıyı artırmanın en etkili yolu yanlış yapılan soruların mantığını kavramaktır; yönetim panelinden yanlış sorularınızı gözden geçirin.</li>
                     </ul>
                 </div>
+
             </div>
         </div>
         {% endif %}
