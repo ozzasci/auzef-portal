@@ -278,11 +278,150 @@ def ana_sayfa():
                            hatali_sayisi=hatali_soru_sayisi,
                            bildirim=mesaj)
 
-@app.route("/icerik-merkezi")
-@giris_zorunlu
-def icerik_merkezi():
-    secilen_ders = request.args.get("ders", GUZ_DERSLERI[0]).strip()
-    return render_template("index.html", durum="icerik_merkezi", aktif_ders=secilen_ders, dersler=GUZ_DERSLERI)
+<!-- İÇERİK MERKEZİ -->
+        {% elif durum == 'icerik_merkezi' %}
+        <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
+            <h5 class="fw-bold mb-3"><i class="bi bi-cloud-arrow-up-fill text-primary"></i> İçerik ve Kaynak Merkezi</h5>
+            <div class="mb-2">
+                <label class="form-label small fw-bold">Aktif Ders</label>
+                <select class="form-select rounded-3 fw-bold border-primary-subtle" onchange="location.href='/icerik-merkezi?ders=' + encodeURIComponent(this.value)">
+                    {% for d in dersler %}
+                    <option value="{{ d }}" {% if d == aktif_ders %}selected{% endif %}>{{ d }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <small class="text-muted">Seçili ders için soru havuzlarını, ünite kitaplarını, kılavuzları, ders videolarını ve kronoloji verilerini aşağıdan yönetebilirsiniz.</small>
+        </div>
+
+        <div class="row g-4">
+            <!-- 1. Soru Havuzu Yükleme -->
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
+                    <h6 class="fw-bold text-success mb-2"><i class="bi bi-file-earmark-check"></i> 🎯 Ünite Soru Havuzu Yükle</h6>
+                    <form action="/yukle-unite-sorulari" method="POST" enctype="multipart/form-data">
+                        <input type="hidden" name="ders_adi" value="{{ aktif_ders }}">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Ünite Numarası</label>
+                            <select name="unite_no" class="form-select form-select-sm rounded-3">
+                                {% for i in range(1, 15) %}
+                                <option value="{{ i }}">{{ i }}. Ünite</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small fw-bold">Cihazdan PDF Yükle</label>
+                            <input type="file" name="soru_dosyasi" class="form-control form-control-sm" accept=".pdf">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold"><i class="bi bi-google-drive text-warning"></i> Veya Google Drive Linki</label>
+                            <input type="url" name="drive_url" class="form-control form-control-sm" placeholder="https://drive.google.com/file/d/...">
+                        </div>
+                        <button type="submit" class="btn btn-success btn-sm w-100 rounded-pill fw-bold">Soruları Veritabanına Yaz</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- 2. Ders Kılavuzu & Hap Bilgi -->
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
+                    <h6 class="fw-bold text-danger mb-2"><i class="bi bi-file-earmark-text"></i> 📄 Ders Kılavuzu & Hap Bilgi</h6>
+                    <form action="/otomatik-klavuz-isle" method="POST" enctype="multipart/form-data">
+                        <input type="hidden" name="ders_adi" value="{{ aktif_ders }}">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Kılavuz PDF Dosyası</label>
+                            <input type="file" name="klavuz_dosya" class="form-control form-control-sm" accept=".pdf">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Veya Google Drive Linki</label>
+                            <input type="url" name="drive_url" class="form-control form-control-sm" placeholder="https://drive.google.com/file/d/...">
+                        </div>
+                        <button type="submit" class="btn btn-danger btn-sm w-100 rounded-pill fw-bold">Kılavuzu Çözümle ve Bağla</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- 3. Ünite Ders Kitabı (PDF / Drive) -->
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
+                    <h6 class="fw-bold text-primary mb-2"><i class="bi bi-book-half"></i> 📚 Ünite Ders Kitabı (PDF / Drive)</h6>
+                    <form action="/kaydet-drive-link" method="POST" class="mb-3 border-bottom pb-3">
+                        <input type="hidden" name="ders_adi" value="{{ aktif_ders }}">
+                        <div class="mb-2">
+                            <label class="form-label small fw-bold">Ünite Numarası</label>
+                            <select name="unite_no" class="form-select form-select-sm rounded-3">
+                                {% for i in range(1, 15) %}
+                                <option value="{{ i }}">{{ i }}. Ünite</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small fw-bold"><i class="bi bi-google-drive text-warning"></i> Google Drive Linki</label>
+                            <input type="url" name="drive_url" class="form-control form-control-sm" placeholder="https://drive.google.com/file/d/..." required>
+                        </div>
+                        <button type="submit" class="btn btn-outline-primary btn-sm w-100 rounded-pill fw-bold">Drive Kitabını Bağla</button>
+                    </form>
+
+                    <form action="/yukle-pdf-dosya" method="POST" enctype="multipart/form-data">
+                        <input type="hidden" name="ders_adi" value="{{ aktif_ders }}">
+                        <div class="mb-2">
+                            <label class="form-label small fw-bold">Veya Cihazdan PDF Yükle</label>
+                            <div class="row g-2">
+                                <div class="col-5">
+                                    <select name="unite_no" class="form-select form-select-sm rounded-3">
+                                        {% for i in range(1, 15) %}
+                                        <option value="{{ i }}">{{ i }}. Ünite</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-7">
+                                    <input type="file" name="pdf_dosya" class="form-control form-control-sm" accept=".pdf" required>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-outline-secondary btn-sm w-100 rounded-pill fw-bold">Cihazdan PDF Yükle</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- 4. Ders Videosu Ekleme -->
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
+                    <h6 class="fw-bold text-danger mb-2"><i class="bi bi-film"></i> 🎥 Ünite Dersi Videosu Ekle</h6>
+                    <form action="/video-kaydet" method="POST">
+                        <input type="hidden" name="ders_adi" value="{{ aktif_ders }}">
+                        <input type="hidden" name="kaynak_sayfa" value="icerik_merkezi">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Ünite Numarası</label>
+                            <select name="unite_no" class="form-select form-select-sm rounded-3">
+                                {% for i in range(1, 15) %}
+                                <option value="{{ i }}">{{ i }}. Ünite</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Video URL / Web Linki</label>
+                            <input type="url" name="video_url" class="form-control form-control-sm" placeholder="Webcast, YouTube veya .mp4 linki..." required>
+                        </div>
+                        <button type="submit" class="btn btn-danger btn-sm w-100 rounded-pill fw-bold">Ders Videosunu Kaydet</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- 5. Kronoloji JSON Yükleme Kartı -->
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
+                    <h6 class="fw-bold text-warning mb-2"><i class="bi bi-clock-history"></i> ⏳ Ders Kronolojisi Yükle (JSON)</h6>
+                    <form action="/kronoloji-yukle" method="POST" enctype="multipart/form-data">
+                        <input type="hidden" name="ders_adi" value="{{ aktif_ders }}">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Kronoloji JSON Dosyası</label>
+                            <input type="file" name="kronoloji_dosyasi" class="form-control form-control-sm" accept=".json" required>
+                        </div>
+                        <button type="submit" class="btn btn-warning btn-sm w-100 rounded-pill fw-bold text-dark">Kronolojiyi Kaydet ve Aktifleştir</button>
+                    </form>
+                </div>
+            </div>
+        </div>
 
 @app.route("/kaydet-drive-link", methods=["POST"])
 @giris_zorunlu
