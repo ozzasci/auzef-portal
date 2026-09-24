@@ -832,13 +832,13 @@
             </div>
         </div>
 
-        <!-- KRONOLOJİ -->
+   <!-- KRONOLOJİ -->
         {% elif durum == 'kronoloji' %}
         <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
             <div class="row align-items-center g-3">
                 <div class="col-lg-5">
                     <h5 class="fw-bold text-primary mb-1"><i class="bi bi-clock-history"></i> Kronoloji Yarışı</h5>
-                    <p class="text-muted small mb-0">Olayları sürükleyerek en eskiden en yeniye doğru sıralayın.</p>
+                    <p class="text-muted small mb-0">Olayları sürükleyerek veya ok tuşlarıyla en eskiden en yeniye doğru sıralayın.</p>
                 </div>
                 <div class="col-lg-4">
                     <select class="form-select form-select-sm rounded-3 fw-bold border-primary-subtle" onchange="location.href='/kronoloji?ders=' + encodeURIComponent(this.value)">
@@ -869,16 +869,20 @@
 
                 <ul class="list-group list-group-flush shadow-sm rounded-4 overflow-hidden mb-4 p-2 bg-light border" id="kronolojiListesi">
                     {% for olay in karisik_olaylar %}
-                    <li class="list-group-item p-3 border rounded-3 bg-white card-hover mb-2 d-flex align-items-center justify-content-between shadow-sm" draggable="true" data-yil="{{ olay.yil }}" style="cursor: grab;">
-                        <div class="d-flex align-items-center gap-3">
-                            <div class="text-muted fs-5"><i class="bi bi-grip-vertical"></i></div>
-                            <div>
+                    <li class="list-group-item p-3 border rounded-3 bg-white card-hover mb-2 d-flex align-items-center justify-content-between shadow-sm kronoloji-item" draggable="true" data-yil="{{ olay.yil }}">
+                        <div class="d-flex align-items-center gap-3 flex-grow-1">
+                            <div class="text-muted fs-5" style="cursor: grab;"><i class="bi bi-grip-vertical"></i></div>
+                            <div class="flex-grow-1">
                                 <span class="badge bg-primary bg-opacity-10 text-primary border border-primary-subtle me-2 yil-badge" style="display: none;">{{ olay.yil }}</span>
                                 <span class="fw-semibold text-dark">{{ olay.olay }}</span>
                                 <div class="small text-muted mt-1">{{ olay.detay }}</div>
                             </div>
                         </div>
-                        <div class="badge bg-light text-secondary border">Sürükle</div>
+                        <!-- Mobil ve Masaüstü İçin Sıralama Butonları -->
+                        <div class="d-flex flex-column gap-1 ms-2">
+                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 rounded-1" onclick="ogeyiTasi(this, 'yukari')" title="Yukarı Taşı"><i class="bi bi-chevron-up"></i></button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 rounded-1" onclick="ogeyiTasi(this, 'asagi')" title="Aşağı Taşı"><i class="bi bi-chevron-down"></i></button>
+                        </div>
                     </li>
                     {% endfor %}
                 </ul>
@@ -898,6 +902,7 @@
             const liste = document.getElementById('kronolojiListesi');
             let suruklenenOge = null;
 
+            // Masaüstü Drag & Drop Desteği
             liste.addEventListener('dragstart', (e) => {
                 suruklenenOge = e.target.closest('li');
                 e.target.style.opacity = '0.4';
@@ -921,6 +926,50 @@
                     }
                 }
             });
+
+            // Mobil Touch (Parmakla Sürükleme) Desteği
+            let aktifDokunmaOgesi = null;
+            
+            document.querySelectorAll('.kronoloji-item').forEach(item => {
+                item.addEventListener('touchstart', (e) => {
+                    aktifDokunmaOgesi = item;
+                    item.style.opacity = '0.6';
+                }, {passive: true});
+
+                item.addEventListener('touchmove', (e) => {
+                    if (!aktifDokunmaOgesi) return;
+                    let touch = e.touches[0];
+                    let hedefElement = document.elementFromPoint(touch.clientX, touch.clientY);
+                    let hedefLi = hedefElement ? hedefElement.closest('li') : null;
+                    
+                    if (hedefLi && hedefLi !== aktifDokunmaOgesi && hedefLi.parentNode === liste) {
+                        let rect = hedefLi.getBoundingClientRect();
+                        let ortasi = rect.top + rect.height / 2;
+                        if (touch.clientY < ortasi) {
+                            liste.insertBefore(aktifDokunmaOgesi, hedefLi);
+                        } else {
+                            liste.insertBefore(aktifDokunmaOgesi, hedefLi.nextSibling);
+                        }
+                    }
+                }, {passive: true});
+
+                item.addEventListener('touchend', () => {
+                    if (aktifDokunmaOgesi) {
+                        aktifDokunmaOgesi.style.opacity = '1';
+                        aktifDokunmaOgesi = null;
+                    }
+                });
+            });
+
+            // Ok Butonlarıyla Taşıma Fonksiyonu
+            function ogeyiTasi(btn, yon) {
+                const li = btn.closest('li');
+                if (yon === 'yukari' && li.previousElementSibling) {
+                    liste.insertBefore(li, li.previousElementSibling);
+                } else if (yon === 'asagi' && li.nextElementSibling) {
+                    liste.insertBefore(li.nextElementSibling, li);
+                }
+            }
 
             function siralamayiKarsilastir() {
                 const listeItems = document.querySelectorAll('#kronolojiListesi li');
