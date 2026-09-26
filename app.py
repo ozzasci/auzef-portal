@@ -350,7 +350,7 @@ def yukle_pdf_dosya():
     conn = veritabani_baglan()
     cursor = conn.cursor()
     cursor.execute("INSERT INTO unite_kaynaklari (ders_adi, unite_no, kaynak_turu, dosya_yolu) VALUES (%s, %s, 'yerel', %s)", 
-                   (unite_no, f"/static/kitaplar/{dosya_adi}"))
+                   (ders, unite_no, f"/static/kitaplar/{dosya_adi}"))
     conn.commit()
     cursor.close()
     conn.close()
@@ -408,7 +408,7 @@ def klavuz_pdf_ayikla(pdf_bytes):
 @giris_zorunlu
 def otomatik_klavuz_isle():
     ders = request.form.get("ders_adi", "").strip()
-    unite_no = int(request.form.get("unite_no", 1)) # Seçilen ünite numarası
+    unite_no = int(request.form.get("unite_no", 1)) # Formdan seçilen ünite numarası
     drive_link = request.form.get("drive_url", "").strip()
     yuklenen_dosya = request.files.get("klavuz_dosya")
 
@@ -461,7 +461,7 @@ def otomatik_klavuz_isle():
                 cursor.execute("INSERT INTO unite_ozetleri (ders_adi, unite_no, madde) VALUES (%s, %s, %s)", (ders, u_no, m))
 
         if klavuz_yolu:
-            # Sadece o seçilen üniteye ait eski kılavuzu temizle ve yeni ünite numarasıyla kaydet
+            # DÜZELTME: Artık kılavuz PDF'ler unite_no = 0 yerine seçilen ünite numarasıyla kaydediliyor!
             cursor.execute("DELETE FROM unite_kaynaklari WHERE TRIM(ders_adi) LIKE %s AND unite_no = %s AND kaynak_turu = 'klavuz_pdf'", (f"%{ders}%", unite_no))
             cursor.execute("""
                 INSERT INTO unite_kaynaklari (ders_adi, unite_no, kaynak_turu, dosya_yolu)
@@ -478,6 +478,58 @@ def otomatik_klavuz_isle():
     except Exception as e:
         session["bildirim"] = {"tur": "danger", "metin": f"Ayrıştırma hatası oluştu: {str(e)}"}
         return redirect(url_for("icerik_merkezi", ders=ders))
+
+def auzef_harfsiz_ve_harfli_soru_ayikla(metin, unite_no=1):
+    temiz = re.sub(r'about:blank\s*\d*/?\d*', '', metin)
+    temiz = re.sub(r'\d{1,2}\.\d{1,2}\.\d{4}\s+\d{1,2}:\d{1,2}', '', temiz)
+    temiz = re.sub(r'Ders:\s*.*?(?:\n|\|)', '', temiz, flags=re.IGNORECASE)
+    temiz = re.sub(r'Ünite:\s*.*?\n', '', temiz, flags=re.IGNORECASE)
+
+    bloklar = re.split(r'(?:^|\n)\s*Soru\s*(\d{1,2})\s*:\s*', temiz, flags=re.IGNORECASE)
+    sorular = []
+
+    if len(bloklar) > 1:
+        for i in range(1, len(bloklar), 2):
+            icerik = bloklar[i+1].strip()
+            cevap_match = re.search(r'\n\s*Cevap\s*:\s*(.*)', icerik, flags=re.IGNORECASE)
+            if not cevap_match:
+                continue
+
+            dogru_cevap_metni = cevap_match.group(1).strip()
+            govde = icerik[:cevap_match.start()].strip()
+
+            satirlar = [s.strip() for s in govde.splitlines() if s.strip()]
+            if len(satirlar) < 6:
+                continue
+
+            sec_e = satirlar[-1]
+            sec_d = satirlar[-2]
+            sec_c = satirlar[-3]
+            sec_b = satirlar[-4]
+            sec_a = satirlar[-5]
+            soru_kok = " ".join(satirlar[:-5]).strip()
+
+            dogru_harf = "A"
+            c_norm = dogru_cevap_metni.replace("Â", "A").replace("â", "a").strip().lower()
+
+            for harf, val in [("A", sec_a), ("B", sec_b), ("C", sec_c), ("D", sec_d), ("E", sec_e)]:
+                v_norm = val.replace("Â", "A").replace("â", "a").strip().lower()
+                if v_norm == c_norm or v_norm in c_norm or c_norm in v_norm:
+                    dogru_harf = harf
+                    break
+
+            sorular.append({
+                "unite_no": unite_no,
+                "metin": soru_kok,
+                "a": sec_a,
+                "b": sec_b,
+                "c": sec_c,
+                "d": sec_d,
+                "e": sec_e,
+                "dogru_cevap": dogru_harf,
+                "aciklama": f"Doğru Yanıt: {dogru_cevap_metni}"
+            })
+    return sorular
 
 @app.route("/yukle-unite-sorulari", methods=["POST"])
 @giris_zorunlu
@@ -556,7 +608,6 @@ def ders_calis():
     conn = veritabani_baglan()
     cursor = conn.cursor()
 
-    # 1. Üniteye ait ana ders kitabı / PDF kaynağını çek
     cursor.execute("""
         SELECT kaynak_turu, dosya_yolu FROM unite_kaynaklari 
         WHERE TRIM(ders_adi) LIKE %s AND unite_no = %s AND kaynak_turu != 'klavuz_pdf'
@@ -567,7 +618,7 @@ def ders_calis():
     pdf_url = row_kaynak["dosya_yolu"] if row_kaynak else ""
     kaynak_turu = row_kaynak["kaynak_turu"] if row_kaynak else ""
 
-    # 2. Sadece o an seçili olan ünitenin kılavuz PDF'ini çek
+    # DÜZELTME: Sadece o an seçilen ünitenin kılavuz PDF'i getiriliyor
     cursor.execute("""
         SELECT dosya_yolu FROM unite_kaynaklari 
         WHERE TRIM(ders_adi) LIKE %s AND unite_no = %s AND kaynak_turu = 'klavuz_pdf'
@@ -576,7 +627,6 @@ def ders_calis():
     row_klavuz = cursor.fetchone()
     klavuz_pdf_url = row_klavuz["dosya_yolu"] if row_klavuz else ""
 
-    # 3. Üniteye ait ders videosunu çek
     cursor.execute("""
         SELECT video_url FROM ders_videolari 
         WHERE TRIM(ders_adi) LIKE %s AND unite_no = %s
@@ -585,14 +635,12 @@ def ders_calis():
     row_video = cursor.fetchone()
     video_url = row_video["video_url"] if row_video else ""
 
-    # 4. Ünite takip (okundu/izlendi) durumlarını çek
     cursor.execute("""
         SELECT unite_no, okundu, izlendi FROM unite_takip 
         WHERE TRIM(ders_adi) LIKE %s
     """, (f"%{secilen_ders}%",))
     takip_verileri = {r["unite_no"]: {"okundu": r["okundu"], "izlendi": r["izlendi"]} for r in cursor.fetchall()}
 
-    # 5. Sadece o ünitenin hap bilgilerini/özetlerini çek
     cursor.execute("""
         SELECT madde FROM unite_ozetleri 
         WHERE TRIM(ders_adi) LIKE %s AND unite_no = %s
@@ -823,7 +871,6 @@ def kronoloji_egzersizi():
     
     karisik_olaylar = []
     
-    # Sadece ilgili derse ait yüklenen JSON dosyasından veri okunur
     if os.path.exists(dosya_yolu):
         try:
             with open(dosya_yolu, "r", encoding="utf-8") as f:
