@@ -1,1597 +1,1348 @@
-import os
-import re
-import psycopg2
-from psycopg2.extras import RealDictCursor
-import io
-import json
-import random
-import urllib.request
-import csv
-from datetime import datetime
-from functools import wraps
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify, Response, send_from_directory
-from werkzeug.security import generate_password_hash, check_password_hash
-from pypdf import PdfReader
-
-app = Flask(__name__)
-app.secret_key = "auzef_portal_tam_surum_2026_gizli_anahtar"
-
-# Supabase PostgreSQL Bağlantı URI'si
-DATABASE_URL = os.environ.get("DATABASE_URL", "postgres://postgres.luvrwqfypquitdyqqpao:1O2g3z1o2g3z@aws-0-eu-central-1.pooler.supabase.com:6543/postgres")
-
-BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "kitaplar")
-KRONOLOJI_KLASORU = os.path.join(BASE_DIR, "static", "kronoloji_dosyalari")
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(KRONOLOJI_KLASORU, exist_ok=True)
-
-GUZ_DERSLERI = [
-    "20. Yüzyıl Türkiye’sinde Gayrimüslimler ve Kurumları",
-    "Osmanlı Diplomasi Tarihi",
-    "Osmanlı İktisat Tarihi",
-    "Osmanlı Tarihi (1789-1908)",
-    "Osmanlı Teşkilatı ve Kültür Tarihi",
-    "Sömürgecilik Tarihi"
-]
-
-UNITE_BASLIKLARI = {i: f"{i}. Ünite" for i in range(1, 15)}
-
-def veritabani_baglan():
-    conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
-    return conn
-
-def veritabani_hazirla():
-    conn = veritabani_baglan()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS kullanicilar (
-            id SERIAL PRIMARY KEY,
-            kullanici_adi TEXT UNIQUE,
-            ad_soyad TEXT,
-            sifre_hash TEXT,
-            kayit_tarihi TEXT
-        )
-    """)
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS sorular (
-            id SERIAL PRIMARY KEY,
-            ders_adi TEXT,
-            soru_metni TEXT,
-            secenek_a TEXT,
-            secenek_b TEXT,
-            secenek_c TEXT,
-            secenek_d TEXT,
-            secenek_e TEXT,
-            dogru_cevap TEXT,
-            aciklama TEXT,
-            yildizli INTEGER DEFAULT 0,
-            kullanici_notu TEXT DEFAULT '',
-            unite_no INTEGER DEFAULT 0
-        )
-    """)
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS sinav_gecmisi (
-            id SERIAL PRIMARY KEY,
-            tarih TEXT,
-            ders_adi TEXT,
-            dogru INTEGER,
-            yanlis INTEGER,
-            bos INTEGER,
-            net REAL,
-            puan REAL
-        )
-    """)
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS performans (
-            soru_id INTEGER PRIMARY KEY,
-            dogru_sayisi INTEGER DEFAULT 0,
-            yanlis_sayisi INTEGER DEFAULT 0,
-            son_durum TEXT DEFAULT ''
-        )
-    """)
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS unite_kaynaklari (
-            id SERIAL PRIMARY KEY,
-            ders_adi TEXT,
-            unite_no INTEGER,
-            kaynak_turu TEXT,
-            dosya_yolu TEXT
-        )
-    """)
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS unite_takip (
-            id SERIAL PRIMARY KEY,
-            ders_adi TEXT,
-            unite_no INTEGER,
-            okundu INTEGER DEFAULT 0,
-            izlendi INTEGER DEFAULT 0
-        )
-    """)
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS ders_videolari (
-            id SERIAL PRIMARY KEY,
-            ders_adi TEXT,
-            unite_no INTEGER,
-            video_url TEXT
-        )
-    """)
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS unite_ozetleri (
-            id SERIAL PRIMARY KEY,
-            ders_adi TEXT,
-            unite_no INTEGER,
-            madde TEXT
-        )
-    """)
-    conn.commit()
-    cursor.close()
-    conn.close()
-
-veritabani_hazirla()
-
-def giris_zorunlu(f):
-    @wraps(f)
-    def wrap(*args, **kwargs):
-        if "kullanici_id" not in session:
-            return redirect(url_for("giris_yap"))
-        return f(*args, **kwargs)
-    return wrap
-
-def sinav_oturumunu_temizle():
-    anahtarlar = [
-        "soru_idleri", "sorular", "aktif_ders", "sinav_modu", "mevcut_indeks", 
-        "cevaplar", "dogru", "yanlis", "bos", "toplam_sure_saniye"
-    ]
-    for key in anahtarlar:
-        session.pop(key, None)
-
-def drive_id_yakala(link):
-    if not link:
-        return None
-    dosya_id = re.search(r'/d/([a-zA-Z0-9_-]+)', link)
-    if dosya_id:
-        return dosya_id.group(1)
-    id_param = re.search(r'id=([a-zA-Z0-9_-]+)', link)
-    if id_param:
-        return id_param.group(1)
-    return None
-
-def drive_link_donustur(link):
-    dosya_id = drive_id_yakala(link)
-    if dosya_id:
-        return f"https://drive.google.com/file/d/{dosya_id}/preview"
-    return link
-
-@app.route("/giris", methods=["GET", "POST"])
-def giris_yap():
-    if "kullanici_id" in session:
-        return redirect(url_for("ana_sayfa"))
-
-    if request.method == "POST":
-        kullanici_adi = request.form.get("kullanici_adi", "").strip().lower()
-        sifre = request.form.get("sifre", "")
-
-        conn = veritabani_baglan()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM kullanicilar WHERE kullanici_adi = %s", (kullanici_adi,))
-        kullanici = cursor.fetchone()
-        cursor.close()
-        conn.close()
-
-        if kullanici and check_password_hash(kullanici["sifre_hash"], sifre):
-            session["kullanici_id"] = kullanici["id"]
-            session["kullanici_adi"] = kullanici["kullanici_adi"]
-            session["ad_soyad"] = kullanici["ad_soyad"]
-            return redirect(url_for("ana_sayfa"))
-        else:
-            session["bildirim"] = {"tur": "danger", "metin": "Kullanıcı adı veya şifre hatalı."}
-            return redirect(url_for("giris_yap"))
-
-    mesaj = session.pop("bildirim", None)
-    return render_template("index.html", durum="giris", bildirim=mesaj)
-
-@app.route("/kayit", methods=["GET", "POST"])
-def kayit_ol():
-    if "kullanici_id" in session:
-        return redirect(url_for("ana_sayfa"))
-
-    if request.method == "POST":
-        kullanici_adi = request.form.get("kullanici_adi", "").strip().lower()
-        ad_soyad = request.form.get("ad_soyad", "").strip()
-        sifre = request.form.get("sifre", "")
-
-        if len(kullanici_adi) < 3 or len(sifre) < 4:
-            session["bildirim"] = {"tur": "danger", "metin": "Kullanıcı adı en az 3, şifre en az 4 karakter olmalıdır."}
-            return redirect(url_for("kayit_ol"))
-
-        conn = veritabani_baglan()
-        cursor = conn.cursor()
-        cursor.execute("SELECT id FROM kullanicilar WHERE kullanici_adi = %s", (kullanici_adi,))
-        if cursor.fetchone():
-            cursor.close()
-            conn.close()
-            session["bildirim"] = {"tur": "warning", "metin": "Bu kullanıcı adı zaten alınmış."}
-            return redirect(url_for("kayit_ol"))
-
-        sifre_hash = generate_password_hash(sifre)
-        simdi = datetime.now().strftime("%d.%m.%Y %H:%M")
-        cursor.execute("""
-            INSERT INTO kullanicilar (kullanici_adi, ad_soyad, sifre_hash, kayit_tarihi)
-            VALUES (%s, %s, %s, %s)
-        """, (kullanici_adi, ad_soyad, sifre_hash, simdi))
-        conn.commit()
-        cursor.close()
-        conn.close()
-
-        session["bildirim"] = {"tur": "success", "metin": "Kayıt başarılı! Şimdi giriş yapabilirsiniz."}
-        return redirect(url_for("giris_yap"))
-
-    mesaj = session.pop("bildirim", None)
-    return render_template("index.html", durum="kayit", bildirim=mesaj)
-
-@app.route("/cikis")
-def cikis_yap():
-    session.clear()
-    return redirect(url_for("giris_yap"))
-
-@app.route("/")
-@giris_zorunlu
-def ana_sayfa():
-    conn = veritabani_baglan()
-    cursor = conn.cursor()
-    
-    cursor.execute("SELECT ders_adi, COUNT(*) as soru_sayisi FROM sorular GROUP BY ders_adi")
-    veritabanindaki_dersler = {row["ders_adi"]: row["soru_sayisi"] for row in cursor.fetchall()}
-    
-    dersler = []
-    for d in GUZ_DERSLERI:
-        adet = veritabanindaki_dersler.get(d, 0)
-        dersler.append({"ders_adi": d, "soru_sayisi": adet})
-
-    cursor.execute("SELECT COUNT(*) FROM sorular")
-    toplam_soru = cursor.fetchone()["count"]
-
-    cursor.execute("SELECT COUNT(*) FROM sorular WHERE yildizli = 1")
-    yildizli_soru_sayisi = cursor.fetchone()["count"]
-
-    cursor.execute("""
-        SELECT COUNT(*) FROM sorular s
-        JOIN performans p ON s.id = p.soru_id
-        WHERE p.son_durum = 'YANLIS'
-    """)
-    hatali_soru_sayisi = cursor.fetchone()["count"]
-    cursor.close()
-    conn.close()
-
-    mesaj = session.pop("bildirim", None)
-    return render_template("index.html", 
-                           durum="baslangic", 
-                           dersler=dersler, 
-                           toplam_soru=toplam_soru, 
-                           yildizli_sayisi=yildizli_soru_sayisi,
-                           hatali_sayisi=hatali_soru_sayisi,
-                           bildirim=mesaj)
-
-@app.route("/icerik-merkezi")
-@giris_zorunlu
-def icerik_merkezi():
-    secilen_ders = request.args.get("ders", GUZ_DERSLERI[0]).strip()
-    return render_template("index.html", durum="icerik_merkezi", aktif_ders=secilen_ders, dersler=GUZ_DERSLERI)
-
-@app.route("/kronoloji-yukle", methods=["POST"])
-@giris_zorunlu
-def kronoloji_yukle():
-    ders = request.form.get("ders_adi", "").strip()
-    dosya = request.files.get("kronoloji_dosyasi")
-
-    if not dosya or not dosya.filename.lower().endswith(".json"):
-        session["bildirim"] = {"tur": "danger", "metin": "Lütfen geçerli bir .json formatında kronoloji dosyası seçin."}
-        return redirect(url_for("icerik_merkezi", ders=ders))
-
-    try:
-        guvenli_ders_adi = re.sub(r'[^a-zA-Z0-9]', '_', ders).lower()
-        dosya_adi = f"kronoloji_{guvenli_ders_adi}.json"
-        hedef_yol = os.path.join(KRONOLOJI_KLASORU, dosya_adi)
-        
-        dosya.save(hedef_yol)
-        session["bildirim"] = {"tur": "success", "metin": f"'{ders}' dersine ait resmi kronoloji verileri başarıyla yüklendi!"}
-    except Exception as e:
-        session["bildirim"] = {"tur": "danger", "metin": f"Kronoloji yüklenirken hata oluştu: {str(e)}"}
-
-    return redirect(url_for("icerik_merkezi", ders=ders))
-
-@app.route("/kaydet-drive-link", methods=["POST"])
-@giris_zorunlu
-def kaydet_drive_link():
-    ders = request.form.get("ders_adi", "").strip()
-    unite_no = int(request.form.get("unite_no", 1))
-    raw_link = request.form.get("drive_url", "").strip()
-
-    if not raw_link:
-        session["bildirim"] = {"tur": "danger", "metin": "Lütfen geçerli bir Google Drive bağlantısı yapıştırın."}
-        return redirect(url_for("icerik_merkezi", ders=ders))
-
-    preview_link = drive_link_donustur(raw_link)
-
-    conn = veritabani_baglan()
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO unite_kaynaklari (ders_adi, unite_no, kaynak_turu, dosya_yolu) VALUES (%s, %s, 'drive', %s)", 
-                   (ders, unite_no, preview_link))
-    conn.commit()
-    cursor.close()
-    conn.close()
-
-    session["bildirim"] = {"tur": "success", "metin": f"'{ders}' - Ünite {unite_no} için Google Drive PDF kaynağı bağlandı!"}
-    return redirect(url_for("ders_calis", ders=ders, unite=unite_no))
-
-@app.route("/yukle-pdf-dosya", methods=["POST"])
-@giris_zorunlu
-def yukle_pdf_dosya():
-    ders = request.form.get("ders_adi", "").strip()
-    unite_no = int(request.form.get("unite_no", 1))
-    dosya = request.files.get("pdf_dosya")
-
-    if not dosya or not dosya.filename.lower().endswith(".pdf"):
-        session["bildirim"] = {"tur": "danger", "metin": "Lütfen geçerli bir .pdf dosyası seçin."}
-        return redirect(url_for("icerik_merkezi", ders=ders))
-
-    dosya_adi = f"{abs(hash(ders))}_{unite_no}_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
-    hedef_yol = os.path.join(UPLOAD_FOLDER, dosya_adi)
-    dosya.save(hedef_yol)
-
-    conn = veritabani_baglan()
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO unite_kaynaklari (ders_adi, unite_no, kaynak_turu, dosya_yolu) VALUES (%s, %s, 'yerel', %s)", 
-                   (unite_no, f"/static/kitaplar/{dosya_adi}"))
-    conn.commit()
-    cursor.close()
-    conn.close()
-
-    session["bildirim"] = {"tur": "success", "metin": f"'{ders}' dersinin {unite_no}. Ünite PDF'i başarıyla kaydedildi!"}
-    return redirect(url_for("ders_calis", ders=ders, unite=unite_no))
-
-def klavuz_pdf_ayikla(pdf_bytes):
-    reader = PdfReader(io.BytesIO(pdf_bytes))
-    tam_metin = ""
-    for page in reader.pages:
-        txt = page.extract_text()
-        if txt:
-            tam_metin += txt + "\n"
-
-    satirlar = tam_metin.splitlines()
-    unite_verileri = {i: [] for i in range(1, 15)}
-    mevcut_unite = 1
-    tampon = ""
-
-    for satir in satirlar:
-        s = satir.strip()
-        if not s:
-            continue
-        s_upper = s.upper()
-        if any(kelime in s_upper for kelime in ["FAITH S. AKADEMİ", "TELEGRAM", "AUZEF TARİH", "SINIF KANALI"]):
-            continue
-        if re.match(r'^\s*20\.\s*(YY|YÜZYIL)', s, re.IGNORECASE) or s.endswith("KILAVUZU") or s.isdigit():
-            continue
-
-        baslik_m = re.match(r'^([1-9]|1[0-4])\.\s+[A-ZÇĞİIÖŞÜ\s\',-]{3,}', s)
-        if baslik_m:
-            if tampon and len(tampon) >= 15:
-                unite_verileri[mevcut_unite].append(tampon)
-                tampon = ""
-            mevcut_unite = int(baslik_m.group(1))
-            continue
-
-        if tampon:
-            tampon += " " + s
-        else:
-            tampon = s
-
-        if tampon.endswith((".", ":", "!", "?", "idi", "denirdi", "denilirdi", "olmuştur", "edilmiştir")):
-            if len(tampon) >= 15:
-                unite_verileri[mevcut_unite].append(tampon)
-            tampon = ""
-
-    if tampon and len(tampon) >= 15:
-        unite_verileri[mevcut_unite].append(tampon)
-
-    return {k: v for k, v in unite_verileri.items() if v}
-
-@app.route("/otomatik-klavuz-isle", methods=["POST"])
-@giris_zorunlu
-def otomatik_klavuz_isle():
-    ders = request.form.get("ders_adi", "").strip()
-    drive_link = request.form.get("drive_url", "").strip()
-    yuklenen_dosya = request.files.get("klavuz_dosya")
-
-    pdf_bytes = None
-    klavuz_yolu = ""
-
-    if yuklenen_dosya and yuklenen_dosya.filename != "" and yuklenen_dosya.filename.lower().endswith(".pdf"):
-        try:
-            pdf_bytes = yuklenen_dosya.read()
-            dosya_adi = f"klavuz_{abs(hash(ders))}_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
-            hedef_yol = os.path.join(UPLOAD_FOLDER, dosya_adi)
-            with open(hedef_yol, "wb") as f:
-                f.write(pdf_bytes)
-            klavuz_yolu = f"/static/kitaplar/{dosya_adi}"
-        except Exception as e:
-            session["bildirim"] = {"tur": "danger", "metin": f"Dosya okunamadı: {str(e)}"}
-            return redirect(url_for("icerik_merkezi", ders=ders))
-
-    elif drive_link:
-        dosya_id = drive_id_yakala(drive_link)
-        if not dosya_id:
-            session["bildirim"] = {"tur": "danger", "metin": "Geçersiz Google Drive bağlantısı."}
-            return redirect(url_for("icerik_merkezi", ders=ders))
-
-        indirme_url = f"https://drive.google.com/uc?export=download&id={dosya_id}"
-        try:
-            req = urllib.request.Request(indirme_url, headers={'User-Agent': 'Mozilla/5.0'})
-            with urllib.request.urlopen(req, timeout=20) as response:
-                pdf_bytes = response.read()
-            klavuz_yolu = drive_link_donustur(drive_link)
-        except Exception as e:
-            session["bildirim"] = {"tur": "danger", "metin": f"Drive dosya çekme hatası: {str(e)}."}
-            return redirect(url_for("icerik_merkezi", ders=ders))
-    else:
-        session["bildirim"] = {"tur": "warning", "metin": "Lütfen cihazdan bir PDF dosyası seçin veya geçerli bir bağlantı girin."}
-        return redirect(url_for("icerik_merkezi", ders=ders))
-
-    try:
-        ayiklanan = klavuz_pdf_ayikla(pdf_bytes)
-        toplam_madde = sum(len(maddeler) for maddeler in ayiklanan.values())
-
-        if toplam_madde == 0:
-            session["bildirim"] = {"tur": "danger", "metin": "PDF okundu ancak içinde kılavuz formatına uygun ünite ve bilgi satırları bulunamadı."}
-            return redirect(url_for("icerik_merkezi", ders=ders))
-
-        conn = veritabani_baglan()
-        cursor = conn.cursor()
-        for u_no, maddeler in ayiklanan.items():
-            for m in maddeler:
-                cursor.execute("INSERT INTO unite_ozetleri (ders_adi, unite_no, madde) VALUES (%s, %s, %s)", (ders, u_no, m))
-
-        if klavuz_yolu:
-            cursor.execute("DELETE FROM unite_kaynaklari WHERE TRIM(ders_adi) LIKE %s AND kaynak_turu = 'klavuz_pdf'", (f"%{ders}%",))
-            cursor.execute("""
-                INSERT INTO unite_kaynaklari (ders_adi, unite_no, kaynak_turu, dosya_yolu)
-                VALUES (%s, 0, 'klavuz_pdf', %s)
-            """, (ders, klavuz_yolu))
-
-        conn.commit()
-        cursor.close()
-        conn.close()
-
-        session["bildirim"] = {"tur": "success", "metin": f"✅ İşlem Başarılı! {len(ayiklanan)} üniteden toplam {toplam_madde} hap bilgi eklendi ve Kılavuz PDF'i bağlandı."}
-        return redirect(url_for("ders_calis", ders=ders, unite=1))
-
-    except Exception as e:
-        session["bildirim"] = {"tur": "danger", "metin": f"Ayrıştırma hatası oluştu: {str(e)}"}
-        return redirect(url_for("icerik_merkezi", ders=ders))
-
-def auzef_harfsiz_ve_harfli_soru_ayikla(metin, unite_no=1):
-    temiz = re.sub(r'about:blank\s*\d*/?\d*', '', metin)
-    temiz = re.sub(r'\d{1,2}\.\d{1,2}\.\d{4}\s+\d{1,2}:\d{1,2}', '', temiz)
-    temiz = re.sub(r'Ders:\s*.*?(?:\n|\|)', '', temiz, flags=re.IGNORECASE)
-    temiz = re.sub(r'Ünite:\s*.*?\n', '', temiz, flags=re.IGNORECASE)
-
-    bloklar = re.split(r'(?:^|\n)\s*Soru\s*(\d{1,2})\s*:\s*', temiz, flags=re.IGNORECASE)
-    sorular = []
-
-    if len(bloklar) > 1:
-        for i in range(1, len(bloklar), 2):
-            icerik = bloklar[i+1].strip()
-            cevap_match = re.search(r'\n\s*Cevap\s*:\s*(.*)', icerik, flags=re.IGNORECASE)
-            if not cevap_match:
-                continue
-
-            dogru_cevap_metni = cevap_match.group(1).strip()
-            govde = icerik[:cevap_match.start()].strip()
-
-            satirlar = [s.strip() for s in govde.splitlines() if s.strip()]
-            if len(satirlar) < 6:
-                continue
-
-            sec_e = satirlar[-1]
-            sec_d = satirlar[-2]
-            sec_c = satirlar[-3]
-            sec_b = satirlar[-4]
-            sec_a = satirlar[-5]
-            soru_kok = " ".join(satirlar[:-5]).strip()
-
-            dogru_harf = "A"
-            c_norm = dogru_cevap_metni.replace("Â", "A").replace("â", "a").strip().lower()
-
-            for harf, val in [("A", sec_a), ("B", sec_b), ("C", sec_c), ("D", sec_d), ("E", sec_e)]:
-                v_norm = val.replace("Â", "A").replace("â", "a").strip().lower()
-                if v_norm == c_norm or v_norm in c_norm or c_norm in v_norm:
-                    dogru_harf = harf
-                    break
-
-            sorular.append({
-                "unite_no": unite_no,
-                "metin": soru_kok,
-                "a": sec_a,
-                "b": sec_b,
-                "c": sec_c,
-                "d": sec_d,
-                "e": sec_e,
-                "dogru_cevap": dogru_harf,
-                "aciklama": f"Doğru Yanıt: {dogru_cevap_metni}"
-            })
-    return sorular
-
-@app.route("/yukle-unite-sorulari", methods=["POST"])
-@giris_zorunlu
-def yukle_unite_sorulari():
-    ders = request.form.get("ders_adi", "").strip()
-    unite_no = int(request.form.get("unite_no", 1))
-    dosya = request.files.get("soru_dosyasi")
-    drive_link = request.form.get("drive_url", "").strip()
-
-    pdf_bytes = None
-
-    if dosya and dosya.filename != "" and dosya.filename.lower().endswith(".pdf"):
-        try:
-            pdf_bytes = dosya.read()
-        except Exception as e:
-            session["bildirim"] = {"tur": "danger", "metin": f"Dosya okunamadı: {str(e)}"}
-            return redirect(url_for("icerik_merkezi", ders=ders))
-
-    elif drive_link:
-        dosya_id = drive_id_yakala(drive_link)
-        if not dosya_id:
-            session["bildirim"] = {"tur": "danger", "metin": "Geçersiz Google Drive bağlantısı."}
-            return redirect(url_for("icerik_merkezi", ders=ders))
-
-        indirme_url = f"https://drive.google.com/uc?export=download&id={dosya_id}"
-        try:
-            req = urllib.request.Request(indirme_url, headers={'User-Agent': 'Mozilla/5.0'})
-            with urllib.request.urlopen(req, timeout=20) as response:
-                pdf_bytes = response.read()
-        except Exception as e:
-            session["bildirim"] = {"tur": "danger", "metin": f"Drive dosya çekme hatası: {str(e)}"}
-            return redirect(url_for("icerik_merkezi", ders=ders))
-    else:
-        session["bildirim"] = {"tur": "warning", "metin": "Lütfen cihazdan bir PDF seçin veya geçerli bir Google Drive bağlantısı girin."}
-        return redirect(url_for("icerik_merkezi", ders=ders))
-
-    metin = ""
-    try:
-        reader = PdfReader(io.BytesIO(pdf_bytes))
-        for page in reader.pages:
-            t = page.extract_text()
-            if t:
-                metin += t + "\n"
-    except Exception as e:
-        session["bildirim"] = {"tur": "danger", "metin": f"PDF metinleri okunamadı: {str(e)}"}
-        return redirect(url_for("icerik_merkezi", ders=ders))
-
-    sorular = auzef_harfsiz_ve_harfli_soru_ayikla(metin, unite_no)
-
-    if not sorular:
-        session["bildirim"] = {"tur": "warning", "metin": f"PDF okundu ancak {unite_no}. ünite formatına uygun soru algılanamadı."}
-        return redirect(url_for("icerik_merkezi", ders=ders))
-
-    conn = veritabani_baglan()
-    cursor = conn.cursor()
-    
-    for s in sorular:
-        cursor.execute("""
-            INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, yildizli, kullanici_notu, unite_no)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 0, '', %s)
-        """, (ders, s["metin"], s["a"], s["b"], s["c"], s["d"], s["e"], s["dogru_cevap"], s["aciklama"], unite_no))
-
-    conn.commit()
-    cursor.close()
-    conn.close()
-
-    session["bildirim"] = {"tur": "success", "metin": f"🎉 Tebrikler! '{ders}' dersinin {unite_no}. ünitesine ait {len(sorular)} soru bulut veritabanına eklendi."}
-    return redirect(url_for("unite_pekistirme_listesi", ders=ders))
-
-@app.route("/ders-calis")
-@giris_zorunlu
-def ders_calis():
-    secilen_ders = request.args.get("ders", GUZ_DERSLERI[0]).strip()
-    secilen_unite = int(request.args.get("unite", 1))
-
-    conn = veritabani_baglan()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        SELECT kaynak_turu, dosya_yolu FROM unite_kaynaklari 
-        WHERE TRIM(ders_adi) LIKE %s AND unite_no = %s AND kaynak_turu != 'klavuz_pdf'
-        ORDER BY id DESC LIMIT 1
-    """, (f"%{secilen_ders}%", secilen_unite))
-    row_kaynak = cursor.fetchone()
-    
-    pdf_url = row_kaynak["dosya_yolu"] if row_kaynak else ""
-    kaynak_turu = row_kaynak["kaynak_turu"] if row_kaynak else ""
-
-    cursor.execute("""
-        SELECT dosya_yolu FROM unite_kaynaklari 
-        WHERE TRIM(ders_adi) LIKE %s AND kaynak_turu = 'klavuz_pdf'
-        ORDER BY id DESC LIMIT 1
-    """, (f"%{secilen_ders}%",))
-    row_klavuz = cursor.fetchone()
-    klavuz_pdf_url = row_klavuz["dosya_yolu"] if row_klavuz else ""
-
-    cursor.execute("""
-        SELECT video_url FROM ders_videolari 
-        WHERE TRIM(ders_adi) LIKE %s AND unite_no = %s
-        ORDER BY id DESC LIMIT 1
-    """, (f"%{secilen_ders}%", secilen_unite))
-    row_video = cursor.fetchone()
-    video_url = row_video["video_url"] if row_video else ""
-
-    cursor.execute("""
-        SELECT unite_no, okundu, izlendi FROM unite_takip 
-        WHERE TRIM(ders_adi) LIKE %s
-    """, (f"%{secilen_ders}%",))
-    takip_verileri = {r["unite_no"]: {"okundu": r["okundu"], "izlendi": r["izlendi"]} for r in cursor.fetchall()}
-
-    cursor.execute("""
-        SELECT madde FROM unite_ozetleri 
-        WHERE TRIM(ders_adi) LIKE %s AND unite_no = %s
-    """, (f"%{secilen_ders}%", secilen_unite))
-    ozet_maddeleri = [r["madde"] for r in cursor.fetchall()]
-
-    cursor.close()
-    conn.close()
-
-    embed_url = ""
-    is_direct_video = False
-    
-    if video_url:
-        if video_url.lower().endswith(('.mp4', '.webm', '.ogg', '.mov')):
-            is_direct_video = True
-            embed_url = video_url
-        elif "watch?v=" in video_url:
-            embed_url = video_url.replace("watch?v=", "embed/")
-        elif "youtu.be/" in video_url:
-            embed_url = video_url.replace("youtu.be/", "www.youtube.com/embed/")
-        else:
-            embed_url = video_url
-
-    return render_template("index.html", 
-                           durum="ogrenme_modu", 
-                           aktif_ders=secilen_ders, 
-                           aktif_unite=secilen_unite, 
-                           pdf_url=pdf_url, 
-                           klavuz_pdf_url=klavuz_pdf_url,
-                           kaynak_turu=kaynak_turu, 
-                           video_url=video_url, 
-                           embed_url=embed_url, 
-                           is_direct_video=is_direct_video,
-                           takip=takip_verileri, 
-                           ozetler=ozet_maddeleri, 
-                           unite_baslik=f"{secilen_unite}. Ünite", 
-                           dersler=GUZ_DERSLERI)
-
-@app.route("/hafiza-kartlari")
-@giris_zorunlu
-def hafiza_kartlari():
-    secilen_ders = request.args.get("ders", GUZ_DERSLERI[0]).strip()
-    secilen_unite = int(request.args.get("unite", 1))
-
-    kartlar = []
-    try:
-        conn = veritabani_baglan()
-        cursor = conn.cursor()
-        
-        cursor.execute("""
-            SELECT madde FROM unite_ozetleri 
-            WHERE TRIM(ders_adi) LIKE %s AND unite_no = %s
-        """, (f"%{secilen_ders}%", secilen_unite))
-        
-        satirlar = cursor.fetchall()
-        cursor.close()
-        conn.close()
-
-        for s in satirlar:
-            metin = s.get("madde", "").strip()
-            if not metin:
-                continue
-                
-            on_yuz = ""
-            arka_yuz = ""
-
-            if "Soru:" in metin and "Cevap:" in metin:
-                try:
-                    parcalar = metin.split("Cevap:")
-                    on_yuz = parcalar[0].replace("Soru:", "").strip()
-                    arka_yuz = parcalar[1].strip()
-                except Exception:
-                    on_yuz = "Bilgi Kartı"
-                    arka_yuz = metin
-            elif "->" in metin:
-                try:
-                    parcalar = metin.split("->")
-                    on_yuz = parcalar[0].strip()
-                    arka_yuz = parcalar[1].strip()
-                except Exception:
-                    on_yuz = "Bilgi Kartı"
-                    arka_yuz = metin
-            else:
-                on_yuz = f"📌 {secilen_unite}. Ünite Kartı"
-                arka_yuz = metin
-
-            if on_yuz and arka_yuz:
-                kartlar.append({"on": on_yuz, "arka": arka_yuz})
-
-        random.shuffle(kartlar)
-    except Exception as e:
-        print(f"Hafıza kartları yüklenirken hata oluştu: {str(e)}")
-
-    return render_template("index.html", 
-                           durum="flashcards", 
-                           aktif_ders=secilen_ders, 
-                           aktif_unite=secilen_unite, 
-                           kartlar=kartlar, 
-                           dersler=GUZ_DERSLERI)
-
-@app.route("/unite-durum-guncelle", methods=["POST"])
-@giris_zorunlu
-def unite_durum_guncelle():
-    ders = request.form.get("ders")
-    unite = int(request.form.get("unite"))
-    tur = request.form.get("tur")
-    deger = int(request.form.get("deger"))
-
-    conn = veritabani_baglan()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id FROM unite_takip WHERE TRIM(ders_adi) = TRIM(%s) AND unite_no = %s", (ders, unite))
-    kayit = cursor.fetchone()
-    if kayit:
-        if tur == "okundu":
-            cursor.execute("UPDATE unite_takip SET okundu = %s WHERE id = %s", (deger, kayit["id"]))
-        elif tur == "izlendi":
-            cursor.execute("UPDATE unite_takip SET izlendi = %s WHERE id = %s", (deger, kayit["id"]))
-    else:
-        o_val = deger if tur == "okundu" else 0
-        i_val = deger if tur == "izlendi" else 0
-        cursor.execute("INSERT INTO unite_takip (ders_adi, unite_no, okundu, izlendi) VALUES (%s, %s, %s, %s)", (ders, unite, o_val, i_val))
-    conn.commit()
-    cursor.close()
-    conn.close()
-    return jsonify({"basarili": True})
-
-@app.route("/video-kaydet", methods=["POST"])
-@giris_zorunlu
-def video_kaydet():
-    ders = request.form.get("ders_adi", "").strip() or request.form.get("ders", "").strip()
-    unite = int(request.form.get("unite_no", 1) or request.form.get("unite", 1))
-    url = request.form.get("video_url", "").strip()
-    kaynak_sayfa = request.form.get("kaynak_sayfa", "icerik_merkezi")
-
-    conn = veritabani_baglan()
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO ders_videolari (ders_adi, unite_no, video_url) VALUES (%s, %s, %s)", (ders, unite, url))
-    conn.commit()
-    cursor.close()
-    conn.close()
-
-    session["bildirim"] = {"tur": "success", "metin": f"'{ders}' - {unite}. Ünite videosu başarıyla kaydedildi."}
-    if kaynak_sayfa == "ders_calis":
-        return redirect(url_for("ders_calis", ders=ders, unite=unite))
-    return redirect(url_for("icerik_merkezi", ders=ders))
-
-@app.route("/unite-pekistirme")
-@giris_zorunlu
-def unite_pekistirme_listesi():
-    ders = request.args.get("ders", "").strip()
-    if not ders and GUZ_DERSLERI:
-        ders = GUZ_DERSLERI[0]
-
-    conn = veritabani_baglan()
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT unite_no, COUNT(*) as adet 
-        FROM sorular 
-        WHERE TRIM(ders_adi) LIKE %s AND unite_no > 0
-        GROUP BY unite_no
-        ORDER BY unite_no ASC
-    """, (f"%{ders}%",))
-    sayilar = {row["unite_no"]: row["adet"] for row in cursor.fetchall()}
-    cursor.close()
-    conn.close()
-
-    uniteler = []
-    for i in range(1, 15):
-        uniteler.append({
-            "no": i,
-            "baslik": f"Ünite {i}",
-            "soru_sayisi": sayilar.get(i, 0),
-            "ders_adi": ders
-        })
-
-    return render_template("index.html", 
-                           durum="unite_pekistirme", 
-                           uniteler=uniteler, 
-                           aktif_ders=ders, 
-                           dersler=GUZ_DERSLERI)
-
-@app.route("/unite-test-baslat/<int:unite_no>")
-@giris_zorunlu
-def unite_test_baslat(unite_no):
-    ders = request.args.get("ders", "").strip()
-    if not ders and GUZ_DERSLERI:
-        ders = GUZ_DERSLERI[0]
-
-    conn = veritabani_baglan()
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT id FROM sorular 
-        WHERE TRIM(ders_adi) LIKE %s AND unite_no = %s
-        ORDER BY id ASC
-    """, (f"%{ders}%", unite_no))
-    satirlar = cursor.fetchall()
-    cursor.close()
-    conn.close()
-
-    if not satirlar:
-        session["bildirim"] = {"tur": "warning", "metin": f"'{ders}' dersinin {unite_no}. ünitesine ait soru bulunamadı."}
-        return redirect(url_for("unite_pekistirme_listesi", ders=ders))
-
-    soru_idleri = [r["id"] for r in satirlar]
-    random.shuffle(soru_idleri)
-    sinav_oturumunu_temizle()
-
-    session["soru_idleri"] = soru_idleri
-    session["aktif_ders"] = f"{ders} (Ünite {unite_no} - {len(soru_idleri)} Soru)"
-    session["sinav_modu"] = "ogrenme"
-    session["mevcut_indeks"] = 0
-    session["cevaplar"] = []
-    session["dogru"] = 0
-    session["yanlis"] = 0
-    session["bos"] = 0
-    session["toplam_sure_saniye"] = 0
-
-    return redirect(url_for("soru_goruntule"))
-
-@app.route("/kronoloji")
-@giris_zorunlu
-def kronoloji_egzersizi():
-    secilen_ders = request.args.get("ders", GUZ_DERSLERI[0]).strip()
-    
-    guvenli_ders_adi = re.sub(r'[^a-zA-Z0-9]', '_', secilen_ders).lower()
-    dosya_adi = f"kronoloji_{guvenli_ders_adi}.json"
-    dosya_yolu = os.path.join(KRONOLOJI_KLASORU, dosya_adi)
-    
-    karisik_olaylar = []
-    
-    # Sadece ilgili derse ait yüklenen JSON dosyasından veri okunur
-    if os.path.exists(dosya_yolu):
-        try:
-            with open(dosya_yolu, "r", encoding="utf-8") as f:
-                ham_liste = json.load(f)
-                for idx, item in enumerate(ham_liste):
-                    karisik_olaylar.append({
-                        "id": idx + 1,
-                        "yil": item.get("yil", 0),
-                        "olay": item.get("olay", ""),
-                        "detay": item.get("detay", "")
-                    })
-        except Exception as e:
-            print(f"Kronoloji JSON okuma hatası: {str(e)}")
-
-    if not karisik_olaylar:
-        karisik_olaylar = [
-            {"id": 1, "yil": 2026, "olay": "Bu ders için henüz resmi kronoloji JSON yüklenmedi", "detay": "İçerik merkezinden bu dersin kronoloji JSON dosyasını yükleyebilirsiniz."}
-        ]
-    else:
-        random.shuffle(karisik_olaylar)
-
-    return render_template("index.html", 
-                           durum="kronoloji", 
-                           aktif_ders=secilen_ders, 
-                           karisik_olaylar=karisik_olaylar, 
-                           dersler=GUZ_DERSLERI)
-
-@app.route("/sinav-baslat", methods=["POST"])
-@giris_zorunlu
-def sinav_baslat():
-    ders = request.form.get("ders", "HEPSI").strip()
-    unite_secim = request.form.get("unite", "TUMU").strip()
-    sure_dakika = int(request.form.get("sure", 0))
-    mod = request.form.get("mod", "sinav")
-    limit = int(request.form.get("limit", 20))
-    ozel_havuz = request.form.get("ozel_havuz", "")
-
-    if unite_secim.startswith("UNITE_"):
-        limit = 0
-
-    conn = veritabani_baglan()
-    cursor = conn.cursor()
-
-    if ozel_havuz == "yildizli":
-        cursor.execute("SELECT id FROM sorular WHERE yildizli = 1")
-        aktif_ders_adi = "⭐ Yıldızlı Sorular Havuzu"
-    elif ozel_havuz == "hatalar":
-        cursor.execute("""
-            SELECT s.id FROM sorular s
-            JOIN performans p ON s.id = p.soru_id
-            WHERE p.son_durum = 'YANLIS'
-        """)
-        aktif_ders_adi = "🎯 Yanlışlar & Telafi Havuzu"
-    elif ders == "HEPSI":
-        cursor.execute("SELECT id FROM sorular")
-        aktif_ders_adi = "Tüm Dersler (Karışık)"
-    else:
-        if unite_secim == "VIZE":
-            cursor.execute("""
-                SELECT id FROM sorular 
-                WHERE TRIM(ders_adi) LIKE %s AND (unite_no BETWEEN 1 AND 7 OR unite_no = 0)
-            """, (f"%{ders}%",))
-            aktif_ders_adi = f"{ders} (Vize Konuları)"
-        elif unite_secim.startswith("UNITE_"):
-            u_no = int(unite_secim.replace("UNITE_", ""))
-            cursor.execute("""
-                SELECT id FROM sorular 
-                WHERE TRIM(ders_adi) LIKE %s AND unite_no = %s
-            """, (f"%{ders}%", u_no))
-            aktif_ders_adi = f"{ders} (Ünite {u_no})"
-        else:
-            cursor.execute("""
-                SELECT id FROM sorular 
-                WHERE TRIM(ders_adi) LIKE %s
-            """, (f"%{ders}%",))
-            aktif_ders_adi = ders
-
-    satirlar = cursor.fetchall()
-    cursor.close()
-    conn.close()
-
-    if not satirlar and ders != "HEPSI":
-        conn = veritabani_baglan()
-        cursor = conn.cursor()
-        cursor.execute("SELECT id FROM sorular WHERE TRIM(ders_adi) LIKE %s", (f"%{ders}%",))
-        satirlar = cursor.fetchall()
-        cursor.close()
-        conn.close()
-        aktif_ders_adi = ders
-
-    if not satirlar:
-        session["bildirim"] = {"tur": "warning", "metin": "Seçilen kritere ait soru bulunamadı."}
-        return redirect(url_for("ana_sayfa"))
-
-    tum_idlar = [row["id"] for row in satirlar]
-    random.shuffle(tum_idlar)
-    secilen_idlar = tum_idlar[:limit] if (limit > 0 and len(tum_idlar) > limit) else tum_idlar
-
-    sinav_oturumunu_temizle()
-
-    session["soru_idleri"] = secilen_idlar
-    session["aktif_ders"] = aktif_ders_adi
-    session["sinav_modu"] = mod
-    session["mevcut_indeks"] = 0
-    session["cevaplar"] = []
-    session["dogru"] = 0
-    session["yanlis"] = 0
-    session["bos"] = 0
-    session["toplam_sure_saniye"] = sure_dakika * 60
-
-    return redirect(url_for("soru_goruntule"))
-
-@app.route("/soru", methods=["GET", "POST"])
-@giris_zorunlu
-def soru_goruntule():
-    soru_idleri = session.get("soru_idleri", [])
-    indeks = session.get("mevcut_indeks", 0)
-    aktif_ders = session.get("aktif_ders", "Genel Sınav")
-    mod = session.get("sinav_modu", "sinav")
-    kalan_sure = request.args.get("kalan_sure")
-
-    if not soru_idleri:
-        return redirect(url_for("ana_sayfa"))
-
-    if indeks >= len(soru_idleri):
-        return redirect(url_for("sonuc_goruntule"))
-
-    aktif_id = soru_idleri[indeks]
-
-    conn = veritabani_baglan()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM sorular WHERE id = %s", (aktif_id,))
-    row = cursor.fetchone()
-    cursor.close()
-    conn.close()
-
-    if not row:
-        return redirect(url_for("ana_sayfa"))
-
-    soru = dict(row)
-
-    if request.method == "POST":
-        secilen = request.form.get("secenek", "")
-        kalan_saniye = request.form.get("kalan_saniye")
-        dogru = soru["dogru_cevap"]
-
-        if not secilen:
-            durum = "BOS"
-            session["bos"] = session.get("bos", 0) + 1
-        elif secilen == dogru:
-            durum = "DOGRU"
-            session["dogru"] = session.get("dogru", 0) + 1
-        else:
-            durum = "YANLIS"
-            session["yanlis"] = session.get("yanlis", 0) + 1
-
-        cevap_listesi = session.get("cevaplar", [])
-        cevap_listesi.append({
-            "soru_id": soru["id"],
-            "soru_metni": soru["soru_metni"][:65] + "...",
-            "secilen": secilen if secilen else "Boş",
-            "dogru": dogru,
-            "durum": durum
-        })
-        session["cevaplar"] = cevap_listesi
-        session["mevcut_indeks"] = indeks + 1
-
-        if mod == "ogrenme":
-            conn = veritabani_baglan()
-            cursor = conn.cursor()
-            cursor.execute("INSERT INTO performans (soru_id, dogru_sayisi, yanlis_sayisi, son_durum) VALUES (%s, 0, 0, '') ON CONFLICT (soru_id) DO NOTHING", (soru["id"],))
-            if durum == "DOGRU":
-                cursor.execute("UPDATE performans SET dogru_sayisi = dogru_sayisi + 1, son_durum = 'DOGRU' WHERE soru_id = %s", (soru["id"],))
-            elif durum == "YANLIS":
-                cursor.execute("UPDATE performans SET yanlis_sayisi = yanlis_sayisi + 1, son_durum = 'YANLIS' WHERE soru_id = %s", (soru["id"],))
-            conn.commit()
-            cursor.close()
-            conn.close()
-
-        if mod == "sinav":
-            if session["mevcut_indeks"] >= len(soru_idleri):
-                return redirect(url_for("sonuc_goruntule"))
-            return redirect(url_for("soru_goruntule", kalan_sure=kalan_saniye))
-
-        return render_template("index.html", 
-                               durum="geribildirim", 
-                               soru=soru, 
-                               secilen=secilen, 
-                               sonuc=durum, 
-                               aktif_ders=aktif_ders, 
-                               kalan_saniye=kalan_saniye, 
-                               sira=indeks + 1, 
-                               toplam=len(soru_idleri))
-
-    toplam_sure = session.get("toplam_sure_saniye", 0)
-    baslangic_sure = kalan_sure if kalan_sure is not None else toplam_sure
-
-    return render_template("index.html", 
-                           durum="soru", 
-                           soru=soru, 
-                           sira=indeks + 1, 
-                           toplam=len(soru_idleri), 
-                           aktif_ders=aktif_ders, 
-                           kalan_saniye=baslangic_sure, 
-                           mod=mod)
-
-@app.route("/testi-bitir")
-@giris_zorunlu
-def testi_bitir():
-    soru_idleri = session.get("soru_idleri", [])
-    indeks = session.get("mevcut_indeks", 0)
-    kalan_adet = len(soru_idleri) - indeks
-    if kalan_adet > 0:
-        session["bos"] = session.get("bos", 0) + kalan_adet
-    session["mevcut_indeks"] = len(soru_idleri)
-    return redirect(url_for("sonuc_goruntule"))
-
-@app.route("/sonuc")
-@giris_zorunlu
-def sonuc_goruntule():
-    dogru = session.get("dogru", 0)
-    yanlis = session.get("yanlis", 0)
-    bos = session.get("bos", 0)
-    aktif_ders = session.get("aktif_ders", "Genel Sınav")
-    mod = session.get("sinav_modu", "sinav")
-    cevaplar = session.get("cevaplar", [])
-    toplam = dogru + yanlis + bos
-
-    net = dogru - (yanlis * 0.25)
-    puan = max(0, (net / toplam) * 100) if toplam > 0 else 0
-
-    try:
-        conn = veritabani_baglan()
-        cursor = conn.cursor()
-        simdi = datetime.now().strftime("%d.%m.%Y %H:%M")
-        cursor.execute("""
-            INSERT INTO sinav_gecmisi (tarih, ders_adi, dogru, yanlis, bos, net, puan)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-        """, (simdi, aktif_ders, dogru, yanlis, bos, round(net, 2), round(puan, 1)))
-
-        for c in cevaplar:
-            if "soru_id" in c:
-                s_id = c["soru_id"]
-                durum = c["durum"]
-                cursor.execute("INSERT INTO performans (soru_id, dogru_sayisi, yanlis_sayisi, son_durum) VALUES (%s, 0, 0, '') ON CONFLICT (soru_id) DO NOTHING", (s_id,))
-                if durum == "DOGRU":
-                    cursor.execute("UPDATE performans SET dogru_sayisi = dogru_sayisi + 1, son_durum = 'DOGRU' WHERE soru_id = %s", (s_id,))
-                elif durum == "YANLIS":
-                    cursor.execute("UPDATE performans SET yanlis_sayisi = yanlis_sayisi + 1, son_durum = 'YANLIS' WHERE soru_id = %s", (s_id,))
-        conn.commit()
-        cursor.close()
-        conn.close()
-    except Exception:
-        pass
-
-    return render_template("index.html", 
-                           durum="sonuc", 
-                           dogru=dogru, 
-                           yanlis=yanlis, 
-                           bos=bos, 
-                           net=round(net, 2), 
-                           puan=round(puan, 1), 
-                           aktif_ders=aktif_ders, 
-                           mod=mod, 
-                           cevaplar=cevaplar)
-
-@app.route("/istatistik")
-@giris_zorunlu
-def istatistik_paneli():
-    conn = veritabani_baglan()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        SELECT 
-            s.ders_adi,
-            COUNT(p.soru_id) as cozulen_soru,
-            SUM(p.dogru_sayisi) as toplam_dogru,
-            SUM(p.yanlis_sayisi) as toplam_yanlis
-        FROM sorular s
-        INNER JOIN performans p ON s.id = p.soru_id
-        GROUP BY s.ders_adi
-    """)
-    veriler = cursor.fetchall()
-
-    rapor = []
-    toplam_genel_cozulen, toplam_genel_dogru, toplam_genel_yanlis = 0, 0, 0
-
-    for row in veriler:
-        d_adi = row["ders_adi"]
-        d = row["toplam_dogru"] or 0
-        y = row["toplam_yanlis"] or 0
-        cozulen = d + y
-        net = d - (y * 0.25)
-        oran = round((d / cozulen) * 100, 1) if cozulen > 0 else 0
-
-        toplam_genel_cozulen += cozulen
-        toplam_genel_dogru += d
-        toplam_genel_yanlis += y
-
-        rapor.append({
-            "ders_adi": d_adi, "cozulen": cozulen, "dogru": d, "yanlis": y, "net": round(net, 2), "oran": oran
-        })
-
-    genel_net = toplam_genel_dogru - (toplam_genel_yanlis * 0.25)
-    genel_oran = round((toplam_genel_dogru / toplam_genel_cozulen) * 100, 1) if toplam_genel_cozulen > 0 else 0
-
-    cursor.execute("SELECT * FROM sinav_gecmisi ORDER BY id DESC LIMIT 15")
-    gecmis_sinavlar = [dict(row) for row in cursor.fetchall()]
-    cursor.close()
-    conn.close()
-
-    return render_template("index.html", 
-                           durum="istatistik", 
-                           rapor=rapor, 
-                           toplam_cozulen=toplam_genel_cozulen, 
-                           genel_net=round(genel_net, 2), 
-                           genel_oran=genel_oran, 
-                           gecmis_sinavlar=gecmis_sinavlar)
-
-@app.route("/yildiz-degistir/<int:soru_id>", methods=["POST"])
-@giris_zorunlu
-def yildiz_degistir(soru_id):
-    conn = veritabani_baglan()
-    cursor = conn.cursor()
-    cursor.execute("SELECT yildizli FROM sorular WHERE id = %s", (soru_id,))
-    row = cursor.fetchone()
-    if row:
-        yeni_durum = 0 if row["yildizli"] == 1 else 1
-        cursor.execute("UPDATE sorular SET yildizli = %s WHERE id = %s", (yeni_durum, soru_id))
-        conn.commit()
-        cursor.close()
-        conn.close()
-        return jsonify({"basarili": True, "yildizli": yeni_durum})
-    cursor.close()
-    conn.close()
-    return jsonify({"basarili": False}), 404
-
-@app.route("/yonetim", methods=["GET"])
-@giris_zorunlu
-def soru_yonetimi():
-    kelime = request.args.get("kelime", "").strip()
-    secilen_ders = request.args.get("ders", "")
-
-    conn = veritabani_baglan()
-    cursor = conn.cursor()
-    sql = "SELECT * FROM sorular WHERE 1=1"
-    paramlar = []
-
-    if kelime:
-        sql += " AND (soru_metni ILIKE %s OR secenek_a ILIKE %s OR secenek_b ILIKE %s OR secenek_c ILIKE %s OR secenek_d ILIKE %s OR secenek_e ILIKE %s OR aciklama ILIKE %s OR kullanici_notu ILIKE %s)"
-        for _ in range(8):
-            paramlar.append(f"%{kelime}%")
-
-    if secilen_ders:
-        sql += " AND ders_adi = %s"
-        paramlar.append(secilen_ders)
-
-    sql += " ORDER BY id DESC LIMIT 50"
-    cursor.execute(sql, tuple(paramlar))
-    bulunan_sorular = [dict(r) for r in cursor.fetchall()]
-    cursor.close()
-    conn.close()
-
-    return render_template("index.html", durum="yonetim", sorular=bulunan_sorular, kelime=kelime, secilen_ders=secilen_ders, dersler=GUZ_DERSLERI)
-
-@app.route("/soru-duzenle/<int:soru_id>", methods=["GET", "POST"])
-@giris_zorunlu
-def soru_duzenle(soru_id):
-    conn = veritabani_baglan()
-    cursor = conn.cursor()
-
-    if request.method == "POST":
-        ders = request.form.get("ders_adi")
-        metin = request.form.get("soru_metni")
-        a = request.form.get("secenek_a")
-        b = request.form.get("secenek_b")
-        c = request.form.get("secenek_c")
-        d = request.form.get("secenek_d")
-        e = request.form.get("secenek_e")
-        dogru = request.form.get("dogru_cevap")
-        aciklama = request.form.get("aciklama")
-        kullanici_notu = request.form.get("kullanici_notu", "")
-        unite_no = int(request.form.get("unite_no", 0))
-
-        cursor.execute("""
-            UPDATE sorular 
-            SET ders_adi = %s, soru_metni = %s, secenek_a = %s, secenek_b = %s, secenek_c = %s, secenek_d = %s, secenek_e = %s, dogru_cevap = %s, aciklama = %s, kullanici_notu = %s, unite_no = %s
-            WHERE id = %s
-        """, (ders, metin, a, b, c, d, e, dogru, aciklama, kullanici_notu, unite_no, soru_id))
-        conn.commit()
-        cursor.close()
-        conn.close()
-        session["bildirim"] = {"tur": "success", "metin": f"Soru #{soru_id} güncellendi."}
-        return redirect(url_for("soru_yonetimi"))
-
-    cursor.execute("SELECT * FROM sorular WHERE id = %s", (soru_id,))
-    soru = cursor.fetchone()
-    cursor.close()
-    conn.close()
-    if not soru:
-        return redirect(url_for("soru_yonetimi"))
-    return render_template("index.html", durum="duzenle", soru=dict(soru), dersler=GUZ_DERSLERI)
-
-@app.route("/soru-sil/<int:soru_id>", methods=["POST"])
-@giris_zorunlu
-def soru_sil(soru_id):
-    conn = veritabani_baglan()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM sorular WHERE id = %s", (soru_id,))
-    cursor.execute("DELETE FROM performans WHERE soru_id = %s", (soru_id,))
-    conn.commit()
-    cursor.close()
-    conn.close()
-    session["bildirim"] = {"tur": "info", "metin": f"Soru #{soru_id} silindi."}
-    return redirect(url_for("soru_yonetimi"))
-
-@app.route("/sorulari-sifirla", methods=["POST"])
-@giris_zorunlu
-def sorulari_sifirla():
-    try:
-        conn = veritabani_baglan()
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM sorular")
-        conn.commit()
-        cursor.close()
-        conn.close()
-        session["bildirim"] = {"tur": "success", "metin": "Tüm soru havuzu başarıyla sıfırlandı."}
-    except Exception as e:
-        session["bildirim"] = {"tur": "danger", "metin": f"Hata: {str(e)}"}
-    return redirect(url_for("soru_yonetimi"))
-
-@app.route("/yedek-indir")
-@giris_zorunlu
-def yedek_indir():
-    conn = veritabani_baglan()
-    cursor = conn.cursor()
-    cursor.execute("SELECT ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, yildizli, kullanici_notu, unite_no FROM sorular")
-    sorular = [dict(r) for r in cursor.fetchall()]
-    cursor.close()
-    conn.close()
-
-    dosya_metni = json.dumps(sorular, ensure_ascii=False, indent=2)
-    tarih_etiketi = datetime.now().strftime("%Y%m%d_%H%M")
-    return Response(
-        dosya_metni,
-        mimetype="application/json",
-        headers={"Content-Disposition": f"attachment;filename=auzef_soru_yedegi_{tarih_etiketi}.json"}
-    )
-
-@app.route("/yedek-yukle", methods=["POST"])
-@giris_zorunlu
-def yedek_yukle():
-    dosya = request.files.get("yedek_dosyasi")
-    hedef_ders = request.form.get("secilen_ders", GUZ_DERSLERI[0]).strip()
-    veri_turu = request.form.get("veri_turu", "otomatik").strip()
-
-    if not dosya or not dosya.filename:
-        session["bildirim"] = {"tur": "danger", "metin": "Lütfen geçerli bir dosya seçin."}
-        return redirect(url_for("ana_sayfa"))
-
-    dosya_adi = dosya.filename.lower()
-    conn = veritabani_baglan()
-    cursor = conn.cursor()
-    eklenen_soru = 0
-    eklenen_kart = 0
-
-    if veri_turu == "otomatik":
-        is_kart_dosyasi = "kart" in dosya_adi or dosya_adi.endswith(".txt") or dosya_adi.endswith(".apkg")
-    else:
-        is_kart_dosyasi = (veri_turu == "kart")
-
-    try:
-        if dosya_adi.endswith(".json"):
-            veri = json.load(dosya)
-            if isinstance(veri, dict) and "quiz" in veri:
-                veri = veri["quiz"]
-
-            for s in veri:
-                ders = s.get("ders_adi", hedef_ders).strip()
-                if is_kart_dosyasi or "madde" in s or "on" in s or ("question" in s and "answerOptions" not in s):
-                    madde_metni = s.get("madde") or s.get("question") or f"Soru: {s.get('on')} | Cevap: {s.get('arka')}"
-                    u_no = int(s.get("unite_no", 1))
-                    cursor.execute("""
-                        INSERT INTO unite_ozetleri (ders_adi, unite_no, madde)
-                        VALUES (%s, %s, %s)
-                    """, (ders, u_no, madde_metni))
-                    eklenen_kart += 1
-                elif "question" in s and "answerOptions" in s:
-                    soru_metni = s.get("question", "")
-                    secenekler = s.get("answerOptions", [])
-                    dogru_metin = "Doğru Yanıt"
-                    for opt in secenekler:
-                        if opt.get("isCorrect") is True:
-                            dogru_metin = opt.get("text", "")
-                            break
-                    cursor.execute("""
-                        INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, yildizli, kullanici_notu, unite_no)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 0, '', 1)
-                    """, (ders, soru_metni, dogru_metin, "Alternatif B", "Alternatif C", "Alternatif D", "Alternatif E", "A", "NotebookLM Aktarımı"))
-                    eklenen_soru += 1
-                else:
-                    cursor.execute("""
-                        INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, yildizli, kullanici_notu, unite_no)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    """, (
-                        ders, s.get("soru_metni", ""), s.get("secenek_a", "A"), s.get("secenek_b", "B"),
-                        s.get("secenek_c", "C"), s.get("secenek_d", "D"), s.get("secenek_e", "E"), 
-                        s.get("dogru_cevap", "A"), s.get("aciklama", ""), 
-                        s.get("yildizli", 0), s.get("kullanici_notu", ""), s.get("unite_no", 1)
-                    ))
-                    eklenen_soru += 1
-
-        elif dosya_adi.endswith(".csv") or dosya_adi.endswith(".txt"):
-            icerik_metni = dosya.read().decode("utf-8", errors="ignore")
-            satirlar = icerik_metni.splitlines()
-
-            for satir_str in satirlar:
-                satir_str = satir_str.strip()
-                if not satir_str:
-                    continue
-                
-                if satir_str.startswith("#"):
-                    continue
-                
-                on_yuz = ""
-                arka_yuz = ""
-
-                if "\t" in satir_str:
-                    parcalar = satir_str.split("\t")
-                    on_yuz = parcalar[0].strip()
-                    arka_yuz = parcalar[1].strip() if len(parcalar) > 1 else ""
-                elif "Q:" in satir_str and "A:" in satir_str:
-                    parcalar = satir_str.split("A:")
-                    on_yuz = parcalar[0].replace("Q:", "").strip()
-                    arka_yuz = parcalar[1].strip() if len(parcalar) > 1 else ""
-                elif ";" in satir_str:
-                    parcalar = satir_str.split(";")
-                    on_yuz = parcalar[0].replace("Q:", "").strip()
-                    arka_yuz = parcalar[1].replace("A:", "").strip() if len(parcalar) > 1 else ""
-                else:
-                    on_yuz = satir_str
-
-                if not on_yuz:
-                    continue
-
-                if is_kart_dosyasi:
-                    madde_metni = f"Soru: {on_yuz} | Cevap: {arka_yuz}" if arka_yuz else on_yuz
-                    cursor.execute("""
-                        INSERT INTO unite_ozetleri (ders_adi, unite_no, madde)
-                        VALUES (%s, 1, %s)
-                    """, (hedef_ders, madde_metni))
-                    eklenen_kart += 1
-                else:
-                    cursor.execute("""
-                        INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, yildizli, kullanici_notu, unite_no)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 0, '', 1)
-                    """, (hedef_ders, on_yuz, arka_yuz if arka_yuz else "Doğru Yanıt", "Alternatif B", "Alternatif C", "Alternatif D", "Alternatif E", "A", "Anki Aktarımı"))
-                    eklenen_soru += 1
-        else:
-            session["bildirim"] = {"tur": "danger", "metin": "Desteklenmeyen dosya formatı."}
-            cursor.close()
-            conn.close()
-            return redirect(url_for("ana_sayfa"))
-
-        conn.commit()
-        cursor.close()
-        conn.close()
-        
-        mesaj = []
-        if eklenen_soru > 0: mesaj.append(f"{eklenen_soru} soru")
-        if eklenen_kart > 0: mesaj.append(f"{eklenen_kart} Anki bilgi kartı")
-        
-        bildirim_metni = " ve ".join(mesaj) + f" ({hedef_ders}) hafıza kartlarına başarıyla aktarıldı!" if mesaj else "Hiçbir veri eklenemedi."
-        session["bildirim"] = {"tur": "success", "metin": bildirim_metni}
-        
-    except Exception as e:
-        session["bildirim"] = {"tur": "danger", "metin": f"Hata: {str(e)}"}
-
-    return redirect(url_for("ana_sayfa"))
-
-@app.route("/sifirla", methods=["POST"])
-@giris_zorunlu
-def veritabani_sifirla():
-    session.clear()
-    session["bildirim"] = {"tur": "info", "metin": "Oturum güvenle kapatıldı. Bulut veritabanındaki tüm verileriniz eksiksiz korunmaktadır."}
-    return redirect(url_for("giris_yap"))
-
-@app.route("/arama")
-@giris_zorunlu
-def global_arama():
-    sorgu = request.args.get("q", "").strip()
-    bulunan_sorular = []
-    bulunan_kartlar = []
-
-    if sorgu:
-        conn = veritabani_baglan()
-        cursor = conn.cursor()
-        
-        cursor.execute("""
-            SELECT id, ders_adi, soru_metni, secenek_a, dogru_cevap, aciklama 
-            FROM sorular 
-            WHERE soru_metni ILIKE %s OR ders_adi ILIKE %s OR aciklama ILIKE %s
-            LIMIT 20
-        """, (f"%{sorgu}%", f"%{sorgu}%", f"%{sorgu}%"))
-        bulunan_sorular = cursor.fetchall()
-
-        cursor.execute("""
-            SELECT id, ders_adi, unite_no, madde 
-            FROM unite_ozetleri 
-            WHERE madde ILIKE %s OR ders_adi ILIKE %s
-            LIMIT 20
-        """, (f"%{sorgu}%", f"%{sorgu}%"))
-        bulunan_kartlar = cursor.fetchall()
-
-        cursor.close()
-        conn.close()
-
-    return render_template("index.html", 
-                           durum="arama_sonuclari", 
-                           sorgu=sorgu, 
-                           bulunan_sorular=bulunan_sorular, 
-                           bulunan_kartlar=bulunan_kartlar, 
-                           dersler=GUZ_DERSLERI)
-
-@app.route("/zayif-nokta-analizi")
-@giris_zorunlu
-def zayif_nokta_analizi():
-    tavsiyeler = []
-    toplam_cozulen_genel = 0
-    toplam_dogru_genel = 0
-    toplam_yanlis_genel = 0
-
-    try:
-        conn = veritabani_baglan()
-        cursor = conn.cursor()
-
-        cursor.execute("""
-            SELECT 
-                SUM(p.dogru_sayisi) as d_sayi,
-                SUM(p.yanlis_sayisi) as y_sayi
-            FROM performans p
-        """)
-        genel_istatistik = cursor.fetchone()
-        if genel_istatistik:
-            toplam_dogru_genel = genel_istatistik["d_sayi"] or 0
-            toplam_yanlis_genel = genel_istatistik["y_sayi"] or 0
-            toplam_cozulen_genel = toplam_dogru_genel + toplam_yanlis_genel
-
-        cursor.execute("""
-            SELECT 
-                s.ders_adi, 
-                s.unite_no, 
-                SUM(p.yanlis_sayisi) as toplam_yanlis,
-                SUM(p.dogru_sayisi) as toplam_dogru
-            FROM sorular s
-            INNER JOIN performans p ON s.id = p.soru_id
-            GROUP BY s.ders_adi, s.unite_no
-            HAVING SUM(p.yanlis_sayisi) > 0
-            ORDER BY toplam_yanlis DESC
-            LIMIT 6
-        """)
-        zayif_uniteler = cursor.fetchall()
-
-        for zu in zayif_uniteler:
-            d_adi = zu["ders_adi"]
-            u_no = zu["unite_no"]
-            y_sayisi = zu["toplam_yanlis"]
-            d_sayisi = zu["toplam_dogru"] or 0
-            toplam_unite_soru = y_sayisi + d_sayisi
+<!DOCTYPE html>
+<html lang="tr" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AUZEF Çalışma Portalı</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="manifest" href="/static/manifest.json">
+    <style>
+        :root {
+            --auzef-primary: #1e3a8a;
+            --auzef-secondary: #0d9488;
+            --bg-soft: #f8fafc;
+        }
+        body {
+            background-color: var(--bg-soft);
+            font-family: system-ui, -apple-system, sans-serif;
+            min-height: 100vh;
+        }
+        .navbar-auzef {
+            background: linear-gradient(135deg, #1e3a8a, #0f172a);
+        }
+        .card-hover {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .card-hover:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.08);
+        }
+        .btn-custom-primary {
+            background-color: var(--auzef-primary);
+            color: #fff;
+        }
+        .btn-custom-primary:hover {
+            background-color: #172554;
+            color: #fff;
+        }
+        .flashcard-box {
+            perspective: 1000px;
+            cursor: pointer;
+            min-height: 220px;
+        }
+        .flashcard-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-style: preserve-3d;
+            min-height: 220px;
+        }
+        .flashcard-box.flipped .flashcard-inner {
+            transform: rotateY(180deg);
+        }
+        .flashcard-front, .flashcard-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+            border-radius: 1rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.06);
+        }
+        .flashcard-front {
+            background: #ffffff;
+            border: 2px solid #e2e8f0;
+            color: #1e293b;
+        }
+        .flashcard-back {
+            background: linear-gradient(135deg, #0d9488, #115e59);
+            color: #ffffff;
+            transform: rotateY(180deg);
+        }
+    </style>
+</head>
+<body class="d-flex flex-column">
+
+    <!-- ÜST MENÜ -->
+    {% if session.get('kullanici_id') %}
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-auzef shadow-sm py-2">
+        <div class="container">
+            <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="/">
+                <i class="bi bi-mortarboard-fill text-warning"></i> AUZEF Portal
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navMenu">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link {% if durum == 'baslangic' %}active fw-bold{% endif %}" href="/">
+                            <i class="bi bi-house-door"></i> Ana Panel
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if durum == 'ogrenme_modu' %}active fw-bold{% endif %}" href="/ders-calis">
+                            <i class="bi bi-book"></i> Ders Çalış
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if durum == 'unite_pekistirme' %}active fw-bold{% endif %}" href="/unite-pekistirme">
+                            <i class="bi bi-check2-square"></i> Ünite Testleri
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if durum == 'kronoloji' %}active fw-bold{% endif %}" href="/kronoloji">
+                            <i class="bi bi-clock-history"></i> Kronoloji
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if durum == 'icerik_merkezi' %}active fw-bold{% endif %}" href="/icerik-merkezi">
+                            <i class="bi bi-cloud-arrow-up"></i> İçerik Merkezi
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if durum == 'istatistik' %}active fw-bold{% endif %}" href="/istatistik">
+                            <i class="bi bi-graph-up-arrow"></i> İstatistik
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if durum == 'zayif_nokta' %}active fw-bold{% endif %}" href="/zayif-nokta-analizi">
+                            <i class="bi bi-robot"></i> Yapay Zeka Koçu
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if durum == 'yonetim' or durum == 'duzenle' %}active fw-bold{% endif %}" href="/yonetim">
+                            <i class="bi bi-gear"></i> Soru Yönetimi
+                        </a>
+                    </li>
+                </ul>
+
+                <!-- GLOBAL ARAMA ÇUBUĞU -->
+                <form action="/arama" method="GET" class="d-flex mx-lg-3 my-2 my-lg-0" style="max-width: 300px; width: 100%;">
+                    <input class="form-control form-control-sm me-2 rounded-pill px-3" type="search" name="q" placeholder="🔍 Tüm içeriklerde ara..." required>
+                    <button class="btn btn-outline-light btn-sm rounded-pill px-3 text-nowrap" type="submit">Ara</button>
+                </form>
+
+                <div class="d-flex align-items-center gap-3">
+                    <span class="text-light small"><i class="bi bi-person-circle"></i> {{ session.get('ad_soyad') }}</span>
+                    <a href="/cikis" class="btn btn-sm btn-outline-light rounded-pill px-3">Çıkış</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+    {% endif %}
+
+    <!-- FLASH MESAJ -->
+    <div class="container mt-3">
+        {% if bildirim %}
+        <div class="alert alert-{{ bildirim.tur }} alert-dismissible fade show shadow-sm border-0" role="alert">
+            <i class="bi bi-info-circle me-2"></i> {{ bildirim.metin }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- İÇERİK ALANI -->
+    <main class="container my-4 flex-grow-1">
+
+        <!-- GİRİŞ EKRANI -->
+        {% if durum == 'giris' %}
+        <div class="row justify-content-center pt-4">
+            <div class="col-md-5 col-lg-4">
+                <div class="card border-0 shadow-sm rounded-4 p-4">
+                    <div class="text-center mb-4">
+                        <div class="display-5 text-primary mb-2"><i class="bi bi-mortarboard"></i></div>
+                        <h4 class="fw-bold">AUZEF Portal</h4>
+                        <p class="text-muted small">Çalışma sistemine giriş yapın</p>
+                    </div>
+                    <form method="POST" action="/giris">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Kullanıcı Adı</label>
+                            <input type="text" name="kullanici_adi" class="form-control rounded-3" required autofocus>
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label small fw-bold">Şifre</label>
+                            <input type="password" name="sifre" class="form-control rounded-3" required>
+                        </div>
+                        <button type="submit" class="btn btn-custom-primary w-100 rounded-pill py-2 fw-bold shadow-sm">Giriş Yap</button>
+                    </form>
+                    <div class="text-center mt-4">
+                        <span class="text-muted small">Hesabınız yok mu?</span>
+                        <a href="/kayit" class="text-decoration-none small fw-bold text-primary ms-1">Kayıt Ol</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- KAYIT EKRANI -->
+        {% elif durum == 'kayit' %}
+        <div class="row justify-content-center pt-4">
+            <div class="col-md-5 col-lg-4">
+                <div class="card border-0 shadow-sm rounded-4 p-4">
+                    <div class="text-center mb-4">
+                        <div class="display-5 text-success mb-2"><i class="bi bi-person-plus"></i></div>
+                        <h4 class="fw-bold">Hesap Oluştur</h4>
+                        <p class="text-muted small">Tüm deneme ve üniteleri kaydet</p>
+                    </div>
+                    <form method="POST" action="/kayit">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Ad Soyad</label>
+                            <input type="text" name="ad_soyad" class="form-control rounded-3" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Kullanıcı Adı</label>
+                            <input type="text" name="kullanici_adi" class="form-control rounded-3" required>
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label small fw-bold">Şifre</label>
+                            <input type="password" name="sifre" class="form-control rounded-3" required>
+                        </div>
+                        <button type="submit" class="btn btn-success w-100 rounded-pill py-2 fw-bold shadow-sm">Kayıt Tamamla</button>
+                    </form>
+                    <div class="text-center mt-4">
+                        <span class="text-muted small">Zaten hesabınız var mı?</span>
+                        <a href="/giris" class="text-decoration-none small fw-bold text-primary ms-1">Giriş Yap</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- GLOBAL ARAMA SONUÇLARI -->
+        {% elif durum == 'arama_sonuclari' %}
+        <div class="container my-2">
+            <h3 class="mb-2 fw-bold">🔍 Arama Sonuçları: <span class="text-primary">"{{ sorgu }}"</span></h3>
+            <p class="text-muted small">Soru havuzu ve hafıza kartlarında yapılan arama sonuçları aşağıdadır.</p>
+
+            <h5 class="mt-4 border-bottom pb-2 fw-bold text-dark"><i class="bi bi-question-circle text-primary me-2"></i> Eşleşen Sorular ({{ bulunan_sorular|length }})</h5>
+            {% if bulunan_sorular %}
+                <div class="list-group mb-4 shadow-sm rounded-4 overflow-hidden">
+                    {% for soru in bulunan_sorular %}
+                        <div class="list-group-item list-group-item-action p-3 border-0 border-bottom">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1 text-dark fw-bold">{{ soru.soru_metni }}</h6>
+                                <span class="badge bg-secondary">{{ soru.ders_adi }}</span>
+                            </div>
+                            <p class="mb-1 mt-2 text-success small"><strong>Doğru Cevap:</strong> {{ soru.secenek_a }}</p>
+                            {% if soru.aciklama %}
+                                <small class="text-muted">Açıklama: {{ soru.aciklama }}</small>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-muted fst-italic small">Soru havuzunda eşleşen sonuç bulunamadı.</p>
+            {% endif %}
+
+            <h5 class="mt-4 border-bottom pb-2 fw-bold text-dark"><i class="bi bi-card-text text-info me-2"></i> Eşleşen Hafıza Kartları / Hap Bilgiler ({{ bulunan_kartlar|length }})</h5>
+            {% if bulunan_kartlar %}
+                <div class="list-group shadow-sm rounded-4 overflow-hidden">
+                    {% for kart in bulunan_kartlar %}
+                        <div class="list-group-item list-group-item-action p-3 border-0 border-bottom">
+                            <div class="d-flex w-100 justify-content-between align-items-center">
+                                <p class="mb-0 fw-semibold text-dark">{{ kart.madde }}</p>
+                                <span class="badge bg-info text-dark">{{ kart.ders_adi }} (Ünite {{ kart.unite_no }})</span>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-muted fst-italic small">Hafıza kartlarında eşleşen sonuç bulunamadı.</p>
+            {% endif %}
+        </div>
+
+        <!-- ANA SAYFA / DASHBOARD -->
+        {% elif durum == 'baslangic' %}
+        <div class="row g-4 mb-4">
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm rounded-4 p-3 bg-white h-100">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="p-3 bg-primary bg-opacity-10 text-primary rounded-3 fs-3"><i class="bi bi-collection"></i></div>
+                        <div>
+                            <div class="text-muted small">Toplam Soru</div>
+                            <h4 class="fw-bold m-0">{{ toplam_soru }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm rounded-4 p-3 bg-white h-100">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="p-3 bg-warning bg-opacity-10 text-warning rounded-3 fs-3"><i class="bi bi-star"></i></div>
+                        <div>
+                            <div class="text-muted small">Yıldızlı Sorular</div>
+                            <h4 class="fw-bold m-0">{{ yildizli_sayisi }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm rounded-4 p-3 bg-white h-100">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="p-3 bg-danger bg-opacity-10 text-danger rounded-3 fs-3"><i class="bi bi-x-circle"></i></div>
+                        <div>
+                            <div class="text-muted small">Hatalı Sorular</div>
+                            <h4 class="fw-bold m-0">{{ hatali_sayisi }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm rounded-4 p-3 bg-white h-100">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="p-3 bg-success bg-opacity-10 text-success rounded-3 fs-3"><i class="bi bi-book-half"></i></div>
+                        <div>
+                            <div class="text-muted small">Kayıtlı Ders</div>
+                            <h4 class="fw-bold m-0">{{ dersler|length }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-lg-7">
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
+                    <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                        <i class="bi bi-play-circle-fill text-primary"></i> Hızlı Test / Deneme Başlat
+                    </h5>
+                    <form action="/sinav-baslat" method="POST">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Ders Seçin</label>
+                            <select name="ders" class="form-select rounded-3">
+                                <option value="HEPSI">Tüm Dersler (Karışık Sınav)</option>
+                                {% for d in dersler %}
+                                <option value="{{ d['ders_adi'] }}">{{ d['ders_adi'] }} ({{ d['soru_sayisi'] }} Soru)</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">Kapsam</label>
+                                <select name="unite" class="form-select rounded-3">
+                                    <option value="TUMU">Tüm Üniteler</option>
+                                    <option value="VIZE">Vize Konuları (1-7. Ünite)</option>
+                                    {% for i in range(1, 15) %}
+                                    <option value="UNITE_{{ i }}">Sadece {{ i }}. Ünite</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">Soru Sayısı</label>
+                                <select name="limit" class="form-select rounded-3">
+                                    <option value="20">20 Soru (Klasik Deneme)</option>
+                                    <option value="10">10 Soru (Hızlı)</option>
+                                    <option value="30">30 Soru</option>
+                                    <option value="0">Tüm Sorular</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row g-2 mb-4">
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">Sınav Modu</label>
+                                <select name="mod" class="form-select rounded-3">
+                                    <option value="sinav">Sınav Modu (Sonuç sonda)</option>
+                                    <option value="ogrenme">Öğrenme Modu (Anında Dönüt)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">Süre (Dakika)</label>
+                                <input type="number" name="sure" class="form-control rounded-3" value="30" min="0">
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-custom-primary w-100 rounded-pill py-2 fw-bold shadow-sm">
+                            <i class="bi bi-lightning-charge-fill"></i> Testi Başlat
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="col-lg-5">
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
+                    <h6 class="fw-bold mb-3"><i class="bi bi-bullseye text-danger"></i> Özel Odak Havuzları</h6>
+                    <div class="d-grid gap-2">
+                        <form action="/sinav-baslat" method="POST">
+                            <input type="hidden" name="ozel_havuz" value="hatalar">
+                            <input type="hidden" name="mod" value="ogrenme">
+                            <button type="submit" class="btn btn-outline-danger w-100 rounded-3 text-start py-2">
+                                <i class="bi bi-arrow-repeat me-2"></i> Yanlış Yapılan Soruları Çöz ({{ hatali_sayisi }})
+                            </button>
+                        </form>
+                        <form action="/sinav-baslat" method="POST">
+                            <input type="hidden" name="ozel_havuz" value="yildizli">
+                            <input type="hidden" name="mod" value="ogrenme">
+                            <button type="submit" class="btn btn-outline-warning w-100 rounded-3 text-start py-2 text-dark">
+                                <i class="bi bi-star-fill text-warning me-2"></i> Yıldızlı Soruları Tekrarla ({{ yildizli_sayisi }})
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
+                    <h6 class="fw-bold mb-3"><i class="bi bi-database text-secondary"></i> Veri Yönetimi & Yedek</h6>
+                    <div class="d-flex gap-2 mb-3">
+                        <a href="/yedek-indir" class="btn btn-sm btn-outline-primary w-50 rounded-pill">
+                            <i class="bi bi-download"></i> Yedeği İndir
+                        </a>
+                        <button class="btn btn-sm btn-outline-danger w-50 rounded-pill" data-bs-toggle="modal" data-bs-target="#sifirlaModal">
+                            <i class="bi bi-trash"></i> Sıfırla
+                        </button>
+                    </div>
+                    <form action="/yedek-yukle" method="POST" enctype="multipart/form-data" class="p-3 border rounded bg-light">
+                        <h6 class="mb-2 fw-bold">📥 Harici Dosya / Yedek Yükle</h6>
+                        
+                        <div class="mb-2">
+                            <label class="form-label small fw-semibold">Hedef Ders Seçin:</label>
+                            <select name="secilen_ders" class="form-select form-select-sm" required>
+                                {% for ders in dersler %}
+                                    <option value="{{ ders.ders_adi }}">{{ ders.ders_adi }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-2">
+                            <label class="form-label small fw-semibold">Veri Türü Nedir?</label>
+                            <select name="veri_turu" class="form-select form-select-sm" required>
+                                <option value="test">Test Soruları (Soru Havuzuna Ekle)</option>
+                                <option value="kart">Bilgi Kartları / Hap Bilgiler (Hafıza Kartlarına Ekle)</option>
+                                <option value="otomatik" selected>Otomatik Algıla (Dosya Adına Göre)</option>
+                            </select>
+                        </div>
+
+                        <div class="input-group input-group-sm">
+                            <input type="file" name="yedek_dosyasi" class="form-control" accept=".json,.csv,.txt" required>
+                            <button class="btn btn-dark" type="submit">Yükle</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- DERS ÇALIŞMA / OKUMA MODU -->
+        {% elif durum == 'ogrenme_modu' %}
+        <div class="card border-0 shadow-sm rounded-4 p-3 bg-white mb-3">
+            <div class="row g-2 align-items-center">
+                <div class="col-lg-5 col-md-12">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-journal-bookmark-fill text-primary fs-4"></i>
+                        <select class="form-select form-select-sm rounded-3 fw-bold border-primary-subtle" onchange="location.href='/ders-calis?unite=1&ders=' + encodeURIComponent(this.value)">
+                            {% for d in dersler %}
+                            <option value="{{ d }}" {% if d == aktif_ders %}selected{% endif %}>{{ d }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="col-lg-7 col-md-12 d-flex flex-wrap align-items-center justify-content-lg-end gap-2">
+                    <span class="badge bg-light text-dark border px-3 py-2 rounded-pill">{{ unite_baslik }}</span>
+
+                    {% if klavuz_pdf_url %}
+                    <a href="{{ klavuz_pdf_url }}" target="_blank" class="btn btn-outline-danger btn-sm rounded-pill fw-bold shadow-sm">
+                        <i class="bi bi-file-earmark-pdf"></i> Kılavuz PDF Aç
+                    </a>
+                    {% endif %}
+
+                    <a href="/hafiza-kartlari?ders={{ aktif_ders }}&unite={{ aktif_unite }}" class="btn btn-outline-info btn-sm rounded-pill fw-bold">
+                        <i class="bi bi-card-text"></i> Flashcards
+                    </a>
+                    <a href="/unite-test-baslat/{{ aktif_unite }}?ders={{ aktif_ders }}" class="btn btn-outline-success btn-sm rounded-pill fw-bold">
+                        <i class="bi bi-check2-circle"></i> Test Çöz
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm rounded-4 p-3 bg-white">
+                    <h6 class="fw-bold small text-muted mb-2">ÜNİTELER</h6>
+                    <div class="list-group list-group-flush small">
+                        {% for i in range(1, 15) %}
+                        <a href="/ders-calis?ders={{ aktif_ders }}&unite={{ i }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center border-0 rounded-3 mb-1 {% if aktif_unite == i %}bg-primary text-white fw-bold{% endif %}">
+                            <span>{{ i }}. Ünite</span>
+                            {% if takip.get(i, {}).get('okundu') %}
+                            <i class="bi bi-check-circle-fill text-success {% if aktif_unite == i %}text-white{% endif %}"></i>
+                            {% endif %}
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-9">
+                {% if embed_url %}
+                <div class="card border-0 shadow-sm rounded-4 p-3 bg-white mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="fw-bold m-0"><i class="bi bi-play-btn-fill text-danger me-1"></i> Ünite Dersi / Videosu</h6>
+                        <a href="{{ video_url }}" target="_blank" class="btn btn-sm btn-danger rounded-pill px-3 fw-bold">
+                            <i class="bi bi-box-arrow-up-right"></i> Videoyu Üniversite Sayfasında Aç
+                        </a>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if pdf_url %}
+                <div class="card border-0 shadow-sm rounded-4 p-3 bg-white mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="fw-bold m-0"><i class="bi bi-file-pdf text-danger me-1"></i> Ders Kitabı ({{ unite_baslik }})</h6>
+                        <a href="{{ pdf_url }}" target="_blank" class="btn btn-sm btn-outline-secondary rounded-pill py-0 px-2 small">
+                            <i class="bi bi-box-arrow-up-right"></i> Tam Ekran
+                        </a>
+                    </div>
+                    <iframe src="{{ pdf_url }}" class="w-100 rounded-3" style="height: 550px;" frameborder="0"></iframe>
+                </div>
+                {% endif %}
+
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-3">
+                    <div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-3">
+                        <h6 class="fw-bold m-0"><i class="bi bi-stars text-warning me-1"></i> Ünite Hap Bilgileri & Özetler</h6>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="chkOkundu" {% if takip.get(aktif_unite, {}).get('okundu') %}checked{% endif %} onchange="durumGuncelle('okundu', this.checked)">
+                            <label class="form-check-label small fw-bold" for="chkOkundu">Okundu</label>
+                        </div>
+                    </div>
+                    {% if ozetler %}
+                    <ul class="list-group list-group-flush">
+                        {% for madde in ozetler %}
+                        <li class="list-group-item px-0 py-2 border-0 d-flex gap-2">
+                            <i class="bi bi-dot text-primary fs-4 lh-1"></i>
+                            <span>{{ madde }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <div class="text-center text-muted py-4">
+                        <p class="small m-0">Bu üniteye ait hap bilgi henüz bulunmuyor.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- HAFIZA KARTLARI -->
+        {% elif durum == 'flashcards' %}
+        <div class="text-center mb-4">
+            <h4 class="fw-bold text-primary">{{ aktif_ders }}</h4>
+            <p class="text-muted small">{{ aktif_unite }}. Ünite İnteraktif Bilgi Kartları (Karta tıklayarak çevirin)</p>
+            <a href="/ders-calis?ders={{ aktif_ders }}&unite={{ aktif_unite }}" class="btn btn-sm btn-outline-secondary rounded-pill">
+                <i class="bi bi-arrow-left"></i> Ders Ekranına Dön
+            </a>
+        </div>
+
+        <div class="row justify-content-center">
+            <div class="col-md-8 col-lg-6">
+                {% if kartlar %}
+                <div id="kartAlani" class="flashcard-box" onclick="this.classList.toggle('flipped')">
+                    <div class="flashcard-inner">
+                        <div class="flashcard-front">
+                            <h5 id="onYuz" class="fw-bold m-0"></h5>
+                        </div>
+                        <div class="flashcard-back">
+                            <p id="arkaYuz" class="m-0 fs-6"></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                    <button class="btn btn-outline-dark btn-sm rounded-pill px-3" onclick="oncekiKart()"><i class="bi bi-chevron-left"></i> Önceki</button>
+                    <span id="kartSayac" class="small fw-bold text-muted"></span>
+                    <button class="btn btn-outline-dark btn-sm rounded-pill px-3" onclick="sonrakiKart()">Sonraki <i class="bi bi-chevron-right"></i></button>
+                </div>
+                <script>
+                    const kartlar = {{ kartlar|tojson }};
+                    let indeks = 0;
+                    function goster() {
+                        document.getElementById('kartAlani').classList.remove('flipped');
+                        document.getElementById('onYuz').innerText = kartlar[indeks].on;
+                        document.getElementById('arkaYuz').innerText = kartlar[indeks].arka;
+                        document.getElementById('kartSayac').innerText = `${indeks + 1} / ${kartlar.length}`;
+                    }
+                    function sonrakiKart() { if(indeks < kartlar.length - 1) { indeks++; goster(); } }
+                    function oncekiKart() { if(indeks > 0) { indeks--; goster(); } }
+                    window.onload = goster;
+                </script>
+                {% else %}
+                <div class="alert alert-info text-center">Bu üniteye ait kart bulunamadı.</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- İÇERİK MERKEZİ -->
+        {% elif durum == 'icerik_merkezi' %}
+        <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
+            <h5 class="fw-bold mb-3"><i class="bi bi-cloud-arrow-up-fill text-primary"></i> İçerik ve Kaynak Merkezi</h5>
+            <div class="mb-2">
+                <label class="form-label small fw-bold">Aktif Ders</label>
+                <select class="form-select rounded-3 fw-bold border-primary-subtle" onchange="location.href='/icerik-merkezi?ders=' + encodeURIComponent(this.value)">
+                    {% for d in dersler %}
+                    <option value="{{ d }}" {% if d == aktif_ders %}selected{% endif %}>{{ d }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <small class="text-muted">Seçili ders için soru havuzlarını, ünite kitaplarını, kılavuzları, ders videolarını ve kronoloji verilerini aşağıdan yönetebilirsiniz.</small>
+        </div>
+
+        <div class="row g-4">
+            <!-- 1. Soru Havuzu Yükleme -->
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
+                    <h6 class="fw-bold text-success mb-2"><i class="bi bi-file-earmark-check"></i> 🎯 Ünite Soru Havuzu Yükle</h6>
+                    <form action="/yukle-unite-sorulari" method="POST" enctype="multipart/form-data">
+                        <input type="hidden" name="ders_adi" value="{{ aktif_ders }}">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Ünite Numarası</label>
+                            <select name="unite_no" class="form-select form-select-sm rounded-3">
+                                {% for i in range(1, 15) %}
+                                <option value="{{ i }}">{{ i }}. Ünite</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small fw-bold">Cihazdan PDF Yükle</label>
+                            <input type="file" name="soru_dosyasi" class="form-control form-control-sm" accept=".pdf">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold"><i class="bi bi-google-drive text-warning"></i> Veya Google Drive Linki</label>
+                            <input type="url" name="drive_url" class="form-control form-control-sm" placeholder="https://drive.google.com/file/d/...">
+                        </div>
+                        <button type="submit" class="btn btn-success btn-sm w-100 rounded-pill fw-bold">Soruları Veritabanına Yaz</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- 2. Ders Kılavuzu & Hap Bilgi -->
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
+                    <h6 class="fw-bold text-danger mb-2"><i class="bi bi-file-earmark-text"></i> 📄 Ders Kılavuzu & Hap Bilgi</h6>
+                    <form action="/otomatik-klavuz-isle" method="POST" enctype="multipart/form-data">
+                        <input type="hidden" name="ders_adi" value="{{ aktif_ders }}">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Kılavuz PDF Dosyası</label>
+                            <input type="file" name="klavuz_dosya" class="form-control form-control-sm" accept=".pdf">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Veya Google Drive Linki</label>
+                            <input type="url" name="drive_url" class="form-control form-control-sm" placeholder="https://drive.google.com/file/d/...">
+                        </div>
+                        <button type="submit" class="btn btn-danger btn-sm w-100 rounded-pill fw-bold">Kılavuzu Çözümle ve Bağla</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- 3. Ünite Ders Kitabı (PDF / Drive) -->
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
+                    <h6 class="fw-bold text-primary mb-2"><i class="bi bi-book-half"></i> 📚 Ünite Ders Kitabı (PDF / Drive)</h6>
+                    <form action="/kaydet-drive-link" method="POST" class="mb-3 border-bottom pb-3">
+                        <input type="hidden" name="ders_adi" value="{{ aktif_ders }}">
+                        <div class="mb-2">
+                            <label class="form-label small fw-bold">Ünite Numarası</label>
+                            <select name="unite_no" class="form-select form-select-sm rounded-3">
+                                {% for i in range(1, 15) %}
+                                <option value="{{ i }}">{{ i }}. Ünite</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small fw-bold"><i class="bi bi-google-drive text-warning"></i> Google Drive Linki</label>
+                            <input type="url" name="drive_url" class="form-control form-control-sm" placeholder="https://drive.google.com/file/d/..." required>
+                        </div>
+                        <button type="submit" class="btn btn-outline-primary btn-sm w-100 rounded-pill fw-bold">Drive Kitabını Bağla</button>
+                    </form>
+
+                    <form action="/yukle-pdf-dosya" method="POST" enctype="multipart/form-data">
+                        <input type="hidden" name="ders_adi" value="{{ aktif_ders }}">
+                        <div class="mb-2">
+                            <label class="form-label small fw-bold">Veya Cihazdan PDF Yükle</label>
+                            <div class="row g-2">
+                                <div class="col-5">
+                                    <select name="unite_no" class="form-select form-select-sm rounded-3">
+                                        {% for i in range(1, 15) %}
+                                        <option value="{{ i }}">{{ i }}. Ünite</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-7">
+                                    <input type="file" name="pdf_dosya" class="form-control form-control-sm" accept=".pdf" required>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-outline-secondary btn-sm w-100 rounded-pill fw-bold">Cihazdan PDF Yükle</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- 4. Ders Videosu Ekleme -->
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
+                    <h6 class="fw-bold text-danger mb-2"><i class="bi bi-film"></i> 🎥 Ünite Dersi Videosu Ekle</h6>
+                    <form action="/video-kaydet" method="POST">
+                        <input type="hidden" name="ders_adi" value="{{ aktif_ders }}">
+                        <input type="hidden" name="kaynak_sayfa" value="icerik_merkezi">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Ünite Numarası</label>
+                            <select name="unite_no" class="form-select form-select-sm rounded-3">
+                                {% for i in range(1, 15) %}
+                                <option value="{{ i }}">{{ i }}. Ünite</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Video URL / Web Linki</label>
+                            <input type="url" name="video_url" class="form-control form-control-sm" placeholder="Webcast, YouTube veya .mp4 linki..." required>
+                        </div>
+                        <button type="submit" class="btn btn-danger btn-sm w-100 rounded-pill fw-bold">Ders Videosunu Kaydet</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- 5. Kronoloji JSON Yükleme Kartı -->
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
+                    <h6 class="fw-bold text-warning mb-2"><i class="bi bi-clock-history"></i> ⏳ Ders Kronolojisi Yükle (JSON)</h6>
+                    <form action="/kronoloji-yukle" method="POST" enctype="multipart/form-data">
+                        <input type="hidden" name="ders_adi" value="{{ aktif_ders }}">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Kronoloji JSON Dosyası</label>
+                            <input type="file" name="kronoloji_dosyasi" class="form-control form-control-sm" accept=".json" required>
+                        </div>
+                        <button type="submit" class="btn btn-warning btn-sm w-100 rounded-pill fw-bold text-dark">Kronolojiyi Kaydet ve Aktifleştir</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- SINAV / SORU EKRANI -->
+        {% elif durum == 'soru' %}
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="badge bg-primary px-3 py-2 rounded-pill fs-6">{{ aktif_ders }}</span>
+                    <div class="d-flex align-items-center gap-3">
+                        {% if kalan_saniye and kalan_saniye|int > 0 %}
+                        <span class="badge bg-dark px-3 py-2 rounded-pill fs-6"><i class="bi bi-clock me-1"></i> <span id="sureMetni">--:--</span></span>
+                        {% endif %}
+                        <span class="fw-bold text-muted">{{ sira }} / {{ toplam }}</span>
+                    </div>
+                </div>
+
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-3">
+                    <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                        <h5 class="fw-bold lh-base m-0">{{ soru.soru_metni }}</h5>
+                        <button class="btn btn-light border-0 text-warning fs-5 p-0" onclick="yildizDegistir({{ soru.id }}, this)">
+                            <i class="bi bi-star{% if soru.yildizli %}-fill{% endif %}"></i>
+                        </button>
+                    </div>
+
+                    <form id="soruFormu" method="POST" action="/soru">
+                        <input type="hidden" name="kalan_saniye" id="kalanSaniyeInput" value="{{ kalan_saniye }}">
+                        <div class="d-grid gap-2 mb-4">
+                            {% for harf, metin in [('A', soru.secenek_a), ('B', soru.secenek_b), ('C', soru.secenek_c), ('D', soru.secenek_d), ('E', soru.secenek_e)] %}
+                            <label class="btn btn-outline-light text-dark text-start border p-3 rounded-3 d-flex align-items-center gap-3 card-hover">
+                                <input type="radio" name="secenek" value="{{ harf }}" class="form-check-input mt-0">
+                                <div><strong class="text-primary">{{ harf }})</strong> {{ metin }}</div>
+                            </label>
+                            {% endfor %}
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="/testi-bitir" class="btn btn-outline-danger rounded-pill px-4" onclick="return confirm('Testi sonlandırmak istediğinize emin misiniz?')">Testi Bitir</a>
+                            <button type="submit" class="btn btn-primary rounded-pill px-5 fw-bold">Cevapla & İlerle</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        {% if kalan_saniye and kalan_saniye|int > 0 %}
+        <script>
+            let sure = parseInt("{{ kalan_saniye }}");
+            const sureEl = document.getElementById('sureMetni');
+            const inpEl = document.getElementById('kalanSaniyeInput');
+            const zamanlayici = setInterval(() => {
+                let dk = Math.floor(sure / 60);
+                let sn = sure % 60;
+                sureEl.innerText = (dk < 10 ? '0' : '') + dk + ':' + (sn < 10 ? '0' : '') + sn;
+                if(inpEl) inpEl.value = sure;
+                if (sure <= 0) {
+                    clearInterval(zamanlayici);
+                    location.href = '/testi-bitir';
+                }
+                sure--;
+            }, 1000);
+        </script>
+        {% endif %}
+
+        <!-- GERİ BİLDİRİM -->
+        {% elif durum == 'geribildirim' %}
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white text-center">
+                    <div class="display-3 mb-2">
+                        {% if sonuc == 'DOGRU' %}
+                        <i class="bi bi-check-circle-fill text-success"></i>
+                        {% elif sonuc == 'YANLIS' %}
+                        <i class="bi bi-x-circle-fill text-danger"></i>
+                        {% else %}
+                        <i class="bi bi-dash-circle-fill text-secondary"></i>
+                        {% endif %}
+                    </div>
+                    <h4 class="fw-bold mb-3">
+                        {% if sonuc == 'DOGRU' %}Harika, Doğru Cevap!{% elif sonuc == 'YANLIS' %}Yanlış Cevap!{% else %}Boş Bırakıldı!{% endif %}
+                    </h4>
+                    <p class="text-muted mb-4">{{ soru.aciklama }}</p>
+                    <a href="/soru?kalan_sure={{ kalan_saniye }}" class="btn btn-primary rounded-pill px-5 py-2 fw-bold mx-auto">
+                        Sıradaki Soruya Geç <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- SONUÇ -->
+        {% elif durum == 'sonuc' %}
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white text-center mb-4">
+                    <h4 class="fw-bold mb-3">Test Tamamlandı</h4>
+                    <div class="row g-2 mb-4">
+                        <div class="col-3"><div class="p-3 bg-success bg-opacity-10 text-success rounded-3"><div class="small">Doğru</div><h4 class="fw-bold m-0">{{ dogru }}</h4></div></div>
+                        <div class="col-3"><div class="p-3 bg-danger bg-opacity-10 text-danger rounded-3"><div class="small">Yanlış</div><h4 class="fw-bold m-0">{{ yanlis }}</h4></div></div>
+                        <div class="col-3"><div class="p-3 bg-secondary bg-opacity-10 text-secondary rounded-3"><div class="small">Boş</div><h4 class="fw-bold m-0">{{ bos }}</h4></div></div>
+                        <div class="col-3"><div class="p-3 bg-primary bg-opacity-10 text-primary rounded-3"><div class="small">Net</div><h4 class="fw-bold m-0">{{ net }}</h4></div></div>
+                    </div>
+                    <div class="d-flex justify-content-center gap-3">
+                        <a href="/" class="btn btn-outline-primary rounded-pill px-4">Ana Sayfa</a>
+                        <a href="/istatistik" class="btn btn-primary rounded-pill px-4">İstatistikleri Gör</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+   <!-- KRONOLOJİ -->
+        {% elif durum == 'kronoloji' %}
+        <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
+            <div class="row align-items-center g-3">
+                <div class="col-lg-5">
+                    <h5 class="fw-bold text-primary mb-1"><i class="bi bi-clock-history"></i> Kronoloji Yarışı</h5>
+                    <p class="text-muted small mb-0">Olayları sürükleyerek veya ok tuşlarıyla en eskiden en yeniye doğru sıralayın.</p>
+                </div>
+                <div class="col-lg-4">
+                    <select class="form-select form-select-sm rounded-3 fw-bold border-primary-subtle" onchange="location.href='/kronoloji?ders=' + encodeURIComponent(this.value)">
+                        {% for d in dersler %}
+                        <option value="{{ d }}" {% if d == aktif_ders %}selected{% endif %}>{{ d }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-lg-3 text-lg-end d-flex align-items-center justify-content-lg-end gap-2">
+                    <span class="badge bg-dark px-3 py-2 rounded-pill">
+                        <i class="bi bi-stopwatch me-1"></i> <span id="kronometre">00:00</span>
+                    </span>
+                    <a href="/kronoloji?ders={{ aktif_ders }}" class="btn btn-outline-secondary btn-sm rounded-pill px-3" title="Yenile">
+                        <i class="bi bi-arrow-clockwise"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="mt-3 text-center">
+                <button class="btn btn-primary btn-sm rounded-pill px-5 fw-bold shadow-sm" onclick="siralamayiKarsilastir()">
+                    <i class="bi bi-check2-all me-1"></i> Sıralamayı Kontrol Et
+                </button>
+            </div>
+        </div>
+
+        <div class="row justify-content-center">
+            <div class="col-md-9">
+                <div id="sonucKutusu" class="alert d-none text-center fw-bold shadow-sm rounded-4 mb-3" role="alert"></div>
+
+                <ul class="list-group list-group-flush shadow-sm rounded-4 overflow-hidden mb-4 p-2 bg-light border" id="kronolojiListesi">
+                    {% for olay in karisik_olaylar %}
+                    <li class="list-group-item p-3 border rounded-3 bg-white card-hover mb-2 d-flex align-items-center justify-content-between shadow-sm kronoloji-item" draggable="true" data-yil="{{ olay.yil }}">
+                        <div class="d-flex align-items-center gap-3 flex-grow-1">
+                            <div class="text-muted fs-5" style="cursor: grab;"><i class="bi bi-grip-vertical"></i></div>
+                            <div class="flex-grow-1">
+                                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary-subtle me-2 yil-badge" style="display: none;">{{ olay.yil }}</span>
+                                <span class="fw-semibold text-dark">{{ olay.olay }}</span>
+                                <div class="small text-muted mt-1">{{ olay.detay }}</div>
+                            </div>
+                        </div>
+                        <!-- Mobil ve Masaüstü İçin Sıralama Butonları -->
+                        <div class="d-flex flex-column gap-1 ms-2">
+                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 rounded-1" onclick="ogeyiTasi(this, 'yukari')" title="Yukarı Taşı"><i class="bi bi-chevron-up"></i></button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 rounded-1" onclick="ogeyiTasi(this, 'asagi')" title="Aşağı Taşı"><i class="bi bi-chevron-down"></i></button>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        <script>
+            let saniyeSayac = 0;
+            const kronometreEl = document.getElementById('kronometre');
+            const timer = setInterval(() => {
+                saniyeSayac++;
+                let dk = Math.floor(saniyeSayac / 60);
+                let sn = saniyeSayac % 60;
+                kronometreEl.innerText = (dk < 10 ? '0' : '') + dk + ':' + (sn < 10 ? '0' : '') + sn;
+            }, 1000);
+
+            const liste = document.getElementById('kronolojiListesi');
+            let suruklenenOge = null;
+
+            // Masaüstü Drag & Drop Desteği
+            liste.addEventListener('dragstart', (e) => {
+                suruklenenOge = e.target.closest('li');
+                e.target.style.opacity = '0.4';
+            });
+
+            liste.addEventListener('dragend', (e) => {
+                e.target.style.opacity = '1';
+                suruklenenOge = null;
+            });
+
+            liste.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                const hedef = e.target.closest('li');
+                if (hedef && hedef !== suruklenenOge) {
+                    const rect = hedef.getBoundingClientRect();
+                    const yuzdeY = (e.clientY - rect.top) / rect.height;
+                    if (yuzdeY > 0.5) {
+                        liste.insertBefore(suruklenenOge, hedef.nextSibling);
+                    } else {
+                        liste.insertBefore(suruklenenOge, hedef);
+                    }
+                }
+            });
+
+            // Mobil Touch (Parmakla Sürükleme) Desteği
+            let aktifDokunmaOgesi = null;
             
-            hata_orani = (y_sayisi / toplam_unite_soru) * 100 if toplam_unite_soru > 0 else 0
-            
-            if hata_orani >= 40:
-                kritiklik = "Kritik"
-                badge_renk = "danger"
-                ikon = "bi-exclamation-octagon-fill"
-                mesaj = f"Bu ünitede hata oranın yüksek (%{int(hata_orani)} - {y_sayisi} yanlış). Acil tekrar edilmesi gerekiyor!"
-            else:
-                kritiklik = "Gözden Geçirilmeli"
-                badge_renk = "warning text-dark"
-                ikon = "bi-exclamation-triangle-fill"
-                mesaj = f"Bu ünitede {y_sayisi} yanlışın tespit edildi. Flashcard turlarıyla kapatabilirsin."
+            document.querySelectorAll('.kronoloji-item').forEach(item => {
+                item.addEventListener('touchstart', (e) => {
+                    aktifDokunmaOgesi = item;
+                    item.style.opacity = '0.6';
+                }, {passive: true});
 
-            tavsiyeler.append({
-                "baslik": f"{d_adi} - {u_no}. Ünite",
-                "mesaj": mesaj,
-                "ders": d_adi,
-                "unite": u_no,
-                "kritiklik": kritiklik,
-                "badge_renk": badge_renk,
-                "ikon": ikon
-            })
+                item.addEventListener('touchmove', (e) => {
+                    if (!aktifDokunmaOgesi) return;
+                    let touch = e.touches[0];
+                    let hedefElement = document.elementFromPoint(touch.clientX, touch.clientY);
+                    let hedefLi = hedefElement ? hedefElement.closest('li') : null;
+                    
+                    if (hedefLi && hedefLi !== aktifDokunmaOgesi && hedefLi.parentNode === liste) {
+                        let rect = hedefLi.getBoundingClientRect();
+                        let ortasi = rect.top + rect.height / 2;
+                        if (touch.clientY < ortasi) {
+                            liste.insertBefore(aktifDokunmaOgesi, hedefLi);
+                        } else {
+                            liste.insertBefore(aktifDokunmaOgesi, hedefLi.nextSibling);
+                        }
+                    }
+                }, {passive: true});
 
-        cursor.close()
-        conn.close()
-    except Exception as e:
-        print(f"Gelişmiş zayıf nokta analiz hatası: {str(e)}")
+                item.addEventListener('touchend', () => {
+                    if (aktifDokunmaOgesi) {
+                        aktifDokunmaOgesi.style.opacity = '1';
+                        aktifDokunmaOgesi = null;
+                    }
+                });
+            });
 
-    genel_basari = round((toplam_dogru_genel / toplam_cozulen_genel) * 100, 1) if toplam_cozulen_genel > 0 else 0
-    
-    if toplam_cozulen_genel < 10:
-        koc_mesaji = "Harika bir başlangıç! Sistemi aktif kullanmaya ve soru çözmeye devam ettikçe buradaki analizler şekillenecek."
-    elif genel_basari >= 75:
-        koc_mesaji = f"Mükemmel bir ivmedesin! Genel başarı oranın %{genel_basari}. Bu istikrarla sınavda harika bir derece yapabilirsin."
-    elif genel_basari >= 50:
-        koc_mesaji = f"İyi gidiyorsun (%{genel_basari} başarı), ancak aşağıda listelenen kritik üniteler üzerindeki yanlışları kapatman netlerini doğrudan yukarı taşıyacak."
-    else:
-        koc_mesaji = f"Şu an genel başarı oranın %{genel_basari} seviyesinde. Biraz daha yoğunlaşarak ve zayıf ünite testlerine ağırlık vererek bunu hızla artırabiliriz."
+            // Ok Butonlarıyla Taşıma Fonksiyonu
+            function ogeyiTasi(btn, yon) {
+                const li = btn.closest('li');
+                if (yon === 'yukari' && li.previousElementSibling) {
+                    liste.insertBefore(li, li.previousElementSibling);
+                } else if (yon === 'asagi' && li.nextElementSibling) {
+                    liste.insertBefore(li.nextElementSibling, li);
+                }
+            }
 
-    tahmini_puan = int(genel_basari) if toplam_cozulen_genel > 0 else "Henüz Veri Yok"
+            function siralamayiKarsilastir() {
+                const listeItems = document.querySelectorAll('#kronolojiListesi li');
+                let dogruMu = true;
+                let oncekiYil = -999999;
 
-    return render_template("index.html", 
-                           durum="zayif_nokta", 
-                           tavsiyeler=tavsiyeler, 
-                           koc_mesaji=koc_mesaji,
-                           tahmini_puan=tahmini_puan,
-                           genel_basari=genel_basari,
-                           toplam_cozulen_genel=toplam_cozulen_genel,
-                           dersler=GUZ_DERSLERI)
+                listeItems.forEach(li => {
+                    const yil = parseInt(li.getAttribute('data-yil'));
+                    const badge = li.querySelector('.yil-badge');
+                    badge.style.display = 'inline-block';
 
-@app.route("/sw.js")
-def service_worker():
-    return send_from_directory(os.path.join(app.root_path, "static"), "sw.js", mimetype="application/javascript")
+                    if (yil < oncekiYil) {
+                        dogruMu = false;
+                    }
+                    oncekiYil = yil;
+                });
 
-if __name__ == "__main__":
-    app.run(debug=True)
+                const sonucKutusu = document.getElementById('sonucKutusu');
+                sonucKutusu.classList.remove('d-none', 'alert-success', 'alert-danger');
+
+                if (dogruMu) {
+                    clearInterval(timer);
+                    sonucKutusu.className = 'alert alert-success text-center fw-bold shadow-sm rounded-4 mb-3';
+                    sonucKutusu.innerHTML = `<i class="bi bi-check-circle-fill me-2"></i> Tebrikler! Bu kronolojiyi ${kronometreEl.innerText} sürede kusursuz tamamladın!`;
+                } else {
+                    sonucKutusu.className = 'alert alert-danger text-center fw-bold shadow-sm rounded-4 mb-3';
+                    sonucKutusu.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-2"></i> Sıralamada hatalar var. Yılları kontrol ederek tekrar dene!';
+                }
+            }
+        </script>
+
+        <!-- ÜNİTE PEKİŞTİRME LİSTESİ -->
+        {% elif durum == 'unite_pekistirme' %}
+        <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
+            <div class="row align-items-center g-3">
+                <div class="col-lg-6">
+                    <h5 class="fw-bold text-primary mb-1"><i class="bi bi-check2-square"></i> Ünite Pekiştirme Testleri</h5>
+                    <p class="text-muted small mb-0">Seçtiğiniz derse ait ünite soru sayılarını ve test başlatma ekranını görüntüleyin.</p>
+                </div>
+                <div class="col-lg-6">
+                    <select class="form-select rounded-3 fw-bold border-primary-subtle" onchange="location.href='/unite-pekistirme?ders=' + encodeURIComponent(this.value)">
+                        {% for d in dersler %}
+                        <option value="{{ d }}" {% if d == aktif_ders %}selected{% endif %}>{{ d }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3">
+            {% for u in uniteler %}
+            <div class="col-md-6 col-lg-4">
+                <div class="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 d-flex flex-column justify-content-between card-hover">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <h6 class="fw-bold m-0 text-dark">{{ u.baslik }}</h6>
+                        <span class="badge bg-primary bg-opacity-10 text-primary rounded-pill">{{ u.soru_sayisi }} Soru</span>
+                    </div>
+                    <div>
+                        {% if u.soru_sayisi > 0 %}
+                        <a href="/unite-test-baslat/{{ u.no }}?ders={{ aktif_ders }}" class="btn btn-custom-primary btn-sm w-100 rounded-pill fw-bold">
+                            <i class="bi bi-play-fill"></i> Testi Başlat
+                        </a>
+                        {% else %}
+                        <button class="btn btn-light btn-sm w-100 rounded-pill text-muted" disabled>Soru Yok</button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- SORU YÖNETİMİ -->
+        {% elif durum == 'yonetim' %}
+        <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3">
+                <h5 class="fw-bold m-0"><i class="bi bi-sliders"></i> Soru Yönetim Paneli</h5>
+                <form action="{{ url_for('sorulari_sifirla') }}" method="POST" onsubmit="return confirm('DİKKAT: Veritabanındaki tüm sorular kalıcı olarak silinecek. Emin misiniz?');">
+                    <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-3 fw-bold">
+                        <i class="bi bi-trash-fill me-1"></i> Tüm Soruları Sıfırla (Temizle)
+                    </button>
+                </form>
+            </div>
+
+            <form method="GET" action="/yonetim" class="row g-2">
+                <div class="col-md-6">
+                    <input type="text" name="kelime" class="form-control form-control-sm rounded-3" placeholder="Soru metninde ara..." value="{{ kelime }}">
+                </div>
+                <div class="col-md-4">
+                    <select name="ders" class="form-select form-select-sm rounded-3">
+                        <option value="">Tüm Dersler</option>
+                        {% for d in dersler %}
+                        <option value="{{ d }}" {% if d == secilen_ders %}selected{% endif %}>{{ d }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-dark btn-sm w-100 rounded-3">Filtrele</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="card border-0 shadow-sm rounded-4 bg-white overflow-hidden">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 small">
+                    <thead class="table-light">
+                        <tr>
+                            <th>#ID</th>
+                            <th>Ders / Ünite</th>
+                            <th>Soru Metni</th>
+                            <th>Doğru Şık</th>
+                            <th class="text-end">İşlemler</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in sorular %}
+                        <tr>
+                            <td class="fw-bold">{{ s.id }}</td>
+                            <td><span class="badge bg-light text-dark border">{{ s.ders_adi }} (Ü:{{ s.unite_no }})</span></td>
+                            <td>{{ s.soru_metni[:70] }}...</td>
+                            <td><span class="badge bg-success">{{ s.dogru_cevap }}</span></td>
+                            <td class="text-end">
+                                <a href="/soru-duzenle/{{ s.id }}" class="btn btn-sm btn-outline-primary rounded-pill"><i class="bi bi-pencil"></i></a>
+                                <form action="/soru-sil/{{ s.id }}" method="POST" class="d-inline" onsubmit="return confirm('Bu soruyu silmek istediğinize emin misiniz?')">
+                                    <button class="btn btn-sm btn-outline-danger rounded-pill"><i class="bi bi-trash"></i></button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- SORU DÜZENLEME EKRANI -->
+        {% elif durum == 'duzenle' %}
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
+                    <h5 class="fw-bold mb-3 text-primary"><i class="bi bi-pencil-square"></i> Soru Düzenle (#{{ soru.id }})</h5>
+                    <form method="POST" action="/soru-duzenle/{{ soru.id }}">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Ders Adı</label>
+                            <select name="ders_adi" class="form-select rounded-3" required>
+                                {% for d in dersler %}
+                                <option value="{{ d }}" {% if d == soru.ders_adi %}selected{% endif %}>{{ d }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Ünite Numarası</label>
+                            <select name="unite_no" class="form-select rounded-3">
+                                {% for i in range(1, 15) %}
+                                <option value="{{ i }}" {% if soru.unite_no == i %}selected{% endif %}>{{ i }}. Ünite</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Soru Metni</label>
+                            <textarea name="soru_metni" class="form-control rounded-3" rows="3" required>{{ soru.soru_metni }}</textarea>
+                        </div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">A Seçeneği</label>
+                                <input type="text" name="secenek_a" class="form-control rounded-3" value="{{ soru.secenek_a }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">B Seçeneği</label>
+                                <input type="text" name="secenek_b" class="form-control rounded-3" value="{{ soru.secenek_b }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">C Seçeneği</label>
+                                <input type="text" name="secenek_c" class="form-control rounded-3" value="{{ soru.secenek_c }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">D Seçeneği</label>
+                                <input type="text" name="secenek_d" class="form-control rounded-3" value="{{ soru.secenek_d }}" required>
+                            </div>
+                            <div class="col-md-12">
+                                <label class="form-label small fw-bold">E Seçeneği</label>
+                                <input type="text" name="secenek_e" class="form-control rounded-3" value="{{ soru.secenek_e }}" required>
+                            </div>
+                        </div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold">Doğru Cevap (Harf)</label>
+                                <select name="dogru_cevap" class="form-select rounded-3">
+                                    {% for h in ['A', 'B', 'C', 'D', 'E'] %}
+                                    <option value="{{ h }}" {% if soru.dogru_cevap == h %}selected{% endif %}>{{ h }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Açıklama / Çözüm Notu</label>
+                            <textarea name="aciklama" class="form-control rounded-3" rows="2">{{ soru.aciklama }}</textarea>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <a href="/yonetim" class="btn btn-outline-secondary rounded-pill px-4">İptal</a>
+                            <button type="submit" class="btn btn-primary rounded-pill px-5 fw-bold">Değişiklikleri Kaydet</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- İSTATİSTİK -->
+        {% elif durum == 'istatistik' %}
+        <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
+            <h5 class="fw-bold text-primary mb-3"><i class="bi bi-bar-chart-line-fill"></i> Genel Başarı ve Analiz</h5>
+            <div class="row g-3">
+                <div class="col-md-4"><div class="p-3 bg-light rounded-3 text-center"><span class="small text-muted">Çözülen Soru</span><h4 class="fw-bold m-0">{{ toplam_cozulen }}</h4></div></div>
+                <div class="col-md-4"><div class="p-3 bg-light rounded-3 text-center"><span class="small text-muted">Toplam Net</span><h4 class="fw-bold m-0">{{ genel_net }}</h4></div></div>
+                <div class="col-md-4"><div class="p-3 bg-light rounded-3 text-center"><span class="small text-muted">Başarı Oranı</span><h4 class="fw-bold m-0">%{{ genel_oran }}</h4></div></div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
+            <h6 class="fw-bold mb-3">Ders Bazlı Performans</h6>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle small">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Ders</th>
+                            <th>Çözülen</th>
+                            <th>Doğru</th>
+                            <th>Yanlış</th>
+                            <th>Net</th>
+                            <th>Başarı Oranı</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in rapor %}
+                        <tr>
+                            <td class="fw-bold">{{ r.ders_adi }}</td>
+                            <td>{{ r.cozulen }}</td>
+                            <td class="text-success fw-bold">{{ r.dogru }}</td>
+                            <td class="text-danger fw-bold">{{ r.yanlis }}</td>
+                            <td>{{ r.net }}</td>
+                            <td>
+                                <div class="progress" style="height: 6px;">
+                                    <div class="progress-bar bg-success" style="width: {{ r.oran }}%"></div>
+                                </div>
+                                <span class="small text-muted">%{{ r.oran }}</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- YAPAY ZEKA ZAYIF NOKTA ANALİZİ & KOÇ EKRANI -->
+        {% elif durum == 'zayif_nokta' %}
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                
+                <!-- ÜST ÖZET VE KOÇ MESAJI KARTI -->
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
+                    <div class="row align-items-center g-4">
+                        <div class="col-md-8">
+                            <div class="d-flex align-items-center gap-3 mb-2">
+                                <div class="p-3 bg-primary bg-opacity-10 text-primary rounded-3 fs-3"><i class="bi bi-robot"></i></div>
+                                <div>
+                                    <h4 class="fw-bold m-0">Yapay Zeka Çalışma Koçu & Strateji Merkezi</h4>
+                                    <p class="text-muted small m-0">Performans ve hata geçmişiniz analiz edilerek size özel strateji üretilmiştir.</p>
+                                </div>
+                            </div>
+                            <div class="alert alert-light border border-primary-subtle text-dark small mt-3 mb-0 rounded-3">
+                                <i class="bi bi-chat-quote-fill text-primary me-2 fs-5"></i> <strong>Koçun Notu:</strong> {{ koc_mesaji }}
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-center border-start-md">
+                            <div class="p-3 bg-light rounded-4">
+                                <span class="text-muted small fw-bold">SİMÜLASYON BAŞARI PUANI</span>
+                                <h1 class="fw-bold text-primary display-5 my-1">
+                                    {% if tahmini_puan != "Henüz Veri Yok" %}{{ tahmini_puan }}<span class="fs-6 text-muted">/100</span>{% else %}--{% endif %}
+                                </h1>
+                                <span class="badge bg-secondary bg-opacity-10 text-dark small">Genel Doğruluk: %{{ genel_basari }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- KRİTİK ÜNİTELER LİSTESİ -->
+                <h5 class="fw-bold mb-3"><i class="bi bi-exclamation-triangle-fill text-warning me-2"></i> Öncelikli Odaklanmanız Gereken Üniteler</h5>
+                
+                {% if tavsiyeler and tavsiyeler[0].ders != "" %}
+                <div class="row g-3 mb-4">
+                    {% for tavsiye in tavsiyeler %}
+                    <div class="col-md-6">
+                        <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100 border-start border-{{ 'danger' if tavsiye.kritiklik == 'Kritik' else 'warning' }} border-4 d-flex flex-column justify-content-between">
+                            <div>
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <h5 class="fw-bold text-dark m-0">{{ tavsiye.baslik }}</h5>
+                                    <span class="badge bg-{{ tavsiye.badge_renk }} rounded-pill px-3">
+                                        <i class="bi {{ tavsiye.ikon }} me-1"></i> {{ tavsiye.kritiklik }}
+                                    </span>
+                                </div>
+                                <p class="text-muted small my-2">{{ tavsiye.mesaj }}</p>
+                            </div>
+                            
+                            <div class="mt-3 pt-2 border-top d-flex gap-2">
+                                <a href="/ders-calis?ders={{ tavsiye.ders }}&unite={{ tavsiye.unite }}" class="btn btn-sm btn-outline-primary rounded-pill fw-bold w-50">
+                                    <i class="bi bi-book me-1"></i> Üniteye Çalış
+                                </a>
+                                <a href="/unite-test-baslat/{{ tavsiye.unite }}?ders={{ tavsiye.ders }}" class="btn btn-sm btn-primary rounded-pill fw-bold w-50">
+                                    <i class="bi bi-play-fill me-1"></i> Test Başlat
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white text-center mb-4 py-5">
+                    <i class="bi bi-check-circle-fill text-success display-4 mb-3"></i>
+                    <h5 class="fw-bold">Henüz Kritik Hata Verisi Bulunmuyor!</h5>
+                    <p class="text-muted small mb-0">Test çözmeye devam ettikçe koçumuz zayıf noktalarınızı burada öncelik sırasına koyacaktır.</p>
+                </div>
+                {% endif %}
+
+                <!-- KOÇUN STRATEJİK TAVSİYELERİ -->
+                <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
+                    <h5 class="fw-bold mb-3"><i class="bi bi-lightbulb-fill text-success me-2"></i> Sınav Stratejisi ve Öneriler</h5>
+                    <ul class="list-unstyled small text-muted mb-0">
+                        <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i> <strong>Kırmızı (Kritik)</strong> etiketli ünitelerde hata oranınız yüksek olduğundan, önceliği bu konuların özetlerine ve flashcard kartlarına verin.</li>
+                        <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i> Doğrudan kartın altındaki <strong>"Test Başlat"</strong> butonunu kullanarak vakit kaybetmeden nokta atışı pratik yapabilirsiniz.</li>
+                        <li><i class="bi bi-check-circle-fill text-success me-2"></i> AUZEF sınavlarında başarıyı artırmanın en etkili yolu yanlış yapılan soruların mantığını kavramaktır; yönetim panelinden yanlış sorularınızı gözden geçirin.</li>
+                    </ul>
+                </div>
+
+            </div>
+        </div>
+        {% endif %}
+
+    </main>
+
+    <!-- SIFIRLA MODAL -->
+    <div class="modal fade" id="sifirlaModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow">
+                <div class="modal-body p-4 text-center">
+                    <i class="bi bi-exclamation-triangle-fill text-danger display-4 mb-3"></i>
+                    <h5 class="fw-bold">Tüm Verileri Sıfırla?</h5>
+                    <p class="text-muted small">Bu işlem tüm soruları, deneme geçmişinizi ve notlarınızı kalıcı olarak silecektir.</p>
+                    <form action="/sifirla" method="POST" class="d-flex gap-2 justify-content-center mt-4">
+                        <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">İptal</button>
+                        <button type="submit" class="btn btn-danger rounded-pill px-4">Evet, Sıfırla</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function durumGuncelle(tur, deger) {
+            fetch('/unite-durum-guncelle', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `ders={{ aktif_ders }}&unite={{ aktif_unite }}&tur=${tur}&deger=${deger ? 1 : 0}`
+            });
+        }
+        function yildizDegistir(soruId, btn) {
+            fetch(`/yildiz-degistir/${soruId}`, { method: 'POST' })
+            .then(r => r.json())
+            .then(res => {
+                if(res.basarili) {
+                    const icon = btn.querySelector('i');
+                    icon.className = res.yildizli ? 'bi bi-star-fill' : 'bi bi-star';
+                }
+            });
+        }
+    </script>
+</body>
+</html>
