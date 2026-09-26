@@ -350,7 +350,7 @@ def yukle_pdf_dosya():
     conn = veritabani_baglan()
     cursor = conn.cursor()
     cursor.execute("INSERT INTO unite_kaynaklari (ders_adi, unite_no, kaynak_turu, dosya_yolu) VALUES (%s, %s, 'yerel', %s)", 
-                   (ders, unite_no, f"/static/kitaplar/{dosya_adi}"))
+                   (unite_no, f"/static/kitaplar/{dosya_adi}"))
     conn.commit()
     cursor.close()
     conn.close()
@@ -408,7 +408,6 @@ def klavuz_pdf_ayikla(pdf_bytes):
 @giris_zorunlu
 def otomatik_klavuz_isle():
     ders = request.form.get("ders_adi", "").strip()
-    unite_no = int(request.form.get("unite_no", 1)) # Formdan seçilen ünite numarası
     drive_link = request.form.get("drive_url", "").strip()
     yuklenen_dosya = request.files.get("klavuz_dosya")
 
@@ -418,7 +417,7 @@ def otomatik_klavuz_isle():
     if yuklenen_dosya and yuklenen_dosya.filename != "" and yuklenen_dosya.filename.lower().endswith(".pdf"):
         try:
             pdf_bytes = yuklenen_dosya.read()
-            dosya_adi = f"klavuz_{abs(hash(ders))}_{unite_no}_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
+            dosya_adi = f"klavuz_{abs(hash(ders))}_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
             hedef_yol = os.path.join(UPLOAD_FOLDER, dosya_adi)
             with open(hedef_yol, "wb") as f:
                 f.write(pdf_bytes)
@@ -461,19 +460,18 @@ def otomatik_klavuz_isle():
                 cursor.execute("INSERT INTO unite_ozetleri (ders_adi, unite_no, madde) VALUES (%s, %s, %s)", (ders, u_no, m))
 
         if klavuz_yolu:
-            # DÜZELTME: Artık kılavuz PDF'ler unite_no = 0 yerine seçilen ünite numarasıyla kaydediliyor!
-            cursor.execute("DELETE FROM unite_kaynaklari WHERE TRIM(ders_adi) LIKE %s AND unite_no = %s AND kaynak_turu = 'klavuz_pdf'", (f"%{ders}%", unite_no))
+            cursor.execute("DELETE FROM unite_kaynaklari WHERE TRIM(ders_adi) LIKE %s AND kaynak_turu = 'klavuz_pdf'", (f"%{ders}%",))
             cursor.execute("""
                 INSERT INTO unite_kaynaklari (ders_adi, unite_no, kaynak_turu, dosya_yolu)
-                VALUES (%s, %s, 'klavuz_pdf', %s)
-            """, (ders, unite_no, klavuz_yolu))
+                VALUES (%s, 0, 'klavuz_pdf', %s)
+            """, (ders, klavuz_yolu))
 
         conn.commit()
         cursor.close()
         conn.close()
 
-        session["bildirim"] = {"tur": "success", "metin": f"✅ İşlem Başarılı! {unite_no}. Ünite için kılavuz ve {toplam_madde} hap bilgi eklendi."}
-        return redirect(url_for("ders_calis", ders=ders, unite=unite_no))
+        session["bildirim"] = {"tur": "success", "metin": f"✅ İşlem Başarılı! {len(ayiklanan)} üniteden toplam {toplam_madde} hap bilgi eklendi ve Kılavuz PDF'i bağlandı."}
+        return redirect(url_for("ders_calis", ders=ders, unite=1))
 
     except Exception as e:
         session["bildirim"] = {"tur": "danger", "metin": f"Ayrıştırma hatası oluştu: {str(e)}"}
@@ -618,12 +616,11 @@ def ders_calis():
     pdf_url = row_kaynak["dosya_yolu"] if row_kaynak else ""
     kaynak_turu = row_kaynak["kaynak_turu"] if row_kaynak else ""
 
-    # DÜZELTME: Sadece o an seçilen ünitenin kılavuz PDF'i getiriliyor
     cursor.execute("""
         SELECT dosya_yolu FROM unite_kaynaklari 
-        WHERE TRIM(ders_adi) LIKE %s AND unite_no = %s AND kaynak_turu = 'klavuz_pdf'
+        WHERE TRIM(ders_adi) LIKE %s AND kaynak_turu = 'klavuz_pdf'
         ORDER BY id DESC LIMIT 1
-    """, (f"%{secilen_ders}%", secilen_unite))
+    """, (f"%{secilen_ders}%",))
     row_klavuz = cursor.fetchone()
     klavuz_pdf_url = row_klavuz["dosya_yolu"] if row_klavuz else ""
 
@@ -871,6 +868,7 @@ def kronoloji_egzersizi():
     
     karisik_olaylar = []
     
+    # Sadece ilgili derse ait yüklenen JSON dosyasından veri okunur
     if os.path.exists(dosya_yolu):
         try:
             with open(dosya_yolu, "r", encoding="utf-8") as f:
