@@ -624,12 +624,20 @@
                 </div>
             </div>
 
-            <!-- 2. Ders Kılavuzu & Hap Bilgi -->
+            <!-- 2. Ders Kılavuzu & Hap Bilgi (Ünite Seçimli Güncellendi) -->
             <div class="col-md-6">
                 <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
                     <h6 class="fw-bold text-danger mb-2"><i class="bi bi-file-earmark-text"></i> 📄 Ders Kılavuzu & Hap Bilgi</h6>
                     <form action="/otomatik-klavuz-isle" method="POST" enctype="multipart/form-data">
                         <input type="hidden" name="ders_adi" value="{{ aktif_ders }}">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Ünite Seçin</label>
+                            <select name="unite_no" class="form-select form-select-sm rounded-3">
+                                {% for i in range(1, 15) %}
+                                <option value="{{ i }}">{{ i }}. Ünite</option>
+                                {% endfor %}
+                            </select>
+                        </div>
                         <div class="mb-3">
                             <label class="form-label small fw-bold">Kılavuz PDF Dosyası</label>
                             <input type="file" name="klavuz_dosya" class="form-control form-control-sm" accept=".pdf">
@@ -638,7 +646,7 @@
                             <label class="form-label small fw-bold">Veya Google Drive Linki</label>
                             <input type="url" name="drive_url" class="form-control form-control-sm" placeholder="https://drive.google.com/file/d/...">
                         </div>
-                        <button type="submit" class="btn btn-danger btn-sm w-100 rounded-pill fw-bold">Kılavuzu Çözümle ve Bağla</button>
+                        <button type="submit" class="btn btn-danger btn-sm w-100 rounded-pill fw-bold">Kılavuzu Çözümle ve Üniteye Bağla</button>
                     </form>
                 </div>
             </div>
@@ -832,7 +840,7 @@
             </div>
         </div>
 
-   <!-- KRONOLOJİ -->
+        <!-- KRONOLOJİ -->
         {% elif durum == 'kronoloji' %}
         <div class="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
             <div class="row align-items-center g-3">
