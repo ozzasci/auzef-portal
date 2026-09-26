@@ -408,7 +408,7 @@ def klavuz_pdf_ayikla(pdf_bytes):
 @giris_zorunlu
 def otomatik_klavuz_isle():
     ders = request.form.get("ders_adi", "").strip()
-    unite_no = int(request.form.get("unite_no", 1)) # Yeni eklenen ünite seçimi
+    unite_no = int(request.form.get("unite_no", 1)) # Seçilen ünite numarası
     drive_link = request.form.get("drive_url", "").strip()
     yuklenen_dosya = request.files.get("klavuz_dosya")
 
@@ -461,7 +461,7 @@ def otomatik_klavuz_isle():
                 cursor.execute("INSERT INTO unite_ozetleri (ders_adi, unite_no, madde) VALUES (%s, %s, %s)", (ders, u_no, m))
 
         if klavuz_yolu:
-            # Artık kılavuzları ünite bazlı kaydediyoruz (eski genel kayıtları temizleyip ilgili üniteye bağlıyoruz)
+            # Sadece o seçilen üniteye ait eski kılavuzu temizle ve yeni ünite numarasıyla kaydet
             cursor.execute("DELETE FROM unite_kaynaklari WHERE TRIM(ders_adi) LIKE %s AND unite_no = %s AND kaynak_turu = 'klavuz_pdf'", (f"%{ders}%", unite_no))
             cursor.execute("""
                 INSERT INTO unite_kaynaklari (ders_adi, unite_no, kaynak_turu, dosya_yolu)
@@ -556,6 +556,7 @@ def ders_calis():
     conn = veritabani_baglan()
     cursor = conn.cursor()
 
+    # 1. Üniteye ait ana ders kitabı / PDF kaynağını çek
     cursor.execute("""
         SELECT kaynak_turu, dosya_yolu FROM unite_kaynaklari 
         WHERE TRIM(ders_adi) LIKE %s AND unite_no = %s AND kaynak_turu != 'klavuz_pdf'
@@ -566,7 +567,7 @@ def ders_calis():
     pdf_url = row_kaynak["dosya_yolu"] if row_kaynak else ""
     kaynak_turu = row_kaynak["kaynak_turu"] if row_kaynak else ""
 
-   # Ders çalış ekranında üniteye özel kılavuz çekme sorgusu:
+    # 2. Sadece o an seçili olan ünitenin kılavuz PDF'ini çek
     cursor.execute("""
         SELECT dosya_yolu FROM unite_kaynaklari 
         WHERE TRIM(ders_adi) LIKE %s AND unite_no = %s AND kaynak_turu = 'klavuz_pdf'
@@ -575,6 +576,7 @@ def ders_calis():
     row_klavuz = cursor.fetchone()
     klavuz_pdf_url = row_klavuz["dosya_yolu"] if row_klavuz else ""
 
+    # 3. Üniteye ait ders videosunu çek
     cursor.execute("""
         SELECT video_url FROM ders_videolari 
         WHERE TRIM(ders_adi) LIKE %s AND unite_no = %s
@@ -583,12 +585,14 @@ def ders_calis():
     row_video = cursor.fetchone()
     video_url = row_video["video_url"] if row_video else ""
 
+    # 4. Ünite takip (okundu/izlendi) durumlarını çek
     cursor.execute("""
         SELECT unite_no, okundu, izlendi FROM unite_takip 
         WHERE TRIM(ders_adi) LIKE %s
     """, (f"%{secilen_ders}%",))
     takip_verileri = {r["unite_no"]: {"okundu": r["okundu"], "izlendi": r["izlendi"]} for r in cursor.fetchall()}
 
+    # 5. Sadece o ünitenin hap bilgilerini/özetlerini çek
     cursor.execute("""
         SELECT madde FROM unite_ozetleri 
         WHERE TRIM(ders_adi) LIKE %s AND unite_no = %s
