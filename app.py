@@ -358,7 +358,7 @@ def yukle_pdf_dosya():
     session["bildirim"] = {"tur": "success", "metin": f"'{ders}' dersinin {unite_no}. Ünite PDF'i başarıyla kaydedildi!"}
     return redirect(url_for("ders_calis", ders=ders, unite=unite_no))
 
-def klavuz_pdf_ayikla(pdf_bytes):
+def pdf_metin_ayikla(pdf_bytes):
     reader = PdfReader(io.BytesIO(pdf_bytes))
     tam_metin = ""
     for page in reader.pages:
@@ -367,8 +367,7 @@ def klavuz_pdf_ayikla(pdf_bytes):
             tam_metin += txt + "\n"
 
     satirlar = tam_metin.splitlines()
-    unite_verileri = {i: [] for i in range(1, 15)}
-    mevcut_unite = 1
+    maddeler = []
     tampon = ""
 
     for satir in satirlar:
@@ -381,14 +380,6 @@ def klavuz_pdf_ayikla(pdf_bytes):
         if re.match(r'^\s*20\.\s*(YY|YÜZYIL)', s, re.IGNORECASE) or s.endswith("KILAVUZU") or s.isdigit():
             continue
 
-        baslik_m = re.match(r'^([1-9]|1[0-4])\.\s+[A-ZÇĞİIÖŞÜ\s\',-]{3,}', s)
-        if baslik_m:
-            if tampon and len(tampon) >= 15:
-                unite_verileri[mevcut_unite].append(tampon)
-                tampon = ""
-            mevcut_unite = int(baslik_m.group(1))
-            continue
-
         if tampon:
             tampon += " " + s
         else:
@@ -396,19 +387,19 @@ def klavuz_pdf_ayikla(pdf_bytes):
 
         if tampon.endswith((".", ":", "!", "?", "idi", "denirdi", "denilirdi", "olmuştur", "edilmiştir")):
             if len(tampon) >= 15:
-                unite_verileri[mevcut_unite].append(tampon)
+                maddeler.append(tampon)
             tampon = ""
 
     if tampon and len(tampon) >= 15:
-        unite_verileri[mevcut_unite].append(tampon)
+        maddeler.append(tampon)
 
-    return {k: v for k, v in unite_verileri.items() if v}
+    return maddeler
 
 @app.route("/otomatik-klavuz-isle", methods=["POST"])
 @giris_zorunlu
 def otomatik_klavuz_isle():
     ders = request.form.get("ders_adi", "").strip()
-    unite_no = int(request.form.get("unite_no", 1)) # Formdan seçilen ünite numarası
+    unite_no = int(request.form.get("unite_no", 1)) # Formdan seçilen ünite numarası (Örn: 2. Ünite)
     drive_link = request.form.get("drive_url", "").strip()
     yuklenen_dosya = request.files.get("klavuz_dosya")
 
@@ -447,22 +438,25 @@ def otomatik_klavuz_isle():
         return redirect(url_for("icerik_merkezi", ders=ders))
 
     try:
-        ayiklanan = klavuz_pdf_ayikla(pdf_bytes)
-        toplam_madde = sum(len(maddeler) for maddeler in ayiklanan.values())
+        maddeler = pdf_metin_ayikla(pdf_bytes)
 
-        if toplam_madde == 0:
-            session["bildirim"] = {"tur": "danger", "metin": "PDF okundu ancak içinde kılavuz formatına uygun ünite ve bilgi satırları bulunamadı."}
+        if not maddeler:
+            session["bildirim"] = {"tur": "danger", "metin": "PDF okundu ancak içinde uygun bilgi satırları bulunamadı."}
             return redirect(url_for("icerik_merkezi", ders=ders))
 
         conn = veritabani_baglan()
         cursor = conn.cursor()
-        for u_no, maddeler in ayiklanan.items():
-            for m in maddeler:
-                cursor.execute("INSERT INTO unite_ozetleri (ders_adi, unite_no, madde) VALUES (%s, %s, %s)", (ders, u_no, m))
+        
+        # ÖNEMLİ: Sadece o seçilen üniteye ait eski hap bilgileri ve PDF kılavuzu temizle (Böylece üst üste yığılmaz ve uzamaz)
+        cursor.execute("DELETE FROM unite_ozetleri WHERE TRIM(ders_adi) LIKE %s AND unite_no = %s", (f"%{ders}%", unite_no))
+        cursor.execute("DELETE FROM unite_kaynaklari WHERE TRIM(ders_adi) LIKE %s AND unite_no = %s AND kaynak_turu = 'klavuz_pdf'", (f"%{ders}%", unite_no))
 
+        # Seçilen ünite numarasıyla yeni hap bilgileri kaydet
+        for m in maddeler:
+            cursor.execute("INSERT INTO unite_ozetleri (ders_adi, unite_no, madde) VALUES (%s, %s, %s)", (ders, unite_no, m))
+
+        # Seçilen ünite numarasıyla PDF kılavuz yolunu kaydet
         if klavuz_yolu:
-            # DÜZELTME: Artık kılavuz PDF'ler unite_no = 0 yerine seçilen ünite numarasıyla kaydediliyor!
-            cursor.execute("DELETE FROM unite_kaynaklari WHERE TRIM(ders_adi) LIKE %s AND unite_no = %s AND kaynak_turu = 'klavuz_pdf'", (f"%{ders}%", unite_no))
             cursor.execute("""
                 INSERT INTO unite_kaynaklari (ders_adi, unite_no, kaynak_turu, dosya_yolu)
                 VALUES (%s, %s, 'klavuz_pdf', %s)
@@ -472,64 +466,12 @@ def otomatik_klavuz_isle():
         cursor.close()
         conn.close()
 
-        session["bildirim"] = {"tur": "success", "metin": f"✅ İşlem Başarılı! {unite_no}. Ünite için kılavuz ve {toplam_madde} hap bilgi eklendi."}
+        session["bildirim"] = {"tur": "success", "metin": f"✅ İşlem Başarılı! {unite_no}. Ünite için kılavuz ve {len(maddeler)} hap bilgi eklendi."}
         return redirect(url_for("ders_calis", ders=ders, unite=unite_no))
 
     except Exception as e:
         session["bildirim"] = {"tur": "danger", "metin": f"Ayrıştırma hatası oluştu: {str(e)}"}
         return redirect(url_for("icerik_merkezi", ders=ders))
-
-def auzef_harfsiz_ve_harfli_soru_ayikla(metin, unite_no=1):
-    temiz = re.sub(r'about:blank\s*\d*/?\d*', '', metin)
-    temiz = re.sub(r'\d{1,2}\.\d{1,2}\.\d{4}\s+\d{1,2}:\d{1,2}', '', temiz)
-    temiz = re.sub(r'Ders:\s*.*?(?:\n|\|)', '', temiz, flags=re.IGNORECASE)
-    temiz = re.sub(r'Ünite:\s*.*?\n', '', temiz, flags=re.IGNORECASE)
-
-    bloklar = re.split(r'(?:^|\n)\s*Soru\s*(\d{1,2})\s*:\s*', temiz, flags=re.IGNORECASE)
-    sorular = []
-
-    if len(bloklar) > 1:
-        for i in range(1, len(bloklar), 2):
-            icerik = bloklar[i+1].strip()
-            cevap_match = re.search(r'\n\s*Cevap\s*:\s*(.*)', icerik, flags=re.IGNORECASE)
-            if not cevap_match:
-                continue
-
-            dogru_cevap_metni = cevap_match.group(1).strip()
-            govde = icerik[:cevap_match.start()].strip()
-
-            satirlar = [s.strip() for s in govde.splitlines() if s.strip()]
-            if len(satirlar) < 6:
-                continue
-
-            sec_e = satirlar[-1]
-            sec_d = satirlar[-2]
-            sec_c = satirlar[-3]
-            sec_b = satirlar[-4]
-            sec_a = satirlar[-5]
-            soru_kok = " ".join(satirlar[:-5]).strip()
-
-            dogru_harf = "A"
-            c_norm = dogru_cevap_metni.replace("Â", "A").replace("â", "a").strip().lower()
-
-            for harf, val in [("A", sec_a), ("B", sec_b), ("C", sec_c), ("D", sec_d), ("E", sec_e)]:
-                v_norm = val.replace("Â", "A").replace("â", "a").strip().lower()
-                if v_norm == c_norm or v_norm in c_norm or c_norm in v_norm:
-                    dogru_harf = harf
-                    break
-
-            sorular.append({
-                "unite_no": unite_no,
-                "metin": soru_kok,
-                "a": sec_a,
-                "b": sec_b,
-                "c": sec_c,
-                "d": sec_d,
-                "e": sec_e,
-                "dogru_cevap": dogru_harf,
-                "aciklama": f"Doğru Yanıt: {dogru_cevap_metni}"
-            })
-    return sorular
 
 @app.route("/yukle-unite-sorulari", methods=["POST"])
 @giris_zorunlu
