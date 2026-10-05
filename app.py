@@ -357,7 +357,59 @@ def yukle_pdf_dosya():
 
     session["bildirim"] = {"tur": "success", "metin": f"'{ders}' dersinin {unite_no}. Ünite PDF'i başarıyla kaydedildi!"}
     return redirect(url_for("ders_calis", ders=ders, unite=unite_no))
+def auzef_harfsiz_ve_harfli_soru_ayikla(metin, unite_no=1):
+    temiz = re.sub(r'about:blank\s*\d*/?\d*', '', metin)
+    temiz = re.sub(r'\d{1,2}\.\d{1,2}\.\d{4}\s+\d{1,2}:\d{1,2}', '', temiz)
+    temiz = re.sub(r'Ders:\s*.*?(?:\n|\|)', '', temiz, flags=re.IGNORECASE)
+    temiz = re.sub(r'Ünite:\s*.*?\n', '', temiz, flags=re.IGNORECASE)
 
+    bloklar = re.split(r'(?:^|\n)\s*Soru\s*(\d{1,2})\s*:\s*', temiz, flags=re.IGNORECASE)
+    sorular = []
+
+    if len(bloklar) > 1:
+        for i in range(1, len(bloklar), 2):
+            icerik = bloklar[i+1].strip()
+            cevap_match = re.search(r'\n\s*Cevap\s*:\s*(.*)', icerik, flags=re.IGNORECASE)
+            if not cevap_match:
+                continue
+
+            dogru_cevap_metni = cevap_match.group(1).strip()
+            govde = icerik[:cevap_match.start()].strip()
+
+            parcalar = [s.strip() for s in govde.splitlines() if s.strip()]
+            if len(parcalar) < 6:
+                continue
+
+            soru_kok = " ".join(parcalar[:-5]).strip()
+            secenekler = parcalar[-5:]
+
+            sec_a = secenekler[0]
+            sec_b = secenekler[1]
+            sec_c = secenekler[2]
+            sec_d = secenekler[3]
+            sec_e = secenekler[4]
+
+            dogru_harf = "A"
+            c_norm = dogru_cevap_metni.replace("Â", "A").replace("â", "a").strip().lower()
+
+            for harf, val in [("A", sec_a), ("B", sec_b), ("C", sec_c), ("D", sec_d), ("E", sec_e)]:
+                v_norm = val.replace("Â", "A").replace("â", "a").strip().lower()
+                if v_norm == c_norm or v_norm in c_norm or c_norm in v_norm:
+                    dogru_harf = harf
+                    break
+
+            sorular.append({
+                "unite_no": unite_no,
+                "metin": soru_kok,
+                "a": sec_a,
+                "b": sec_b,
+                "c": sec_c,
+                "d": sec_d,
+                "e": sec_e,
+                "dogru_cevap": dogru_harf,
+                "aciklama": f"Doğru Yanıt: {dogru_cevap_metni}"
+            })
+    return sorular
 def pdf_metin_ayikla(pdf_bytes):
     reader = PdfReader(io.BytesIO(pdf_bytes))
     tam_metin = ""
