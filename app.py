@@ -1468,66 +1468,6 @@ def yedek_indir():
         headers={"Content-Disposition": f"attachment;filename=auzef_soru_yedegi_{tarih_etiketi}.json"}
     )
 
-if dosya_adi.endswith(".json"):
-            ham_veri = json.load(dosya)
-            
-            # NotebookLM Flashcard formatını (.apkg dışa aktarımı) ve standart formatı ayırt et
-            if isinstance(ham_veri, dict) and "flashcards" in ham_veri:
-                veri = ham_veri["flashcards"]
-            elif isinstance(ham_veri, dict) and "quiz" in ham_veri:
-                veri = ham_veri["quiz"]
-            else:
-                veri = ham_veri
-
-            for s in veri:
-                ders = hedef_ders
-                
-                # NotebookLM Flashcard yapısı kontrolü (f -> flashcardContentBlock -> content)
-                if isinstance(s, dict) and "f" in s and "b" in s:
-                    try:
-                        on_yuz = s["f"]["flashcardContentBlock"][0].get("content", "Bilgi Kartı")
-                        arka_yuz = s["b"]["flashcardContentBlock"][0].get("content", "")
-                        madde_metni = f"Soru: {on_yuz} | Cevap: {arka_yuz}"
-                        u_no = 3 # Tanzimat ünitesi olduğu için direkt 3 atanabilir veya varsayılan 1
-                        
-                        cursor.execute("""
-                            INSERT INTO unite_ozetleri (ders_adi, unite_no, madde)
-                            VALUES (%s, %s, %s)
-                        """, (ders, u_no, madde_metni))
-                        eklenen_kart += 1
-                        continue
-                    except Exception:
-                        pass
-
-                # Standart Anki/Not formatları
-                if isinstance(s, dict):
-                    ders = s.get("ders_adi", hedef_ders).strip()
-                    if is_kart_dosyasi or "madde" in s or "on" in s or ("question" in s and "answerOptions" not in s):
-                        madde_metni = s.get("madde") or s.get("question") or f"Soru: {s.get('on')} | Cevap: {s.get('arka')}"
-                        u_no = int(s.get("unite_no", 1))
-                        cursor.execute("""
-                            INSERT INTO unite_ozetleri (ders_adi, unite_no, madde)
-                            VALUES (%s, %s, %s)
-                        """, (ders, u_no, madde_metni))
-                        eklenen_kart += 1
-                    elif "question" in s and "answerOptions" in s:
-                        soru_metni = s.get("question", "")
-                        secenekler = s.get("answerOptions", [])
-                        dogru_metin = "Doğru Yanıt"
-                        for opt in secenekler:
-                            if opt.get("isCorrect") is True:
-                                dogru_metin = opt.get("text", "")
-                                break
-                        cursor.execute("""
-                            INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, yildizli, kullanici_notu, unite_no)
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 0, '', 1)
-                        """, (ders, soru_metni, dogru_metin, "Alternatif B", "Alternatif C", "Alternatif D", "Alternatif E", "A", "NotebookLM Aktarımı"))
-                        eklenen_soru += 1
-                    else:
-                        cursor.execute("""
-                            INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, yildizli, kullanici_notu, unite_no)
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                        """, (
                             ders, s.get("soru_metni", ""), s.get("secenek_a", "A"), s.get("secenek_b", "B"),
                             s.get("secenek_c", "C"), s.get("secenek_d", "D"), s.get("secenek_e", "E"), 
                             s.get("dogru_cevap", "A"), s.get("aciklama", ""), 
