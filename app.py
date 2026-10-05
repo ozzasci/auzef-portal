@@ -1314,136 +1314,72 @@ def yedek_indir():
         headers={"Content-Disposition": f"attachment;filename=auzef_soru_yedegi_{tarih_etiketi}.json"}
     )
 
-@app.route("/yedek-yukle", methods=["POST"])
-@giris_zorunlu
-def yedek_yukle():
-    dosya = request.files.get("yedek_dosyasi")
-    hedef_ders = request.form.get("secilen_ders", GUZ_DERSLERI[0]).strip()
-    veri_turu = request.form.get("veri_turu", "otomatik").strip()
-
-    if not dosya or not dosya.filename:
-        session["bildirim"] = {"tur": "danger", "metin": "Lütfen geçerli bir dosya seçin."}
-        return redirect(url_for("ana_sayfa"))
-
-    dosya_adi = dosya.filename.lower()
-    conn = veritabani_baglan()
-    cursor = conn.cursor()
-    eklenen_soru = 0
-    eklenen_kart = 0
-
-    if veri_turu == "otomatik":
-        is_kart_dosyasi = "kart" in dosya_adi or dosya_adi.endswith(".txt") or dosya_adi.endswith(".apkg")
-    else:
-        is_kart_dosyasi = (veri_turu == "kart")
-
-    try:
-        if dosya_adi.endswith(".json"):
-            veri = json.load(dosya)
-            if isinstance(veri, dict) and "quiz" in veri:
-                veri = veri["quiz"]
+if dosya_adi.endswith(".json"):
+            ham_veri = json.load(dosya)
+            
+            # NotebookLM Flashcard formatını (.apkg dışa aktarımı) ve standart formatı ayırt et
+            if isinstance(ham_veri, dict) and "flashcards" in ham_veri:
+                veri = ham_veri["flashcards"]
+            elif isinstance(ham_veri, dict) and "quiz" in ham_veri:
+                veri = ham_veri["quiz"]
+            else:
+                veri = ham_veri
 
             for s in veri:
-                ders = s.get("ders_adi", hedef_ders).strip()
-                if is_kart_dosyasi or "madde" in s or "on" in s or ("question" in s and "answerOptions" not in s):
-                    madde_metni = s.get("madde") or s.get("question") or f"Soru: {s.get('on')} | Cevap: {s.get('arka')}"
-                    u_no = int(s.get("unite_no", 1))
-                    cursor.execute("""
-                        INSERT INTO unite_ozetleri (ders_adi, unite_no, madde)
-                        VALUES (%s, %s, %s)
-                    """, (ders, u_no, madde_metni))
-                    eklenen_kart += 1
-                elif "question" in s and "answerOptions" in s:
-                    soru_metni = s.get("question", "")
-                    secenekler = s.get("answerOptions", [])
-                    dogru_metin = "Doğru Yanıt"
-                    for opt in secenekler:
-                        if opt.get("isCorrect") is True:
-                            dogru_metin = opt.get("text", "")
-                            break
-                    cursor.execute("""
-                        INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, yildizli, kullanici_notu, unite_no)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 0, '', 1)
-                    """, (ders, soru_metni, dogru_metin, "Alternatif B", "Alternatif C", "Alternatif D", "Alternatif E", "A", "NotebookLM Aktarımı"))
-                    eklenen_soru += 1
-                else:
-                    cursor.execute("""
-                        INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, yildizli, kullanici_notu, unite_no)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    """, (
-                        ders, s.get("soru_metni", ""), s.get("secenek_a", "A"), s.get("secenek_b", "B"),
-                        s.get("secenek_c", "C"), s.get("secenek_d", "D"), s.get("secenek_e", "E"), 
-                        s.get("dogru_cevap", "A"), s.get("aciklama", ""), 
-                        s.get("yildizli", 0), s.get("kullanici_notu", ""), s.get("unite_no", 1)
-                    ))
-                    eklenen_soru += 1
-
-        elif dosya_adi.endswith(".csv") or dosya_adi.endswith(".txt"):
-            icerik_metni = dosya.read().decode("utf-8", errors="ignore")
-            satirlar = icerik_metni.splitlines()
-
-            for satir_str in satirlar:
-                satir_str = satir_str.strip()
-                if not satir_str:
-                    continue
+                ders = hedef_ders
                 
-                if satir_str.startswith("#"):
-                    continue
-                
-                on_yuz = ""
-                arka_yuz = ""
+                # NotebookLM Flashcard yapısı kontrolü (f -> flashcardContentBlock -> content)
+                if isinstance(s, dict) and "f" in s and "b" in s:
+                    try:
+                        on_yuz = s["f"]["flashcardContentBlock"][0].get("content", "Bilgi Kartı")
+                        arka_yuz = s["b"]["flashcardContentBlock"][0].get("content", "")
+                        madde_metni = f"Soru: {on_yuz} | Cevap: {arka_yuz}"
+                        u_no = 3 # Tanzimat ünitesi olduğu için direkt 3 atanabilir veya varsayılan 1
+                        
+                        cursor.execute("""
+                            INSERT INTO unite_ozetleri (ders_adi, unite_no, madde)
+                            VALUES (%s, %s, %s)
+                        """, (ders, u_no, madde_metni))
+                        eklenen_kart += 1
+                        continue
+                    except Exception:
+                        pass
 
-                if "\t" in satir_str:
-                    parcalar = satir_str.split("\t")
-                    on_yuz = parcalar[0].strip()
-                    arka_yuz = parcalar[1].strip() if len(parcalar) > 1 else ""
-                elif "Q:" in satir_str and "A:" in satir_str:
-                    parcalar = satir_str.split("A:")
-                    on_yuz = parcalar[0].replace("Q:", "").strip()
-                    arka_yuz = parcalar[1].strip() if len(parcalar) > 1 else ""
-                elif ";" in satir_str:
-                    parcalar = satir_str.split(";")
-                    on_yuz = parcalar[0].replace("Q:", "").strip()
-                    arka_yuz = parcalar[1].replace("A:", "").strip() if len(parcalar) > 1 else ""
-                else:
-                    on_yuz = satir_str
-
-                if not on_yuz:
-                    continue
-
-                if is_kart_dosyasi:
-                    madde_metni = f"Soru: {on_yuz} | Cevap: {arka_yuz}" if arka_yuz else on_yuz
-                    cursor.execute("""
-                        INSERT INTO unite_ozetleri (ders_adi, unite_no, madde)
-                        VALUES (%s, 1, %s)
-                    """, (hedef_ders, madde_metni))
-                    eklenen_kart += 1
-                else:
-                    cursor.execute("""
-                        INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, yildizli, kullanici_notu, unite_no)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 0, '', 1)
-                    """, (hedef_ders, on_yuz, arka_yuz if arka_yuz else "Doğru Yanıt", "Alternatif B", "Alternatif C", "Alternatif D", "Alternatif E", "A", "Anki Aktarımı"))
-                    eklenen_soru += 1
-        else:
-            session["bildirim"] = {"tur": "danger", "metin": "Desteklenmeyen dosya formatı."}
-            cursor.close()
-            conn.close()
-            return redirect(url_for("ana_sayfa"))
-
-        conn.commit()
-        cursor.close()
-        conn.close()
-        
-        mesaj = []
-        if eklenen_soru > 0: mesaj.append(f"{eklenen_soru} soru")
-        if eklenen_kart > 0: mesaj.append(f"{eklenen_kart} Anki bilgi kartı")
-        
-        bildirim_metni = " ve ".join(mesaj) + f" ({hedef_ders}) hafıza kartlarına başarıyla aktarıldı!" if mesaj else "Hiçbir veri eklenemedi."
-        session["bildirim"] = {"tur": "success", "metin": bildirim_metni}
-        
-    except Exception as e:
-        session["bildirim"] = {"tur": "danger", "metin": f"Hata: {str(e)}"}
-
-    return redirect(url_for("ana_sayfa"))
+                # Standart Anki/Not formatları
+                if isinstance(s, dict):
+                    ders = s.get("ders_adi", hedef_ders).strip()
+                    if is_kart_dosyasi or "madde" in s or "on" in s or ("question" in s and "answerOptions" not in s):
+                        madde_metni = s.get("madde") or s.get("question") or f"Soru: {s.get('on')} | Cevap: {s.get('arka')}"
+                        u_no = int(s.get("unite_no", 1))
+                        cursor.execute("""
+                            INSERT INTO unite_ozetleri (ders_adi, unite_no, madde)
+                            VALUES (%s, %s, %s)
+                        """, (ders, u_no, madde_metni))
+                        eklenen_kart += 1
+                    elif "question" in s and "answerOptions" in s:
+                        soru_metni = s.get("question", "")
+                        secenekler = s.get("answerOptions", [])
+                        dogru_metin = "Doğru Yanıt"
+                        for opt in secenekler:
+                            if opt.get("isCorrect") is True:
+                                dogru_metin = opt.get("text", "")
+                                break
+                        cursor.execute("""
+                            INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, yildizli, kullanici_notu, unite_no)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 0, '', 1)
+                        """, (ders, soru_metni, dogru_metin, "Alternatif B", "Alternatif C", "Alternatif D", "Alternatif E", "A", "NotebookLM Aktarımı"))
+                        eklenen_soru += 1
+                    else:
+                        cursor.execute("""
+                            INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, yildizli, kullanici_notu, unite_no)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """, (
+                            ders, s.get("soru_metni", ""), s.get("secenek_a", "A"), s.get("secenek_b", "B"),
+                            s.get("secenek_c", "C"), s.get("secenek_d", "D"), s.get("secenek_e", "E"), 
+                            s.get("dogru_cevap", "A"), s.get("aciklama", ""), 
+                            s.get("yildizli", 0), s.get("kullanici_notu", ""), s.get("unite_no", 1)
+                        ))
+                        eklenen_soru += 1
 
 @app.route("/sifirla", methods=["POST"])
 @giris_zorunlu
