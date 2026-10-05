@@ -1604,9 +1604,9 @@ def zayif_nokta_analizi():
                            genel_basari=genel_basari,
                            toplam_cozulen_genel=toplam_cozulen_genel,
                            dersler=GUZ_DERSLERI)
-    @app.route("/api/akilli-test-sorulari")
-    @giris_zorunlu
-    def akilli_test_sorulari():
+   @app.route("/api/akilli-test-sorulari")
+@giris_zorunlu
+def akilli_test_sorulari():
     ders = request.args.get("ders", "").strip()
     conn = veritabani_baglan()
     cursor = conn.cursor()
@@ -1620,14 +1620,11 @@ def zayif_nokta_analizi():
     cursor.close()
     conn.close()
     
-    # Şıkları düzenle
     formatli_sorular = []
     for s in sorular:
         secenekler = [s["secenek_a"], s["secenek_b"], s["secenek_c"], s["secenek_d"], s["secenek_e"]]
-        # Boş veya geçersiz şıkları temizle
         secenekler = [sec for sec in secenekler if sec and sec.strip()]
         
-        # Doğru cevabın metnini bul
         dogru_harf = s["dogru"].strip().upper()
         dogru_metin = s["secenek_a"]
         if dogru_harf == "B" and len(secenekler) > 1: dogru_metin = secenekler[1]
@@ -1642,7 +1639,6 @@ def zayif_nokta_analizi():
         })
         
     return jsonify(formatli_sorular)
-
 @app.route("/sw.js")
 def service_worker():
     return send_from_directory(os.path.join(app.root_path, "static"), "sw.js", mimetype="application/javascript")
