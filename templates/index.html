@@ -1352,5 +1352,214 @@
             });
         }
     </script>
+    <!-- HTML Arayüz Bölümü -->
+<div class="card p-4 mb-4 shadow-sm bg-white">
+    <h4 class="fw-bold text-primary mb-3"><i class="bi bi-cpu me-2"></i>Akıllı Soru Havuzu Test Merkezi</h4>
+    <p class="text-muted">Veritabanındaki soru havuzunuzdan dinamik olarak üretilen çok modlu sınav ekranı.</p>
+    
+    <div class="row g-3 mb-3">
+        <div class="col-md-6">
+            <label class="form-label fw-bold">Test Edilecek Dersi Seçin:</label>
+            <select id="test-ders-secim" class="form-select">
+                <option value="HEPSI">Tüm Dersler (Karışık Havuz)</option>
+                {% for d in dersler %}
+                <option value="{{ d }}">{{ d }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+
+    <div class="d-grid gap-2 d-md-flex justify-content-md-start mb-4">
+        <button class="btn btn-primary" onclick="akilliSinavBaslat('coktan_secmeli')"><i class="bi bi-ui-checks me-1"></i> Çoktan Seçmeli</button>
+        <button class="btn btn-success" onclick="akilliSinavBaslat('dogru_yanlis')"><i class="bi bi-check-circle me-1"></i> Doğru / Yanlış</button>
+        <button class="btn btn-warning text-dark" onclick="akilliSinavBaslat('bosluk_doldurma')"><i class="bi bi-pencil-square me-1"></i> Yazılı / Boşluk Doldurma</button>
+    </div>
+
+    <!-- Soru Ekranı (Başlangıçta Gizli) -->
+    <div id="akilli-soru-alani" class="d-none border-top pt-3">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <span id="akilli-sayac" class="badge bg-secondary fs-6">Soru: 1 / 10</span>
+            <button class="btn btn-outline-danger btn-sm" onclick="location.reload()">Testi Kapat</button>
+        </div>
+        <h5 id="akilli-soru-metni" class="fw-bold mb-4">Soru yükleniyor...</h5>
+        
+        <div id="akilli-secenekler" class="d-grid gap-2 mb-3"></div>
+        
+        <div id="akilli-yazi-alani" class="d-none mb-3">
+            <input type="text" id="akilli-input-cevap" class="form-control form-control-lg" placeholder="Cevabınızı yazın...">
+            <button class="btn btn-primary mt-3 w-100" onclick="akilliYaziliKontrol()">Cevabı Kontrol Et</button>
+        </div>
+
+        <div id="akilli-bildirim" class="alert d-none mt-3"></div>
+        <button id="akilli-sonraki" class="btn btn-primary px-4 mt-3 d-none float-end" onclick="akilliSonrakiSoru()">Sonraki Soru <i class="bi bi-arrow-right"></i></button>
+    </div>
+</div>
+    <script>
+let globalSorular = [];
+let akilliIndex = 0;
+let akilliMod = '';
+let aDogru = 0, aYanlis = 0;
+
+async function akilliSinavBaslat(mod) {
+    akilliMod = mod;
+    akilliIndex = 0;
+    aDogru = 0; aYanlis = 0;
+    
+    let selectElement = document.getElementById('test-ders-secim');
+    let secilenDers = selectElement ? selectElement.value : 'HEPSI';
+    
+    try {
+        let response = await fetch(`/api/akilli-test-sorulari?ders=${encodeURIComponent(secilenDers)}`);
+        let data = await response.json();
+        
+        if (!data || data.length === 0) {
+            alert("Seçilen kritere uygun soru havuzda bulunamadı! Lütfen önce İçerik Merkezi'nden soru yükleyin.");
+            return;
+        }
+        
+        globalSorular = data.sort(() => Math.random() - 0.5).slice(0, 15);
+        
+        let alan = document.getElementById('akilli-soru-alani');
+        if (alan) alan.classList.remove('d-none');
+        akilliSoruYukle();
+    } catch(e) {
+        alert("Sorular yüklenirken bir hata oluştu.");
+    }
+}
+
+function akilliSoruYukle() {
+    if (akilliIndex >= globalSorular.length) {
+        alert(`Test Bitti!\nDoğru Sayısı: ${aDogru}\nYanlış Sayısı: ${aYanlis}`);
+        location.reload();
+        return;
+    }
+
+    let soru = globalSorular[akilliIndex];
+    let sayac = document.getElementById('akilli-sayac');
+    let metin = document.getElementById('akilli-soru-metni');
+    if (sayac) sayac.innerText = `Soru: ${akilliIndex + 1} / ${globalSorular.length}`;
+    if (metin) metin.innerText = soru.q;
+
+    let secAlani = document.getElementById('akilli-secenekler');
+    let yaziAlani = document.getElementById('akilli-yazi-alani');
+    let bildirim = document.getElementById('akilli-bildirim');
+    let sonrakiBtn = document.getElementById('akilli-sonraki');
+
+    if (secAlani) secAlani.innerHTML = '';
+    if (yaziAlani) yaziAlani.classList.add('d-none');
+    if (bildirim) bildirim.classList.add('d-none');
+    if (sonrakiBtn) sonrakiBtn.classList.add('d-none');
+
+    if (akilliMod === 'coktan_secmeli') {
+        if (secAlani) secAlani.classList.remove('d-none');
+        let secenekler = [...soru.secenekler];
+        secenekler.sort(() => Math.random() - 0.5);
+
+        secenekler.forEach(sec => {
+            let btn = document.createElement('button');
+            btn.className = 'btn btn-outline-primary text-start p-3 option-btn mb-2 w-100';
+            btn.innerText = sec;
+            btn.onclick = () => {
+                document.querySelectorAll('#akilli-secenekler button').forEach(b => b.disabled = true);
+                if (bildirim) bildirim.classList.remove('d-none');
+                if (sec === soru.a) {
+                    btn.classList.add('bg-success', 'text-white');
+                    if (bildirim) {
+                        bildirim.className = 'alert alert-success mt-3';
+                        bildirim.innerText = '🎉 Doğru yanıt!';
+                    }
+                    aDogru++;
+                } else {
+                    btn.classList.add('bg-danger', 'text-white');
+                    if (bildirim) {
+                        bildirim.className = 'alert alert-danger mt-3';
+                        bildirim.innerText = `❌ Yanlış! Doğru Cevap: ${soru.a}`;
+                    }
+                    aYanlis++;
+                }
+                if (sonrakiBtn) sonrakiBtn.classList.remove('d-none');
+            };
+            if (secAlani) secAlani.appendChild(btn);
+        });
+    } else if (akilliMod === 'dogru_yanlis') {
+        if (secAlani) secAlani.classList.remove('d-none');
+        let dogruMu = Math.random() > 0.5;
+        let gosterilecek = dogruMu ? soru.a : globalSorular[Math.floor(Math.random() * globalSorular.length)].a;
+        
+        if (metin) metin.innerText = `İfade: "${soru.q}"\n\nBu sorunun yanıtı "${gosterilecek}" midir?`;
+
+        let btnD = document.createElement('button');
+        btnD.className = 'btn btn-outline-success p-3 fw-bold mb-2 w-100';
+        btnD.innerText = 'DOĞRU';
+        btnD.onclick = () => kontrolDY(gosterilecek === soru.a, true, soru.a);
+
+        let btnY = document.createElement('button');
+        btnY.className = 'btn btn-outline-danger p-3 fw-bold w-100';
+        btnY.innerText = 'YANLIŞ';
+        btnY.onclick = () => kontrolDY(gosterilecek === soru.a, false, soru.a);
+
+        if (secAlani) {
+            secAlani.appendChild(btnD);
+            secAlani.appendChild(btnY);
+        }
+    } else if (akilliMod === 'bosluk_doldurma') {
+        if (yaziAlani) yaziAlani.classList.remove('d-none');
+        let inputCevap = document.getElementById('akilli-input-cevap');
+        if (inputCevap) {
+            inputCevap.value = '';
+            inputCevap.focus();
+        }
+    }
+}
+
+function kontrolDY(gercek, tahmin, dogruMetin) {
+    let bildirim = document.getElementById('akilli-bildirim');
+    let sonrakiBtn = document.getElementById('akilli-sonraki');
+    if (bildirim) bildirim.classList.remove('d-none');
+    if (gercek === tahmin) {
+        if (bildirim) {
+            bildirim.className = 'alert alert-success mt-3';
+            bildirim.innerText = '🎉 Doğru tahmin!';
+        }
+        aDogru++;
+    } else {
+        if (bildirim) {
+            bildirim.className = 'alert alert-danger mt-3';
+            bildirim.innerText = `❌ Yanlış tahmin! Gerçek Yanıt: ${dogruMetin}`;
+        }
+        aYanlis++;
+    }
+    if (sonrakiBtn) sonrakiBtn.classList.remove('d-none');
+}
+
+function akilliYaziliKontrol() {
+    let inputCevap = document.getElementById('akilli-input-cevap');
+    let kCevap = inputCevap ? inputCevap.value.trim().toLowerCase() : '';
+    let dCevap = globalSorular[akilliIndex].a.trim().toLowerCase();
+    let bildirim = document.getElementById('akilli-bildirim');
+    let sonrakiBtn = document.getElementById('akilli-sonraki');
+    if (bildirim) bildirim.classList.remove('d-none');
+
+    if (kCevap === dCevap || dCevap.includes(kCevap)) {
+        if (bildirim) {
+            bildirim.className = 'alert alert-success mt-3';
+            bildirim.innerText = `🎉 Doğru! Yanıt: ${globalSorular[akilliIndex].a}`;
+        }
+        aDogru++;
+    } else {
+        if (bildirim) {
+            bildirim.className = 'alert alert-danger mt-3';
+            bildirim.innerText = `❌ Yanlış! Doğru Yanıt: ${globalSorular[akilliIndex].a}`;
+        }
+        aYanlis++;
+    }
+    if (sonrakiBtn) sonrakiBtn.classList.remove('d-none');
+}
+
+function akilliSonrakiSoru() {
+    akilliIndex++;
+    akilliSoruYukle();
+}
+</script>
 </body>
 </html>
