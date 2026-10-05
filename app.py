@@ -1604,6 +1604,44 @@ def zayif_nokta_analizi():
                            genel_basari=genel_basari,
                            toplam_cozulen_genel=toplam_cozulen_genel,
                            dersler=GUZ_DERSLERI)
+    @app.route("/api/akilli-test-sorulari")
+@giris_zorunlu
+def akilli_test_sorulari():
+    ders = request.args.get("ders", "").strip()
+    conn = veritabani_baglan()
+    cursor = conn.cursor()
+    
+    if ders and ders != "HEPSI":
+        cursor.execute("SELECT id, soru_metni as q, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap as dogru FROM sorular WHERE TRIM(ders_adi) LIKE %s", (f"%{ders}%",))
+    else:
+        cursor.execute("SELECT id, soru_metni as q, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap as dogru FROM sorular")
+        
+    sorular = [dict(r) for r in cursor.fetchall()]
+    cursor.close()
+    conn.close()
+    
+    # Şıkları düzenle
+    formatli_sorular = []
+    for s in sorular:
+        secenekler = [s["secenek_a"], s["secenek_b"], s["secenek_c"], s["secenek_d"], s["secenek_e"]]
+        # Boş veya geçersiz şıkları temizle
+        secenekler = [sec for sec in secenekler if sec and sec.strip()]
+        
+        # Doğru cevabın metnini bul
+        dogru_harf = s["dogru"].strip().upper()
+        dogru_metin = s["secenek_a"]
+        if dogru_harf == "B" and len(secenekler) > 1: dogru_metin = secenekler[1]
+        elif dogru_harf == "C" and len(secenekler) > 2: dogru_metin = secenekler[2]
+        elif dogru_harf == "D" and len(secenekler) > 3: dogru_metin = secenekler[3]
+        elif dogru_harf == "E" and len(secenekler) > 4: dogru_metin = secenekler[4]
+        
+        formatli_sorular.append({
+            "q": s["q"],
+            "secenekler": secenekler,
+            "a": dogru_metin
+        })
+        
+    return jsonify(formatli_sorular)
 
 @app.route("/sw.js")
 def service_worker():
