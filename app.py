@@ -1605,8 +1605,8 @@ def zayif_nokta_analizi():
                            toplam_cozulen_genel=toplam_cozulen_genel,
                            dersler=GUZ_DERSLERI)
     @app.route("/api/akilli-test-sorulari")
-@giris_zorunlu
-def akilli_test_sorulari():
+    @giris_zorunlu
+    def akilli_test_sorulari():
     ders = request.args.get("ders", "").strip()
     conn = veritabani_baglan()
     cursor = conn.cursor()
