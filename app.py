@@ -357,6 +357,7 @@ def yukle_pdf_dosya():
 
     session["bildirim"] = {"tur": "success", "metin": f"'{ders}' dersinin {unite_no}. Ünite PDF'i başarıyla kaydedildi!"}
     return redirect(url_for("ders_calis", ders=ders, unite=unite_no))
+
 def auzef_harfsiz_ve_harfli_soru_ayikla(metin, unite_no=1):
     temiz = re.sub(r'about:blank\s*\d*/?\d*', '', metin)
     temiz = re.sub(r'\d{1,2}\.\d{1,2}\.\d{4}\s+\d{1,2}:\d{1,2}', '', temiz)
@@ -410,6 +411,7 @@ def auzef_harfsiz_ve_harfli_soru_ayikla(metin, unite_no=1):
                 "aciklama": f"Doğru Yanıt: {dogru_cevap_metni}"
             })
     return sorular
+
 def pdf_metin_ayikla(pdf_bytes):
     reader = PdfReader(io.BytesIO(pdf_bytes))
     tam_metin = ""
@@ -451,7 +453,7 @@ def pdf_metin_ayikla(pdf_bytes):
 @giris_zorunlu
 def otomatik_klavuz_isle():
     ders = request.form.get("ders_adi", "").strip()
-    unite_no = int(request.form.get("unite_no", 1)) # Formdan seçilen ünite numarası (Örn: 2. Ünite)
+    unite_no = int(request.form.get("unite_no", 1))
     drive_link = request.form.get("drive_url", "").strip()
     yuklenen_dosya = request.files.get("klavuz_dosya")
 
@@ -499,15 +501,12 @@ def otomatik_klavuz_isle():
         conn = veritabani_baglan()
         cursor = conn.cursor()
         
-        # ÖNEMLİ: Sadece o seçilen üniteye ait eski hap bilgileri ve PDF kılavuzu temizle (Böylece üst üste yığılmaz ve uzamaz)
         cursor.execute("DELETE FROM unite_ozetleri WHERE TRIM(ders_adi) LIKE %s AND unite_no = %s", (f"%{ders}%", unite_no))
         cursor.execute("DELETE FROM unite_kaynaklari WHERE TRIM(ders_adi) LIKE %s AND unite_no = %s AND kaynak_turu = 'klavuz_pdf'", (f"%{ders}%", unite_no))
 
-        # Seçilen ünite numarasıyla yeni hap bilgileri kaydet
         for m in maddeler:
             cursor.execute("INSERT INTO unite_ozetleri (ders_adi, unite_no, madde) VALUES (%s, %s, %s)", (ders, unite_no, m))
 
-        # Seçilen ünite numarasıyla PDF kılavuz yolunu kaydet
         if klavuz_yolu:
             cursor.execute("""
                 INSERT INTO unite_kaynaklari (ders_adi, unite_no, kaynak_turu, dosya_yolu)
@@ -612,7 +611,6 @@ def ders_calis():
     pdf_url = row_kaynak["dosya_yolu"] if row_kaynak else ""
     kaynak_turu = row_kaynak["kaynak_turu"] if row_kaynak else ""
 
-    # DÜZELTME: Sadece o an seçilen ünitenin kılavuz PDF'i getiriliyor
     cursor.execute("""
         SELECT dosya_yolu FROM unite_kaynaklari 
         WHERE TRIM(ders_adi) LIKE %s AND unite_no = %s AND kaynak_turu = 'klavuz_pdf'
@@ -1295,6 +1293,7 @@ def sorulari_sifirla():
     except Exception as e:
         session["bildirim"] = {"tur": "danger", "metin": f"Hata: {str(e)}"}
     return redirect(url_for("soru_yonetimi"))
+
 @app.route("/yedek-yukle", methods=["POST"])
 @giris_zorunlu
 def yedek_yukle():
@@ -1322,7 +1321,6 @@ def yedek_yukle():
         if dosya_adi.endswith(".json"):
             ham_veri = json.load(dosya)
             
-            # NotebookLM Flashcard formatını ve standart formatı ayırt et
             if isinstance(ham_veri, dict) and "flashcards" in ham_veri:
                 veri = ham_veri["flashcards"]
             elif isinstance(ham_veri, dict) and "quiz" in ham_veri:
@@ -1333,7 +1331,6 @@ def yedek_yukle():
             for s in veri:
                 ders = hedef_ders
                 
-                # NotebookLM Flashcard yapısı kontrolü (f -> flashcardContentBlock -> content)
                 if isinstance(s, dict) and "f" in s and "b" in s:
                     try:
                         on_yuz = s["f"]["flashcardContentBlock"][0].get("content", "Bilgi Kartı")
@@ -1350,7 +1347,6 @@ def yedek_yukle():
                     except Exception:
                         pass
 
-                # Standart Anki/Not formatları
                 if isinstance(s, dict):
                     ders = s.get("ders_adi", hedef_ders).strip()
                     if is_kart_dosyasi or "madde" in s or "on" in s or ("question" in s and "answerOptions" not in s):
@@ -1450,6 +1446,7 @@ def yedek_yukle():
         session["bildirim"] = {"tur": "danger", "metin": f"Hata: {str(e)}"}
 
     return redirect(url_for("ana_sayfa"))
+
 @app.route("/yedek-indir")
 @giris_zorunlu
 def yedek_indir():
@@ -1467,13 +1464,6 @@ def yedek_indir():
         mimetype="application/json",
         headers={"Content-Disposition": f"attachment;filename=auzef_soru_yedegi_{tarih_etiketi}.json"}
     )
-
-                            ders, s.get("soru_metni", ""), s.get("secenek_a", "A"), s.get("secenek_b", "B"),
-                            s.get("secenek_c", "C"), s.get("secenek_d", "D"), s.get("secenek_e", "E"), 
-                            s.get("dogru_cevap", "A"), s.get("aciklama", ""), 
-                            s.get("yildizli", 0), s.get("kullanici_notu", ""), s.get("unite_no", 1)
-                        ))
-                        eklenen_soru += 1
 
 @app.route("/sifirla", methods=["POST"])
 @giris_zorunlu
