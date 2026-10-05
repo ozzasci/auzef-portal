@@ -1604,7 +1604,8 @@ def zayif_nokta_analizi():
                            genel_basari=genel_basari,
                            toplam_cozulen_genel=toplam_cozulen_genel,
                            dersler=GUZ_DERSLERI)
-   @app.route("/api/akilli-test-sorulari")
+
+@app.route("/api/akilli-test-sorulari")
 @giris_zorunlu
 def akilli_test_sorulari():
     ders = request.args.get("ders", "").strip()
@@ -1639,6 +1640,7 @@ def akilli_test_sorulari():
         })
         
     return jsonify(formatli_sorular)
+
 @app.route("/sw.js")
 def service_worker():
     return send_from_directory(os.path.join(app.root_path, "static"), "sw.js", mimetype="application/javascript")
