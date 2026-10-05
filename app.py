@@ -1306,7 +1306,6 @@ def yedek_yukle():
         session["bildirim"] = {"tur": "danger", "metin": "Lütfen geçerli bir dosya seçin."}
         return redirect(url_for("ana_sayfa"))
 
-    # BURASI ÇOK ÖNEMLİ: dosya_adi değişkeni burada tanımlanmalı!
     dosya_adi = dosya.filename.lower()
     
     conn = veritabani_baglan()
@@ -1323,7 +1322,7 @@ def yedek_yukle():
         if dosya_adi.endswith(".json"):
             ham_veri = json.load(dosya)
             
-            # NotebookLM Flashcard formatını (.apkg dışa aktarımı) ve standart formatı ayırt et
+            # NotebookLM Flashcard formatını ve standart formatı ayırt et
             if isinstance(ham_veri, dict) and "flashcards" in ham_veri:
                 veri = ham_veri["flashcards"]
             elif isinstance(ham_veri, dict) and "quiz" in ham_veri:
@@ -1386,6 +1385,71 @@ def yedek_yukle():
                             s.get("yildizli", 0), s.get("kullanici_notu", ""), s.get("unite_no", 1)
                         ))
                         eklenen_soru += 1
+
+        elif dosya_adi.endswith(".csv") or dosya_adi.endswith(".txt"):
+            icerik_metni = dosya.read().decode("utf-8", errors="ignore")
+            satirlar = icerik_metni.splitlines()
+
+            for satir_str in satirlar:
+                satir_str = satir_str.strip()
+                if not satir_str or satir_str.startswith("#"):
+                    continue
+                
+                on_yuz = ""
+                arka_yuz = ""
+
+                if "\t" in satir_str:
+                    parcalar = satir_str.split("\t")
+                    on_yuz = parcalar[0].strip()
+                    arka_yuz = parcalar[1].strip() if len(parcalar) > 1 else ""
+                elif "Q:" in satir_str and "A:" in satir_str:
+                    parcalar = satir_str.split("A:")
+                    on_yuz = parcalar[0].replace("Q:", "").strip()
+                    arka_yuz = parcalar[1].strip() if len(parcalar) > 1 else ""
+                elif ";" in satir_str:
+                    parcalar = satir_str.split(";")
+                    on_yuz = parcalar[0].replace("Q:", "").strip()
+                    arka_yuz = parcalar[1].replace("A:", "").strip() if len(parcalar) > 1 else ""
+                else:
+                    on_yuz = satir_str
+
+                if not on_yuz:
+                    continue
+
+                if is_kart_dosyasi:
+                    madde_metni = f"Soru: {on_yuz} | Cevap: {arka_yuz}" if arka_yuz else on_yuz
+                    cursor.execute("""
+                        INSERT INTO unite_ozetleri (ders_adi, unite_no, madde)
+                        VALUES (%s, 3, %s)
+                    """, (hedef_ders, madde_metni))
+                    eklenen_kart += 1
+                else:
+                    cursor.execute("""
+                        INSERT INTO sorular (ders_adi, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_cevap, aciklama, yildizli, kullanici_notu, unite_no)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 0, '', 3)
+                    """, (hedef_ders, on_yuz, arka_yuz if arka_yuz else "Doğru Yanıt", "Alternatif B", "Alternatif C", "Alternatif D", "Alternatif E", "A", "Anki Aktarımı"))
+                    eklenen_soru += 1
+        else:
+            session["bildirim"] = {"tur": "danger", "metin": "Desteklenmeyen dosya formatı."}
+            cursor.close()
+            conn.close()
+            return redirect(url_for("ana_sayfa"))
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        mesaj = []
+        if eklenen_soru > 0: mesaj.append(f"{eklenen_soru} soru")
+        if eklenen_kart > 0: mesaj.append(f"{eklenen_kart} bilgi kartı")
+        
+        bildirim_metni = " ve ".join(mesaj) + f" ({hedef_ders}) veritabanına başarıyla aktarıldı!" if mesaj else "Hiçbir veri eklenemedi."
+        session["bildirim"] = {"tur": "success", "metin": bildirim_metni}
+        
+    except Exception as e:
+        session["bildirim"] = {"tur": "danger", "metin": f"Hata: {str(e)}"}
+
+    return redirect(url_for("ana_sayfa"))
 @app.route("/yedek-indir")
 @giris_zorunlu
 def yedek_indir():
